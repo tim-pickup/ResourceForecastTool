@@ -1,5 +1,5 @@
 import { addMonths, format, parseISO, isAfter, isBefore } from 'date-fns'
-import type { Person, BauAllocation, DemandItem, AppState } from '../types'
+import type { Person, BauAllocation, DemandItem, AppState, Level, Requirement } from '../types'
 
 export function monthInRange(month: string, from: string | null, to: string | null): boolean {
   const d = parseISO(month + '-01')
@@ -100,6 +100,144 @@ export function utilColor(pct: number): string {
   if (pct > 85) return 'bg-amber-50 text-amber-700 border-amber-200'
   if (pct > 0) return 'bg-blue-50 text-blue-700 border-blue-100'
   return 'bg-gray-50 text-gray-400 border-gray-100'
+}
+
+// ─── Aggregate capacity & demand (chart-level) ───────────────────────────────
+
+export interface DemandBreakdown {
+  strategy: number // Group Strategy Project
+  plant: number    // Plant Project
+  npd: number      // NPD Demand
+  bau: number      // BAU allocations + BAU-type demand items
+}
+
+const LEVEL_ORDER: Record<Level, number> = { Basic: 0, Advanced: 1, Specialist: 2 }
+
+function meetsLevel(held: Level, required: Level): boolean {
+  return LEVEL_ORDER[held] >= LEVEL_ORDER[required]
+}
+
+function activePeopleInMonth(month: string, state: AppState): Person[] {
+  return state.people.filter(p => p.active && monthInRange(month, p.available_from, p.available_to))
+}
+
+function personIdsWithThemeSkills(themeId: string, state: AppState): Set<string> {
+  const ids = new Set(state.skills.filter(s => s.theme_id === themeId).map(s => s.id))
+  return new Set(state.people.filter(p => p.active && p.skills.some(ps => ids.has(ps.skill_id))).map(p => p.id))
+}
+
+function personIdsWithSkill(skillId: string, state: AppState, minLevel?: Level): Set<string> {
+  return new Set(
+    state.people.filter(p => p.active && p.skills.some(ps =>
+      ps.skill_id === skillId && (!minLevel || meetsLevel(ps.level, minLevel))
+    )).map(p => p.id)
+  )
+}
+
+function demandFromItems(
+  items: DemandItem[],
+  month: string,
+  reqFilter: (r: Requirement) => boolean,
+  statuses: Set<string>
+): DemandBreakdown {
+  const out: DemandBreakdown = { strategy: 0, plant: 0, npd: 0, bau: 0 }
+  for (const item of items) {
+    if (!statuses.has(item.status)) continue
+    for (const phase of item.phases) {
+      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
+      const hrs = phase.requirements.filter(reqFilter).reduce((s, r) => s + r.hours_per_month, 0)
+      if (hrs === 0) continue
+      if (item.type === 'Group Strategy Project') out.strategy += hrs
+      else if (item.type === 'Plant Project') out.plant += hrs
+      else if (item.type === 'NPD Demand') out.npd += hrs
+      else if (item.type === 'BAU') out.bau += hrs
+    }
+  }
+  return out
+}
+
+const COMMITTED = new Set(['Accepted', 'Allocated'])
+
+// Team level — capacity = gross contracted; demand BAU layer includes allocations + BAU items
+export function getTeamCapacity(month: string, state: AppState): number {
+  return activePeopleInMonth(month, state).reduce((s, p) => s + p.contracted_hours_per_month, 0)
+}
+
+export function getTeamBau(month: string, state: AppState): number {
+  return activePeopleInMonth(month, state)
+    .reduce((s, p) => s + getPersonBauHours(p.id, month, state.bauAllocations), 0)
+}
+
+export function getTeamDemand(
+  month: string,
+  state: AppState,
+  statuses: string[] = ['Accepted', 'Allocated']
+): DemandBreakdown {
+  const d = demandFromItems(state.demandItems, month, () => true, new Set(statuses))
+  d.bau += getTeamBau(month, state)
+  return d
+}
+
+// Theme level — capacity = contracted - BAU for people in theme; demand = project reqs only
+export function getThemeCapacity(themeId: string, month: string, state: AppState): number {
+  const inTheme = personIdsWithThemeSkills(themeId, state)
+  return activePeopleInMonth(month, state)
+    .filter(p => inTheme.has(p.id))
+    .reduce((s, p) => s + Math.max(0, p.contracted_hours_per_month - getPersonBauHours(p.id, month, state.bauAllocations)), 0)
+}
+
+export function getThemeDemand(
+  themeId: string,
+  month: string,
+  state: AppState,
+  statuses: string[] = ['Accepted', 'Allocated']
+): DemandBreakdown {
+  const themeSkillIds = new Set(state.skills.filter(s => s.theme_id === themeId).map(s => s.id))
+  const inTheme = personIdsWithThemeSkills(themeId, state)
+  const reqFilter = (r: Requirement) =>
+    (r.shape === 'skill' && themeSkillIds.has(r.skill_id)) ||
+    (r.shape === 'named' && inTheme.has(r.person_id))
+  return demandFromItems(state.demandItems, month, reqFilter, new Set(statuses))
+}
+
+// Skill level — capacity = contracted - BAU for people holding that skill
+export function getSkillCapacity(skillId: string, month: string, state: AppState, minLevel?: Level): number {
+  const withSkill = personIdsWithSkill(skillId, state, minLevel)
+  return activePeopleInMonth(month, state)
+    .filter(p => withSkill.has(p.id))
+    .reduce((s, p) => s + Math.max(0, p.contracted_hours_per_month - getPersonBauHours(p.id, month, state.bauAllocations)), 0)
+}
+
+export function getSkillDemand(
+  skillId: string,
+  month: string,
+  state: AppState,
+  statuses: string[] = ['Accepted', 'Allocated']
+): DemandBreakdown {
+  const reqFilter = (r: Requirement) => r.shape === 'skill' && r.skill_id === skillId
+  return demandFromItems(state.demandItems, month, reqFilter, new Set(statuses))
+}
+
+// Overlay — total hours across all requirements in the overlay items for this month
+export function getOverlayDemand(month: string, overlayItems: DemandItem[]): number {
+  let total = 0
+  for (const item of overlayItems) {
+    for (const phase of item.phases) {
+      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
+      total += phase.requirements.reduce((s, r) => s + r.hours_per_month, 0)
+    }
+  }
+  return total
+}
+
+// People who hold a given skill — for the person drill-down panel
+export function getPeopleForSkill(skillId: string, state: AppState): Array<{ person: Person; level: Level }> {
+  return state.people
+    .filter(p => p.active)
+    .flatMap(p => {
+      const ps = p.skills.find(s => s.skill_id === skillId)
+      return ps ? [{ person: p, level: ps.level }] : []
+    })
 }
 
 export function getThemeSkillDemand(

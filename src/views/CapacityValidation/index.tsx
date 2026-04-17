@@ -1,104 +1,262 @@
 import { useState, useMemo } from 'react'
-import { Plus, X, ChevronDown } from 'lucide-react'
+import { Plus, X, ChevronLeft } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
-import { generateMonths, getCurrentMonth, getPersonLoad, getOverlayHoursForPerson, formatMonthLabel, utilPct } from '../../utils/capacity'
+import {
+  generateMonths, getCurrentMonth, formatMonthLabel,
+  getTeamCapacity, getTeamDemand, getTeamBau,
+  getThemeCapacity, getThemeDemand,
+  getSkillCapacity, getSkillDemand,
+  getOverlayDemand, getPersonLoad, getPeopleForSkill,
+} from '../../utils/capacity'
+import { CapacityChart } from '../../components/CapacityChart'
+import type { ChartPoint } from '../../components/CapacityChart'
 import { DemandEditor } from '../../components/DemandEditor/DemandEditor'
-import { StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { clsx } from 'clsx'
-import type { DemandStatus } from '../../types'
+import type { Level } from '../../types'
 
-const HORIZONS = [6, 12, 24, 60]
+const HORIZONS = [6, 12, 24, 60] as const
 
-function UtilBar({ pct, overlay = 0, contracted = 0 }: { pct: number; overlay?: number; contracted?: number }) {
-  const base = Math.min(pct, 100)
-  const overlayPct = contracted > 0 ? Math.min((overlay / contracted) * 100, 100 - base) : 0
-  const overBase = pct > 100 ? pct - 100 : 0
+// ─── Person drill-down panel ─────────────────────────────────────────────────
+
+function PersonPanel({
+  skillId,
+  months,
+  onClose,
+  onOpenEditor,
+}: {
+  skillId: string
+  months: string[]
+  onClose: () => void
+  onOpenEditor: (id: string) => void
+}) {
+  const store = useAppStore()
+  const skill = store.skills.find(s => s.id === skillId)
+  const people = useMemo(() => getPeopleForSkill(skillId, store), [skillId, store])
+
+  const activeReqs = useMemo(() => {
+    const out: Array<{ itemName: string; itemId: string; phase: string; hours: number; shape: string }> = []
+    for (const item of store.demandItems) {
+      if (item.status !== 'Accepted' && item.status !== 'Allocated') continue
+      for (const phase of item.phases) {
+        for (const req of phase.requirements) {
+          if (req.shape === 'skill' && req.skill_id === skillId) {
+            out.push({ itemName: item.name, itemId: item.id, phase: phase.name, hours: req.hours_per_month, shape: 'skill' })
+          }
+        }
+      }
+    }
+    return out
+  }, [skillId, store])
+
   return (
-    <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden flex mt-0.5">
-      <div className={clsx('h-full rounded-l-full transition-all', pct > 100 ? 'bg-accent-red' : pct > 85 ? 'bg-yellow-400' : 'bg-brand')} style={{ width: `${base}%` }} />
-      {overlayPct > 0 && <div className="h-full bg-accent-purple/50" style={{ width: `${overlayPct}%` }} />}
+    <div className="bg-white border-t border-border">
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-border">
+        <button onClick={onClose} className="flex items-center gap-1 text-xs text-gray-500 hover:text-near-black">
+          <ChevronLeft size={14} /> Back
+        </button>
+        <span className="text-sm font-semibold text-near-black">{skill?.name ?? 'Skill'} — People</span>
+      </div>
+      <div className="p-5 overflow-auto">
+        {people.length === 0 ? (
+          <p className="text-sm text-gray-400">No active people hold this skill.</p>
+        ) : (
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-border text-gray-500 uppercase tracking-wide">
+                <th className="text-left py-2 pr-4 font-medium">Name</th>
+                <th className="text-left py-2 pr-4 font-medium">Level</th>
+                <th className="text-right py-2 pr-4 font-medium">Contracted</th>
+                <th className="text-right py-2 pr-4 font-medium">BAU</th>
+                <th className="text-right py-2 pr-4 font-medium">Projects</th>
+                <th className="text-right py-2 font-medium">Available</th>
+              </tr>
+            </thead>
+            <tbody>
+              {people.map(({ person, level }) => {
+                const load = getPersonLoad(person, months[0] ?? getCurrentMonth(), store)
+                return (
+                  <tr key={person.id} className="border-b border-border/50 hover:bg-gray-50">
+                    <td className="py-2 pr-4 font-medium text-near-black">{person.name}</td>
+                    <td className="py-2 pr-4">
+                      <LevelBadge level={level} />
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">{person.contracted_hours_per_month}h</td>
+                    <td className="py-2 pr-4 text-right tabular-nums text-gray-500">{load.bau}h</td>
+                    <td className="py-2 pr-4 text-right tabular-nums">{load.project}h</td>
+                    <td className={clsx('py-2 text-right tabular-nums font-medium', load.overAllocated ? 'text-red-600' : 'text-green-600')}>
+                      {load.overAllocated ? `−${Math.abs(load.available)}h` : `${load.available}h`}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+
+        {activeReqs.length > 0 && (
+          <div className="mt-6">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Active demand consuming this skill</h4>
+            <div className="space-y-2">
+              {activeReqs.map((r, i) => (
+                <div key={i} className="flex items-center gap-3 p-2 rounded bg-gray-50 border border-border">
+                  <div className="flex-1">
+                    <button
+                      onClick={() => onOpenEditor(r.itemId)}
+                      className="text-xs font-medium text-brand hover:underline text-left"
+                    >
+                      {r.itemName}
+                    </button>
+                    <span className="text-xs text-gray-400 ml-2">/ {r.phase}</span>
+                  </div>
+                  <span className="text-xs text-gray-500 tabular-nums">{r.hours}h/mo</span>
+                  <span className="text-[10px] uppercase tracking-wide text-gray-400">skill-shaped</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
+function LevelBadge({ level }: { level: Level }) {
+  const cls = level === 'Specialist' ? 'bg-purple-100 text-purple-700' :
+    level === 'Advanced' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+  return <span className={clsx('px-1.5 py-0.5 rounded text-[10px] font-medium', cls)}>{level}</span>
+}
+
+// ─── Meta stats strip ────────────────────────────────────────────────────────
+
+function MetaStat({ label, value, warn }: { label: string; value: string | number; warn?: boolean }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className={clsx('text-xl font-semibold font-mono', warn ? 'text-red-600' : 'text-near-black')}>{value}</span>
+      <span className="text-[10px] uppercase tracking-wide text-gray-500">{label}</span>
+    </div>
+  )
+}
+
+// ─── Main view ───────────────────────────────────────────────────────────────
+
 export default function CapacityValidation() {
   const store = useAppStore()
-  const [horizon, setHorizon] = useState(12)
-  const [groupBy, setGroupBy] = useState<'person' | 'theme'>('person')
-  const [filterTheme, setFilterTheme] = useState('')
+  const [horizon, setHorizon] = useState<6 | 12 | 24 | 60>(12)
+  const [sectionBMode, setSectionBMode] = useState<'theme' | 'skill'>('theme')
+  const [drillThemeId, setDrillThemeId] = useState<string | null>(null)
+  const [drillSkillId, setDrillSkillId] = useState<string | null>(null)
   const [overlayIds, setOverlayIds] = useState<string[]>([])
-  const [showOverlayPicker, setShowOverlayPicker] = useState(false)
+  const [overlayPickerOpen, setOverlayPickerOpen] = useState(false)
   const [overlaySearch, setOverlaySearch] = useState('')
-  const [editorId, setEditorId] = useState<string | null | 'new'>(undefined as unknown as null)
+  const [editorId, setEditorId] = useState<string | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
 
   const months = useMemo(() => generateMonths(getCurrentMonth(), horizon), [horizon])
 
-  const people = useMemo(() =>
-    store.people.filter(p => p.active && (!filterTheme || p.primary_theme_id === filterTheme)),
-    [store.people, filterTheme]
-  )
-
-  const themes = useMemo(() => store.themes, [store.themes])
-
-  const overlayItems = useMemo(() =>
-    store.demandItems.filter(d => overlayIds.includes(d.id)),
+  const overlayItems = useMemo(
+    () => store.demandItems.filter(d => overlayIds.includes(d.id)),
     [store.demandItems, overlayIds]
   )
 
-  const availableOverlays = useMemo(() =>
-    store.demandItems.filter(d =>
+  // v1.4: only Submitted items are selectable for overlay
+  const availableOverlays = useMemo(
+    () => store.demandItems.filter(d =>
+      d.status === 'Submitted' &&
       !overlayIds.includes(d.id) &&
-      ['Draft', 'Submitted', 'Accepted', 'Allocated'].includes(d.status) &&
       d.name.toLowerCase().includes(overlaySearch.toLowerCase())
     ),
     [store.demandItems, overlayIds, overlaySearch]
   )
 
-  const groupedPeople = useMemo(() => {
-    if (groupBy === 'theme') {
-      return themes.map(t => ({
-        label: t.name,
-        rows: people.filter(p => p.primary_theme_id === t.id),
-      })).filter(g => g.rows.length > 0)
-    }
-    const themeMap = new Map(themes.map(t => [t.id, t.name]))
-    return themes.map(t => ({
-      label: t.name,
-      rows: people.filter(p => p.primary_theme_id === t.id),
-    })).filter(g => g.rows.length > 0)
-  }, [groupBy, people, themes])
+  // ── Section A: overall team chart ──────────────────────────────────────────
+  const teamData: ChartPoint[] = useMemo(() => months.map(month => ({
+    month,
+    label: formatMonthLabel(month),
+    capacity: getTeamCapacity(month, store),
+    overlay: getOverlayDemand(month, overlayItems),
+    ...getTeamDemand(month, store),
+  })), [months, store, overlayItems])
 
-  const openEditor = (id: string) => { setEditorId(id); setEditorOpen(true) }
-  const closeEditor = () => { setEditorOpen(false); setEditorId(null) }
+  const totalCapacity = teamData.reduce((s, d) => s + d.capacity, 0)
+  const totalDemand = teamData.reduce((s, d) => s + d.bau + d.plant + d.npd + d.strategy, 0)
+  const overMonths = teamData.filter(d => d.bau + d.plant + d.npd + d.strategy + d.overlay > d.capacity).length
+
+  // ── Section B: theme charts ────────────────────────────────────────────────
+  const themeCharts = useMemo(() => store.themes.map(theme => ({
+    theme,
+    data: months.map(month => ({
+      month,
+      label: formatMonthLabel(month),
+      capacity: getThemeCapacity(theme.id, month, store),
+      overlay: getOverlayDemand(month, overlayItems),
+      ...getThemeDemand(theme.id, month, store),
+    } as ChartPoint)),
+  })), [months, store, overlayItems])
+
+  // ── Section B: skill charts ────────────────────────────────────────────────
+  const skillsForSectionB = useMemo(() =>
+    drillThemeId
+      ? store.skills.filter(s => s.theme_id === drillThemeId)
+      : store.skills,
+    [store.skills, drillThemeId]
+  )
+
+  const skillCharts = useMemo(() => skillsForSectionB.map(skill => ({
+    skill,
+    theme: store.themes.find(t => t.id === skill.theme_id),
+    data: months.map(month => ({
+      month,
+      label: formatMonthLabel(month),
+      capacity: getSkillCapacity(skill.id, month, store),
+      subCapacity: getSkillCapacity(skill.id, month, store, 'Specialist'),
+      overlay: getOverlayDemand(month, overlayItems),
+      ...getSkillDemand(skill.id, month, store),
+    } as ChartPoint)),
+  })), [months, store, skillsForSectionB, overlayItems])
+
+  // ── Skill charts grouped by theme ──────────────────────────────────────────
+  const skillsByTheme = useMemo(() => {
+    const groups = new Map<string, typeof skillCharts>()
+    for (const sc of skillCharts) {
+      const tid = sc.skill.theme_id
+      if (!groups.has(tid)) groups.set(tid, [])
+      groups.get(tid)!.push(sc)
+    }
+    return store.themes.map(t => ({ theme: t, skills: groups.get(t.id) ?? [] })).filter(g => g.skills.length > 0)
+  }, [skillCharts, store.themes])
+
+  function handleThemeClick(themeId: string) {
+    setDrillThemeId(themeId)
+    setSectionBMode('skill')
+    setDrillSkillId(null)
+  }
+
+  function handleSkillClick(skillId: string) {
+    setDrillSkillId(skillId)
+  }
+
+  function handleBackToTheme() {
+    setSectionBMode('theme')
+    setDrillThemeId(null)
+    setDrillSkillId(null)
+  }
+
+  function openEditor(id: string) { setEditorId(id); setEditorOpen(true) }
+  function closeEditor() { setEditorOpen(false); setEditorId(null) }
+
+  const drillThemeName = drillThemeId ? store.themes.find(t => t.id === drillThemeId)?.name : null
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-auto bg-gray-50">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border bg-white flex-wrap">
+      <div className="sticky top-0 z-20 flex items-center gap-3 px-5 py-2.5 border-b border-border bg-white flex-wrap">
         <span className="text-sm font-semibold text-near-black">Capacity Validation</span>
         <div className="h-4 w-px bg-border" />
 
-        {/* Grouping */}
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-gray-500 uppercase tracking-wide">Group:</span>
-          {(['person', 'theme'] as const).map(g => (
-            <button
-              key={g}
-              onClick={() => setGroupBy(g)}
-              className={clsx('px-2 py-0.5 text-xs rounded font-medium capitalize transition-colors',
-                groupBy === g ? 'bg-near-black text-white' : 'text-gray-500 hover:bg-gray-100'
-              )}
-            >
-              {g}
-            </button>
-          ))}
-        </div>
-
         {/* Horizon */}
         <div className="flex items-center gap-1">
-          <span className="text-xs text-gray-500 uppercase tracking-wide">Horizon:</span>
+          <span className="text-xs text-gray-500 uppercase tracking-wide mr-1">Horizon:</span>
           {HORIZONS.map(h => (
             <button
               key={h}
@@ -112,61 +270,56 @@ export default function CapacityValidation() {
           ))}
         </div>
 
-        {/* Theme filter */}
-        <select
-          value={filterTheme}
-          onChange={e => setFilterTheme(e.target.value)}
-          className="text-xs border border-border rounded px-2 py-1 bg-white"
-        >
-          <option value="">All Themes</option>
-          {themes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
-
         <div className="flex-1" />
 
-        {/* Overlay chips */}
+        {/* Overlay chips — Submitted only (v1.4) */}
         <div className="flex items-center gap-2 flex-wrap">
           {overlayIds.map(id => {
             const item = store.demandItems.find(d => d.id === id)
             if (!item) return null
             return (
-              <div key={id} className="flex items-center gap-1 bg-accent-purple/10 text-accent-purple border border-accent-purple/20 rounded px-2 py-0.5 text-xs font-medium">
+              <div key={id} className="flex items-center gap-1.5 bg-amber-50 border border-amber-300 rounded-full px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
                 {item.name}
-                <button onClick={() => setOverlayIds(ids => ids.filter(x => x !== id))} className="hover:opacity-70">
+                <button onClick={() => setOverlayIds(ids => ids.filter(x => x !== id))} className="hover:opacity-70 ml-0.5">
                   <X size={11} />
                 </button>
               </div>
             )
           })}
           <div className="relative">
-            <Button size="sm" variant="secondary" onClick={() => setShowOverlayPicker(o => !o)}>
-              <Plus size={12} /> Add overlay
-            </Button>
-            {showOverlayPicker && (
+            <button
+              onClick={() => setOverlayPickerOpen(o => !o)}
+              className="border border-dashed border-gray-400 rounded-full px-3 py-1 text-xs text-gray-500 hover:border-gray-600 hover:text-gray-700 flex items-center gap-1"
+            >
+              <Plus size={11} /> Add overlay
+            </button>
+            {overlayPickerOpen && (
               <div className="absolute right-0 top-full mt-1 w-72 bg-white border border-border rounded shadow-card z-30">
                 <input
                   autoFocus
                   value={overlaySearch}
                   onChange={e => setOverlaySearch(e.target.value)}
-                  placeholder="Search demand items..."
+                  placeholder="Search Submitted items…"
                   className="w-full px-3 py-2 text-xs border-b border-border focus:outline-none"
                 />
                 <div className="max-h-48 overflow-y-auto">
                   {availableOverlays.length === 0 && (
-                    <p className="text-xs text-gray-400 px-3 py-2">No items found.</p>
+                    <p className="text-xs text-gray-400 px-3 py-3">
+                      {overlaySearch ? 'No matching Submitted items.' : 'No Submitted items available.'}
+                    </p>
                   )}
                   {availableOverlays.map(d => (
                     <button
                       key={d.id}
-                      onClick={() => { setOverlayIds(ids => [...ids, d.id]); setShowOverlayPicker(false); setOverlaySearch('') }}
-                      className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 flex items-center gap-2"
+                      onClick={() => { setOverlayIds(ids => [...ids, d.id]); setOverlayPickerOpen(false); setOverlaySearch('') }}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50"
                     >
-                      <StatusBadge status={d.status as DemandStatus} />
                       {d.name}
                     </button>
                   ))}
                 </div>
-                <button onClick={() => setShowOverlayPicker(false)} className="w-full text-center py-1.5 text-xs text-gray-400 border-t border-border hover:bg-gray-50">
+                <button onClick={() => setOverlayPickerOpen(false)} className="w-full text-center py-1.5 text-xs text-gray-400 border-t border-border hover:bg-gray-50">
                   Close
                 </button>
               </div>
@@ -175,108 +328,117 @@ export default function CapacityValidation() {
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="flex-1 overflow-auto">
-        <table className="min-w-full border-collapse text-xs">
-          <thead className="sticky top-0 z-10">
-            <tr className="bg-gray-50 border-b border-border">
-              <th className="sticky left-0 bg-gray-50 z-20 text-left px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide border-r border-border min-w-[180px]">
-                Person
-              </th>
-              {months.map(m => (
-                <th key={m} className="px-2 py-2 text-center font-medium text-gray-500 border-r border-border/50 min-w-[80px]">
-                  {formatMonthLabel(m)}
-                </th>
+      {/* Page body */}
+      <div className="flex-1 px-5 py-5 max-w-[1400px] mx-auto w-full">
+
+        {/* Section A — Overall team */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Overall Team Capacity</h2>
+          </div>
+          <div className="bg-white border border-border rounded-lg p-5">
+            <div className="flex gap-8 mb-4">
+              <MetaStat label={`Total capacity (${horizon}m)`} value={`${Math.round(totalCapacity)}h`} />
+              <MetaStat label="Committed demand" value={`${Math.round(totalDemand)}h`} />
+              <MetaStat label="Over-capacity months" value={overMonths} warn={overMonths > 0} />
+            </div>
+            <CapacityChart
+              title=""
+              data={teamData}
+              compact={false}
+            />
+          </div>
+        </div>
+
+        {/* Section B — Theme / Skill breakdown */}
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+              {sectionBMode === 'skill' && drillThemeName ? `Skills — ${drillThemeName}` : 'Breakdown'}
+            </h2>
+            <div className="flex items-center bg-gray-100 border border-border rounded p-0.5">
+              {(['theme', 'skill'] as const).map(m => (
+                <button
+                  key={m}
+                  onClick={() => { setSectionBMode(m); if (m === 'theme') { setDrillThemeId(null); setDrillSkillId(null) } }}
+                  className={clsx('px-3 py-1 text-xs rounded capitalize font-medium transition-colors',
+                    sectionBMode === m ? 'bg-white text-near-black shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  )}
+                >
+                  {m}
+                </button>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {people.length === 0 && (
-              <tr>
-                <td colSpan={months.length + 1} className="text-center py-12 text-gray-400 text-sm">
-                  No people found. Add people in Admin to start assessing capacity.
-                </td>
-              </tr>
+            </div>
+            {sectionBMode === 'skill' && drillThemeId && (
+              <button onClick={handleBackToTheme} className="flex items-center gap-1 text-xs text-gray-500 hover:text-near-black">
+                <X size={12} /> Clear filter
+              </button>
             )}
-            {groupedPeople.map(group => (
-              <>
-                <tr key={group.label + '-header'} className="bg-gray-50/80">
-                  <td colSpan={months.length + 1} className="px-4 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-border">
-                    {group.label}
-                  </td>
-                </tr>
-                {group.rows.map(person => (
-                  <tr key={person.id} className="border-b border-border/50 hover:bg-gray-50/50">
-                    <td className="sticky left-0 bg-white border-r border-border px-4 py-2 font-medium text-near-black z-10">
-                      <div className="flex flex-col">
-                        <span>{person.name}</span>
-                        <span className="text-gray-400 font-normal">{person.contracted_hours_per_month}h/mo</span>
-                      </div>
-                    </td>
-                    {months.map(month => {
-                      const load = getPersonLoad(person, month, store)
-                      const overlay = getOverlayHoursForPerson(person.id, month, overlayItems)
-                      const totalWithOverlay = load.total + overlay
-                      const pct = utilPct(load.total, load.contracted)
-                      const pctWithOverlay = utilPct(totalWithOverlay, load.contracted)
-                      const isOver = load.overAllocated || (overlay > 0 && totalWithOverlay > load.contracted)
+          </div>
 
-                      if (load.contracted === 0) {
-                        return (
-                          <td key={month} className="px-2 py-2 text-center border-r border-border/50">
-                            <span className="text-gray-300 text-xs">—</span>
-                          </td>
-                        )
-                      }
-
-                      return (
-                        <td
-                          key={month}
-                          className={clsx(
-                            'px-2 py-2 border-r border-border/50 cursor-pointer transition-colors',
-                            isOver ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-blue-50'
-                          )}
-                          onClick={() => {
-                            const topItem = store.demandItems.find(d =>
-                              (d.status === 'Accepted' || d.status === 'Allocated') &&
-                              d.phases.some(p =>
-                                p.requirements.some(r => r.shape === 'named' && r.person_id === person.id)
-                              )
-                            )
-                            if (topItem) openEditor(topItem.id)
-                          }}
-                        >
-                          <div className="flex flex-col items-center gap-0.5">
-                            <span className={clsx('font-medium tabular-nums', isOver ? 'text-accent-red' : 'text-near-black')}>
-                              {pct}%
-                            </span>
-                            <span className="text-gray-400 tabular-nums">{load.total}h</span>
-                            <UtilBar pct={pct} overlay={overlay} contracted={load.contracted} />
-                            {overlay > 0 && (
-                              <span className="text-accent-purple text-xs tabular-nums">+{overlay}h</span>
-                            )}
-                          </div>
-                        </td>
-                      )
-                    })}
-                  </tr>
+          {sectionBMode === 'theme' ? (
+            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))' }}>
+              {themeCharts.map(({ theme, data }) => (
+                <CapacityChart
+                  key={theme.id}
+                  title={theme.name}
+                  subtitle="Click to drill into skills"
+                  data={data}
+                  compact
+                  onClick={() => handleThemeClick(theme.id)}
+                />
+              ))}
+              {themeCharts.length === 0 && (
+                <p className="text-sm text-gray-400 py-8">Add themes in Admin to see breakdown.</p>
+              )}
+            </div>
+          ) : (
+            /* Skill mode */
+            drillSkillId ? (
+              <PersonPanel
+                skillId={drillSkillId}
+                months={months}
+                onClose={() => setDrillSkillId(null)}
+                onOpenEditor={openEditor}
+              />
+            ) : (
+              <div className="space-y-6">
+                {skillsByTheme.map(({ theme, skills }) => (
+                  <div key={theme.id}>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">{theme.name}</p>
+                    <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))' }}>
+                      {skills.map(({ skill, data }) => (
+                        <CapacityChart
+                          key={skill.id}
+                          title={skill.name}
+                          subtitle="Click to see people"
+                          data={data}
+                          subCapacityLabel="Specialist capacity"
+                          compact
+                          onClick={() => handleSkillClick(skill.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
-              </>
-            ))}
-          </tbody>
-        </table>
+                {skillsByTheme.length === 0 && (
+                  <p className="text-sm text-gray-400 py-8">No skills found. Add skills in Admin.</p>
+                )}
+              </div>
+            )
+          )}
+        </div>
 
         {overlayIds.length === 0 && (
-          <div className="text-center py-4 text-xs text-gray-400 border-t border-border">
-            Select a demand item above to overlay its capacity impact
-          </div>
+          <p className="text-center text-xs text-gray-400 mt-8">
+            Select a Submitted demand item above to overlay its proposed capacity impact
+          </p>
         )}
       </div>
 
-      {/* Demand Editor Panel */}
       {editorOpen && (
         <DemandEditor
-          demandId={editorId === 'new' ? null : (editorId ?? null)}
+          demandId={editorId}
           onClose={closeEditor}
         />
       )}
