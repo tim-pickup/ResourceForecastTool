@@ -1,6 +1,6 @@
 # Digital Manufacturing Resource Load & Capacity Tool
 
-## Requirements Specification — v1.1
+## Requirements Specification — v1.4
 
 ---
 
@@ -231,22 +231,93 @@ The tool provides four views. **Views 1 and 2 are the MVP** and must be built fi
 
 ### View 1 — Capacity Validation (MVP)
 
-The question this view answers: *Can we resource this demand, and what breaks if we do?*
+The question this view answers: *Can we resource the pipeline, and where is capacity constrained?*
 
-**Primary interaction**: Select one or more demand items (typically a Submitted item under assessment) and see them overlaid on current commitments.
+This is a **team-level, strategic view** — not an individual-level grid. It is composed of charts that show demand vs capacity over time, structured so that both overall team health and skill-level constraints are visible. Individual-level detail is reached via drill-down, not as the primary lens.
 
-**Layout**:
-- **Time axis**: horizontal, monthly. Default horizon is 6–12 months, with preset switches for 6 / 12 / 24 / 60 months.
-- **Y-axis grouping**: selectable — by Person, by Theme, by Skill. Grouping switch must preserve scroll position.
-- **Load cells**: each month × (person/theme/skill) shows a stacked load — committed hours + selected-item hours — against capacity. Over-capacity cells are visually distinct.
-- **Distinguishing demand states**: committed load rendered solid; proposed/overlay load rendered with a distinct treatment (e.g. hatched or outlined).
-- **Over-state signalling**: three distinct visual signals for over-allocation at person level, skill-short at skill level, and theme-short at theme level.
+**The polymorphic-capacity principle**
 
-**Required features**:
-- Filter by Theme, by demand Type, by Status.
-- Toggle: include Submitted items in the overlay, or only Accepted + Allocated in the baseline.
-- Click into any cell to open the **Demand Item side-panel editor** (see 4.5), with full CRUD available without leaving the view.
-- Live recalculation: edits to phase dates, requirement hours, named assignments, or BAU allocations update the view within ~200ms. This commits the tool to a client-side state architecture — see section 7.
+A person is a pool of hours that can flex across any theme/skill they hold. This means:
+
+- **Total team capacity** is additive — sum of everyone's contracted hours net of BAU.
+- **Theme-level capacity** and **skill-level capacity** are *not* additive across themes/skills, because the same person contributes to multiple lines. Displaying them stacked in one chart would double-count.
+- Therefore each theme (and each skill when drilled in) gets **its own chart** with its own capacity line.
+- The capacity line for a theme/skill is the sum of hours held by people who have any skill in that theme (or that specific skill), net of BAU and net of their named commitments to *other* themes/skills. This makes cross-theme contention visible without double-counting.
+
+**Page structure**
+
+The page is a scrollable, vertically composed set of chart sections:
+
+1. **Section A — Overall team capacity** (top, always visible, prominent)
+   - A single chart showing total team capacity as a line, with demand stacked by work type (Group Strategy Project, Plant Project, NPD Demand, BAU) against that line.
+   - Answers "do we have enough people to do the work in aggregate?"
+   - Over-capacity months are clearly signalled on this chart.
+
+2. **Section B — Theme / Skill breakdown** (below, scrollable)
+   - A **Theme / Skill toggle** at the top of this section switches between:
+     - **Theme mode (default)**: one chart per theme (3 charts for MOM, MI&V, MBM). Demand stacked by work type within that theme, against that theme's capacity line.
+     - **Skill mode**: one chart per skill, grouped under their parent theme with a heading per theme. Same stacked-demand-vs-capacity-line pattern.
+   - Charts in this section are sized for side-by-side or responsive grid layout, not full-width.
+   - Each chart is independently interactive (hover, tooltip, click-through).
+
+**Chart specification (applies to every chart on the page)**
+
+- **Visualisation**: stacked area chart for demand (by work type) with a capacity line overlaid.
+  - Work type stack order (bottom to top): BAU, Plant Project, NPD Demand, Group Strategy Project. Consistent across all charts for easy scanning.
+  - Capacity line is a thick, contrasting colour (e.g. dark line on coloured stack).
+  - When demand crosses the capacity line, the area above the line is rendered in a warning treatment (e.g. red-tinted overlay).
+- **Time axis**: horizontal, monthly. Default horizon is 6–12 months, with preset switches for 6 / 12 / 24 / 60 months. The horizon selector is global — applies to all charts simultaneously.
+- **Demand status composition**:
+  - Default shows `Allocated + Accepted` stacked together as *committed demand*.
+  - `Submitted` items are overlaid with a distinct visual treatment (hatched or lighter-tinted areas on top of committed) — and only when the user has added them via the overlay mechanism (see below).
+  - `Draft` and `Parked` are excluded entirely.
+- **Skill-level capacity sub-line** (skill mode only): each skill chart shows both a total capacity line (anyone with the skill at any level) and a thinner sub-line for the highest level (e.g. "of which Specialist"). This surfaces level-based shortfalls that the headline capacity would hide.
+
+**Overlay mechanism — Submitted demand only**
+
+The overlay is the answer to a specific question: *"Of the demand in our Submitted queue, what can we absorb?"* It is an intake-assessment tool, most useful when the Prioritisation Board is reviewing a batch of Submitted items together.
+
+- A toolbar at the top of the page lets the user select one or more **Submitted** demand items to overlay on all charts simultaneously. Only items in status Submitted can be overlaid — items in other statuses are not selectable.
+- Overlays are shown as a distinct, hatched area on top of the committed demand stack. They are clearly labelled as "proposed".
+- Multiple overlays stack on top of each other so a batch of Submitted items can be assessed together.
+- Adding or removing overlays updates all charts live.
+- The overlay is **purely additive and view-only**. It does not mutate the underlying demand data. Changing an item's status (Submitted → Accepted) is still done through the Demand Item Editor, not through the overlay.
+
+The overlay is explicitly *not* a scenario modeller. It cannot move committed demand, change dates on existing work, or reassign people. Those capabilities are v2 — see section 8.1.
+
+**Drill-down**
+
+- Click a theme chart → opens the skill-level charts for that theme (in place, below or replacing the theme view).
+- Click a skill chart → opens a **person-level detail panel** (the existing grid view, now repositioned as a drill-down rather than a default). Shows the named and skill-shaped demand consuming that skill, and the people who hold it.
+- Click a stacked area segment → opens a side panel listing the demand items contributing to that segment (with deep-link into the Demand Item Editor).
+
+**Required features**
+
+- Theme / Skill toggle (section B).
+- Time horizon preset (6 / 12 / 24 / 60 months).
+- Work type filter — show/hide specific work types across all charts.
+- Overlay selector for Submitted items (search-and-add chip pattern).
+- "Show Submitted in overlay" toggle (default on when overlays are selected).
+- Drill-down on chart click.
+- Live recalculation within ~200ms on edits to demand, phases, requirements, or BAU.
+
+**What this view deliberately does *not* do**
+
+- It does not show individual people by default. The Team Activity view (View 2) is the right place for per-person detail. Individual data is reachable through drill-down but never in the landing view.
+- It does not attempt to show theme/skill charts stacked in a single combined chart — the double-counting problem makes that misleading.
+- It does not try to reconcile or surface contention *between* concurrent overlays. That's a scenario modelling concern and belongs in v2.
+
+**Capacity calculation reference**
+
+| Level | Capacity formula |
+|---|---|
+| Total team | `Σ (person.contracted_hours) − Σ (active BAU allocations)` for all active people in the month |
+| Theme | `Σ (person.contracted_hours − person.BAU − person.named_commitments_outside_this_theme)` for all people holding any skill in the theme |
+| Skill (any level) | `Σ (person.contracted_hours − person.BAU − person.named_commitments_not_supplying_this_skill)` for all people holding this skill at any level |
+| Skill (specific level) | as above, but only counting people whose held level meets or exceeds the specified level |
+
+Skill-shaped (not-yet-named) demand contributes to the demand side of charts at the theme and skill level it specifies, but does not consume any individual's capacity.
+
 
 ### View 2 — Team Activity (MVP)
 
@@ -377,14 +448,23 @@ The following are known future requirements. V1 must not paint them into a corne
 
 ### 8.1 Scenario modelling
 
-Users will need to ask "what if we pulled Project X forward by two months?" and see the capacity impact across the team — including knock-on effects on other work. V2 will introduce:
+The Capacity Validation view in v1 uses a **Submitted overlay** to answer "what can we absorb from the Submitted queue?". Scenario modelling is a fundamentally different feature for a fundamentally different question: *"Given what we've already committed to, what if we re-arranged it?"*
 
-- **Named scenarios** — saveable sets of proposed changes (phase date shifts, re-allocations, new demand) separate from the live plan.
-- **Scenario comparison** — view live plan vs scenario side-by-side.
-- **Multi-item scenarios** — a scenario can move multiple demand items simultaneously.
+Where the overlay is additive and view-only, scenario modelling is **mutative** — it changes things that have already been said yes to. A typical scenario workflow:
+
+- Pull an Accepted project's start date two months earlier
+- Swap Sarah for Chris on Phase 2 of another project
+- See the combined impact across the team before committing the change
+
+V2 will introduce:
+
+- **Named scenarios** — saveable sets of proposed changes to committed demand (date shifts, re-allocations, reassignments), separate from the live plan.
+- **Multi-item scenarios** — a scenario can move multiple demand items simultaneously so knock-on effects are visible together.
+- **Scenario comparison** — view live plan vs scenario side-by-side on the same charts.
 - **Commit/discard** — promote a scenario back into the live plan, or discard.
+- **Scenario-mode UI** — likely a toggle on the Capacity Validation view that puts it into a sandbox state where edits affect the scenario rather than live data.
 
-**V1 implication**: Phase dates and resource allocations must be cleanly editable in-place, and the capacity view must recalculate live from the underlying data. This gives users a clunky but functional "what-if" workflow (edit → look → undo) and sets up v2 scenarios as a data-layer branch without architectural rework.
+**V1 implication**: Phase dates and resource allocations must be cleanly editable in-place through the Demand Item Editor, and the capacity view must recalculate live from the underlying data. This gives users a clunky but functional "what-if" workflow today (edit → look → undo if needed) and sets up v2 scenarios as a data-layer branch without architectural rework. Claude Code should not build any scenario-specific UI or data structures in v1.
 
 ### 8.2 Approval workflow
 
@@ -443,9 +523,16 @@ The following are flagged. Assumptions are explicit so they can be challenged be
 
 Where the spec leaves room for interpretation, these are the resolutions to take. Not new requirements — just "when you hit a fork, take this path."
 
-### 11.1 Click behaviour on a capacity cell (View 1)
+### 11.1 Click behaviour on Capacity Validation charts
 
-When the user clicks a cell in the Capacity Validation view, the side panel opens showing **the demand item that is currently selected as the overlay**. If no overlay is selected, the panel opens on the demand item contributing the largest committed block to that cell, with a breadcrumb at the top showing "Load in June 26 for Sarah Jones" so the user understands what they're looking at. There is no "list of all contributing items" view in v1 — that's a v2 concern.
+The Capacity Validation view is chart-based, not grid-based. Click behaviour is hierarchical:
+
+- Clicking a **theme chart** opens the skill breakdown for that theme (switches section B into Skill mode filtered to that theme).
+- Clicking a **skill chart** opens a person-level drill-down panel showing who holds that skill and their individual load — this is where the grid-style individual view now lives.
+- Clicking a **stacked demand segment** (any work type layer in any chart) opens a side panel listing the demand items contributing to that segment, each deep-linking into the Demand Item Editor.
+- Clicking anywhere else on a chart opens a tooltip showing exact numbers (capacity, committed demand by work type, overlay demand) for that month.
+
+The side panel Demand Item Editor (section 4.5) is still the CRUD surface — it's reached through the drill-down, not directly from the chart.
 
 ### 11.2 Adding an overlay
 
@@ -508,7 +595,21 @@ The user should experience the edit as instantaneous. There is no "saving…" sp
 
 ## Changelog
 
-**v1.2** (this revision):
+**v1.4** (this revision):
+- Clarified the Submitted overlay's purpose and scope on the Capacity Validation view. It is explicitly an **intake-assessment tool** for the Submitted queue, restricted to Submitted items only, purely additive and view-only. Items in other statuses are not selectable for overlay.
+- Rewrote the v2 scenario modelling section to make the distinction from the overlay explicit: overlay is additive (view-only, Submitted-only); scenario modelling is mutative (changes committed demand). Both are genuinely useful; they are different tools answering different questions.
+
+**v1.3**:
+- **Rewrote View 1 — Capacity Validation** to be a chart-based, team-level strategic view rather than a person-level grid.
+  - Added top-level "Overall Team Capacity" chart as the primary page element.
+  - Below it, Theme/Skill toggle — one chart per theme by default (3 charts), or one chart per skill (grouped by theme).
+  - Charts are stacked-area-over-capacity-line, with demand stacked by work type (Group Strategy / Plant Project / NPD / BAU).
+  - Individual-level grid now repositioned as a drill-down reached by clicking a skill chart, not a default view.
+- Introduced the **polymorphic-capacity principle**: themes/skills cannot be stacked in one chart because the same person contributes to multiple capacity lines. Each theme/skill gets its own chart. Formulae for capacity at each level (total / theme / skill any-level / skill specific-level) are specified in a reference table.
+- Added **skill-level capacity sub-line** — in skill mode, each chart shows both total skill capacity and a sub-line for the highest specified level, so level-based shortfalls don't hide behind headline capacity.
+- Updated interpretation guidance 11.1 to reflect chart-based click behaviour (was previously about cells in a grid).
+
+**v1.2**:
 - Changed hosting / backend model: v1 is now a GitHub Pages static-only React/Vite app. No server, no json-server, no Supabase. State lives in localStorage; seed data ships in the bundle.
 - Added section 11 — Interpretation guidance for Claude Code — resolving ten specific ambiguities that could cause drift during build.
 - Specified `HashRouter`, `@dnd-kit/core`, Zustand, and the persistence model explicitly.

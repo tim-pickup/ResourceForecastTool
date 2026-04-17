@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Capacity Validation — mockup</title>
+<title>Capacity Validation — chart-based mockup</title>
 <style>
   :root {
     --bg: #fafafa;
@@ -13,24 +13,23 @@
     --text-muted: #6b7280;
     --text-faint: #9ca3af;
 
-    --committed: #3b82f6;         /* committed load - solid blue */
-    --committed-soft: #dbeafe;
-    --overlay: #8b5cf6;            /* submitted overlay - purple */
-    --overlay-soft: #ede9fe;
-    --bau: #64748b;                /* BAU - slate */
-    --bau-soft: #e2e8f0;
+    /* Work type colours - stacked bottom to top */
+    --bau: #94a3b8;
+    --plant: #60a5fa;
+    --npd: #34d399;
+    --strategy: #a78bfa;
 
-    --warn-person: #f59e0b;        /* person over-allocated */
-    --warn-person-soft: #fef3c7;
-    --warn-skill: #ef4444;         /* skill shortfall */
-    --warn-skill-soft: #fee2e2;
-    --warn-theme: #dc2626;         /* theme shortfall */
+    --overlay: #f59e0b;           /* submitted overlay */
+    --overlay-pattern: rgba(245, 158, 11, 0.35);
 
-    --ok: #10b981;
+    --capacity-line: #111827;
+    --capacity-sub: #6b7280;
+    --over-tint: rgba(239, 68, 68, 0.15);
+    --warn: #dc2626;
 
     --radius: 6px;
-    --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
     --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   }
 
   * { box-sizing: border-box; }
@@ -43,7 +42,6 @@
     line-height: 1.4;
   }
 
-  /* Banner */
   .banner {
     background: #1f2937;
     color: #f9fafb;
@@ -54,20 +52,7 @@
   }
   .banner strong { color: #fbbf24; }
 
-  .app {
-    display: grid;
-    grid-template-columns: 1fr 420px;
-    height: calc(100vh - 36px);
-  }
-
-  /* ----- Main view ----- */
-  .main {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border-right: 1px solid var(--border);
-  }
-
+  /* Toolbar */
   .toolbar {
     display: flex;
     align-items: center;
@@ -95,7 +80,6 @@
     margin-right: 4px;
   }
 
-  /* Segmented control */
   .segmented {
     display: inline-flex;
     background: #f3f4f6;
@@ -120,13 +104,12 @@
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
   }
 
-  /* Overlay chip */
   .overlay-chip {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: var(--overlay-soft);
-    border: 1px solid #c4b5fd;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
     border-radius: 20px;
     padding: 4px 10px 4px 8px;
     font-size: 12px;
@@ -154,185 +137,113 @@
     cursor: pointer;
   }
 
-  .toggle {
-    display: inline-flex;
+  /* Page */
+  .page {
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* Section A - overall */
+  .section {
+    margin-bottom: 32px;
+  }
+  .section-heading {
+    display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: var(--text-muted);
-    cursor: pointer;
+    justify-content: space-between;
+    margin-bottom: 12px;
   }
-  .toggle-switch {
-    width: 28px;
-    height: 16px;
-    background: var(--committed);
-    border-radius: 10px;
-    position: relative;
-  }
-  .toggle-switch::after {
-    content: '';
-    position: absolute;
-    right: 2px;
-    top: 2px;
-    width: 12px;
-    height: 12px;
-    background: white;
-    border-radius: 50%;
-  }
-
-  /* ----- Grid ----- */
-  .grid-wrap {
-    flex: 1;
-    overflow: auto;
-    background: var(--surface);
-  }
-  .grid {
-    display: grid;
-    grid-template-columns: 200px 70px repeat(8, 1fr);
-    min-width: 900px;
-  }
-  .cell {
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-    font-size: 12px;
-    position: relative;
-  }
-  .cell.header {
-    background: #f9fafb;
-    font-weight: 500;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: var(--text-muted);
-    position: sticky;
-    top: 0;
-    z-index: 2;
-  }
-  .cell.sticky-left {
-    position: sticky;
-    left: 0;
-    background: var(--surface);
-    z-index: 1;
-  }
-  .cell.header.sticky-left { z-index: 3; }
-
-  /* Theme group header */
-  .theme-row {
-    grid-column: 1 / -1;
-    background: #f3f4f6;
-    padding: 6px 12px;
-    font-size: 11px;
+  .section-heading h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.6px;
     color: var(--text-muted);
-    font-weight: 600;
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    left: 0;
-  }
-  .theme-row .shortfall-pill {
-    background: var(--warn-theme);
-    color: white;
-    padding: 2px 7px;
-    border-radius: 10px;
-    font-size: 10px;
-    margin-left: 8px;
-    text-transform: none;
-    letter-spacing: 0.2px;
   }
 
-  .person-cell {
+  .overall-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .overall-meta {
     display: flex;
-    flex-direction: column;
-    gap: 1px;
+    gap: 24px;
+    margin-bottom: 12px;
   }
-  .person-cell .name {
-    font-weight: 500;
-    color: var(--text);
-  }
-  .person-cell .role {
-    font-size: 10px;
-    color: var(--text-faint);
-  }
-
-  .cap-cell {
-    text-align: right;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-
-  /* Load cell */
-  .load {
-    padding: 6px 4px;
+  .meta-stat {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    min-height: 56px;
   }
-  .load:hover {
-    background: #f9fafb;
-  }
-  .load.selected {
-    background: #eef2ff;
-    outline: 2px solid var(--committed);
-    outline-offset: -2px;
-  }
-  .bar-track {
-    width: 100%;
-    height: 18px;
-    background: #f3f4f6;
-    border-radius: 3px;
-    overflow: hidden;
-    display: flex;
-    position: relative;
-  }
-  .bar-bau { background: var(--bau); }
-  .bar-committed { background: var(--committed); }
-  .bar-overlay {
-    background: repeating-linear-gradient(
-      45deg,
-      var(--overlay),
-      var(--overlay) 4px,
-      #a78bfa 4px,
-      #a78bfa 8px
-    );
-  }
-  .bar-over {
-    background: var(--warn-person);
-    border-left: 2px solid white;
-  }
-  .load-pct {
-    font-size: 11px;
+  .meta-stat .val {
+    font-size: 20px;
+    font-weight: 600;
     font-family: var(--mono);
+  }
+  .meta-stat .lbl {
+    font-size: 11px;
     color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
   }
-  .load-pct.over { color: var(--warn-person); font-weight: 600; }
-  .load-pct.way-over { color: var(--warn-skill); font-weight: 600; }
+  .meta-stat.warn .val { color: var(--warn); }
 
-  .over-icon {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 12px;
-    height: 12px;
-    background: var(--warn-person);
-    border-radius: 50%;
-    color: white;
-    font-size: 9px;
+  /* Chart grid for themes */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 16px;
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .chart-card:hover {
+    border-color: var(--border-strong);
+  }
+  .chart-card.constrained {
+    border-color: #fca5a5;
+  }
+  .chart-header {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .chart-title {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .chart-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .constraint-pill {
+    background: #fee2e2;
+    color: var(--warn);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
   }
 
-  /* Footer legend */
+  svg { display: block; width: 100%; }
+
+  /* Legend */
   .legend {
-    padding: 10px 20px;
+    padding: 12px 20px;
     background: var(--surface);
     border-top: 1px solid var(--border);
     display: flex;
@@ -351,659 +262,353 @@
     height: 10px;
     border-radius: 2px;
   }
-  .swatch.committed { background: var(--committed); }
-  .swatch.overlay {
-    background: repeating-linear-gradient(45deg, var(--overlay), var(--overlay) 3px, #a78bfa 3px, #a78bfa 6px);
-  }
   .swatch.bau { background: var(--bau); }
-  .swatch.over-person { background: var(--warn-person); }
-
-  /* ----- Side panel ----- */
-  .panel {
-    background: var(--surface);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+  .swatch.plant { background: var(--plant); }
+  .swatch.npd { background: var(--npd); }
+  .swatch.strategy { background: var(--strategy); }
+  .swatch.overlay {
+    background: repeating-linear-gradient(45deg, var(--overlay), var(--overlay) 3px, #fde68a 3px, #fde68a 6px);
   }
-  .panel-header {
-    padding: 16px 20px 12px;
-    border-bottom: 1px solid var(--border);
+  .line-swatch {
+    width: 16px;
+    height: 2px;
+    background: var(--capacity-line);
   }
-  .panel-breadcrumb {
-    font-size: 11px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    margin-bottom: 6px;
-  }
-  .panel-title {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-  }
-  .panel-meta {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-    flex-wrap: wrap;
-  }
-  .tag {
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 10px;
-    background: #f3f4f6;
-    color: var(--text-muted);
-  }
-  .tag.type { background: #ecfdf5; color: #065f46; }
-  .tag.status-submitted { background: var(--overlay-soft); color: #5b21b6; }
-  .tag.status-accepted { background: var(--committed-soft); color: #1e40af; }
-  .tag.theme { background: #fef3c7; color: #92400e; }
-
-  .panel-close {
-    float: right;
-    background: none;
-    border: none;
-    font-size: 18px;
-    cursor: pointer;
-    color: var(--text-muted);
-    padding: 0;
-    line-height: 1;
-  }
-
-  .panel-body {
-    padding: 16px 20px;
-    overflow-y: auto;
-    flex: 1;
-  }
-  .panel-section {
-    margin-bottom: 20px;
-  }
-  .panel-section-title {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: var(--text-muted);
-    margin: 0 0 8px;
-    font-weight: 600;
-  }
-
-  .phase-card {
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 12px;
-    margin-bottom: 10px;
-    background: #fafbfc;
-  }
-  .phase-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-  }
-  .phase-name {
-    font-weight: 600;
-    font-size: 13px;
-  }
-  .phase-dates {
-    font-size: 11px;
-    color: var(--text-muted);
-    font-family: var(--mono);
-  }
-  .phase-funding {
-    font-size: 11px;
-    color: var(--text-muted);
-    margin-bottom: 8px;
-  }
-
-  .requirement {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 6px;
-    padding: 8px;
-    border-top: 1px solid var(--border);
-    font-size: 12px;
-    align-items: start;
-  }
-  .requirement:first-of-type { border-top: none; }
-  .req-main {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-  .req-desc {
-    font-weight: 500;
-  }
-  .req-shape-skill { color: var(--text); }
-  .req-shape-named { color: #065f46; }
-  .req-notes {
-    font-size: 11px;
-    color: var(--text-muted);
-    font-style: italic;
-  }
-  .req-hours {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--text);
-    text-align: right;
-    white-space: nowrap;
-  }
-  .req-split-indicator {
-    font-size: 10px;
-    color: var(--text-muted);
-    margin-top: 4px;
-  }
-  .req-split-indicator .bullet {
-    display: inline-block;
-    width: 4px;
-    height: 4px;
-    background: var(--text-faint);
-    border-radius: 50%;
-    margin: 0 4px 2px 2px;
-  }
-
-  .impact-box {
-    background: var(--warn-person-soft);
-    border: 1px solid #fcd34d;
-    border-radius: var(--radius);
-    padding: 10px 12px;
-    font-size: 12px;
-    color: #78350f;
-  }
-  .impact-box strong { color: #78350f; }
-
-  .panel-footer {
-    padding: 12px 20px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    gap: 8px;
-    background: var(--surface);
-  }
-  .btn {
-    border: 1px solid var(--border-strong);
-    background: var(--surface);
-    padding: 7px 14px;
-    border-radius: var(--radius);
-    font-size: 12px;
-    cursor: pointer;
-    font-family: var(--sans);
-  }
-  .btn.primary {
-    background: var(--committed);
-    color: white;
-    border-color: var(--committed);
-  }
-  .btn.secondary {
-    color: var(--text-muted);
+  .line-swatch.sub {
+    background: var(--capacity-sub);
+    height: 1px;
   }
 </style>
 </head>
 <body>
 
 <div class="banner">
-  <strong>Mockup — illustrative only.</strong> Visual styling will come from <code>DESIGNSYSTEM.md</code>. This mockup demonstrates layout and interaction intent.
+  <strong>Mockup — illustrative only.</strong> Visual styling will come from <code>DESIGNSYSTEM.md</code>. This shows chart structure and interaction intent only.
 </div>
 
-<div class="app">
+<!-- Toolbar -->
+<div class="toolbar">
+  <h1>Capacity Validation</h1>
 
-  <!-- MAIN VIEW -->
-  <div class="main">
-
-    <!-- Toolbar -->
-    <div class="toolbar">
-      <h1>Capacity Validation</h1>
-
-      <div class="toolbar-section">
-        <span class="toolbar-label">Group by</span>
-        <div class="segmented">
-          <button class="active">Person</button>
-          <button>Theme</button>
-          <button>Skill</button>
-        </div>
-      </div>
-
-      <div class="toolbar-section">
-        <span class="toolbar-label">Horizon</span>
-        <div class="segmented">
-          <button>6m</button>
-          <button class="active">12m</button>
-          <button>24m</button>
-          <button>60m</button>
-        </div>
-      </div>
-
-      <div class="toolbar-section">
-        <span class="toolbar-label">Overlay</span>
-        <div class="overlay-chip">
-          <span class="dot"></span>
-          Site X MES Upgrade
-          <span class="close">×</span>
-        </div>
-        <button class="add-overlay">+ Add demand</button>
-      </div>
-
-      <div class="toolbar-section" style="margin-left:auto">
-        <label class="toggle">
-          <span class="toggle-switch"></span>
-          Include BAU
-        </label>
-      </div>
-    </div>
-
-    <!-- Grid -->
-    <div class="grid-wrap">
-      <div class="grid">
-
-        <!-- Header row -->
-        <div class="cell header sticky-left">Person</div>
-        <div class="cell header" style="text-align:right">Capacity</div>
-        <div class="cell header" style="text-align:center">May 26</div>
-        <div class="cell header" style="text-align:center">Jun 26</div>
-        <div class="cell header" style="text-align:center">Jul 26</div>
-        <div class="cell header" style="text-align:center">Aug 26</div>
-        <div class="cell header" style="text-align:center">Sep 26</div>
-        <div class="cell header" style="text-align:center">Oct 26</div>
-        <div class="cell header" style="text-align:center">Nov 26</div>
-        <div class="cell header" style="text-align:center">Dec 26</div>
-
-        <!-- MOM theme group -->
-        <div class="theme-row">
-          MOM — Manufacturing Operations Management
-          <span class="shortfall-pill">Specialist shortfall: Jun–Aug</span>
-        </div>
-
-        <!-- Sarah Jones -->
-        <div class="cell sticky-left person-cell">
-          <span class="name">Sarah Jones</span>
-          <span class="role">MOM Specialist</span>
-        </div>
-        <div class="cell cap-cell">152 hrs</div>
-
-        <div class="cell load selected">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:20%"></div>
-            <div class="bar-committed" style="width:55%"></div>
-            <div class="bar-overlay" style="width:15%"></div>
-          </div>
-          <div class="load-pct">90%</div>
-        </div>
-        <div class="cell load selected">
-          <div class="over-icon">!</div>
-          <div class="bar-track">
-            <div class="bar-bau" style="width:20%"></div>
-            <div class="bar-committed" style="width:55%"></div>
-            <div class="bar-overlay" style="width:30%"></div>
-            <div class="bar-over" style="width:10%"></div>
-          </div>
-          <div class="load-pct over">115%</div>
-        </div>
-        <div class="cell load selected">
-          <div class="over-icon">!</div>
-          <div class="bar-track">
-            <div class="bar-bau" style="width:20%"></div>
-            <div class="bar-committed" style="width:55%"></div>
-            <div class="bar-overlay" style="width:30%"></div>
-            <div class="bar-over" style="width:10%"></div>
-          </div>
-          <div class="load-pct over">115%</div>
-        </div>
-        <div class="cell load selected">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:20%"></div>
-            <div class="bar-committed" style="width:40%"></div>
-            <div class="bar-overlay" style="width:30%"></div>
-          </div>
-          <div class="load-pct">90%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:20%"></div>
-            <div class="bar-committed" style="width:50%"></div>
-          </div>
-          <div class="load-pct">70%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:20%"></div>
-            <div class="bar-committed" style="width:45%"></div>
-          </div>
-          <div class="load-pct">65%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:10%"></div>
-            <div class="bar-committed" style="width:40%"></div>
-          </div>
-          <div class="load-pct">50%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:10%"></div>
-            <div class="bar-committed" style="width:30%"></div>
-          </div>
-          <div class="load-pct">40%</div>
-        </div>
-
-        <!-- Chris Patel -->
-        <div class="cell sticky-left person-cell">
-          <span class="name">Chris Patel</span>
-          <span class="role">MOM Advanced</span>
-        </div>
-        <div class="cell cap-cell">152 hrs</div>
-
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:15%"></div>
-            <div class="bar-committed" style="width:50%"></div>
-            <div class="bar-overlay" style="width:15%"></div>
-          </div>
-          <div class="load-pct">80%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:15%"></div>
-            <div class="bar-committed" style="width:50%"></div>
-            <div class="bar-overlay" style="width:15%"></div>
-          </div>
-          <div class="load-pct">80%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:15%"></div>
-            <div class="bar-committed" style="width:50%"></div>
-            <div class="bar-overlay" style="width:15%"></div>
-          </div>
-          <div class="load-pct">80%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:15%"></div>
-            <div class="bar-committed" style="width:45%"></div>
-            <div class="bar-overlay" style="width:15%"></div>
-          </div>
-          <div class="load-pct">75%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:15%"></div>
-            <div class="bar-committed" style="width:55%"></div>
-          </div>
-          <div class="load-pct">70%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:15%"></div>
-            <div class="bar-committed" style="width:50%"></div>
-          </div>
-          <div class="load-pct">65%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:10%"></div>
-            <div class="bar-committed" style="width:30%"></div>
-          </div>
-          <div class="load-pct">40%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:10%"></div>
-            <div class="bar-committed" style="width:25%"></div>
-          </div>
-          <div class="load-pct">35%</div>
-        </div>
-
-        <!-- Aisha Khan -->
-        <div class="cell sticky-left person-cell">
-          <span class="name">Aisha Khan</span>
-          <span class="role">MOM Basic → Advanced</span>
-        </div>
-        <div class="cell cap-cell">152 hrs</div>
-
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:30%"></div>
-            <div class="bar-committed" style="width:45%"></div>
-          </div>
-          <div class="load-pct">75%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:30%"></div>
-            <div class="bar-committed" style="width:45%"></div>
-          </div>
-          <div class="load-pct">75%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:25%"></div>
-            <div class="bar-committed" style="width:45%"></div>
-          </div>
-          <div class="load-pct">70%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:20%"></div>
-            <div class="bar-committed" style="width:40%"></div>
-          </div>
-          <div class="load-pct">60%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:15%"></div>
-            <div class="bar-committed" style="width:35%"></div>
-          </div>
-          <div class="load-pct">50%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:15%"></div>
-            <div class="bar-committed" style="width:25%"></div>
-          </div>
-          <div class="load-pct">40%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:10%"></div>
-            <div class="bar-committed" style="width:20%"></div>
-          </div>
-          <div class="load-pct">30%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:10%"></div>
-            <div class="bar-committed" style="width:15%"></div>
-          </div>
-          <div class="load-pct">25%</div>
-        </div>
-
-        <!-- MI&V theme group -->
-        <div class="theme-row">MI&amp;V — Manufacturing Intelligence &amp; Visualisation</div>
-
-        <!-- Tom Davies -->
-        <div class="cell sticky-left person-cell">
-          <span class="name">Tom Davies</span>
-          <span class="role">MI&amp;V Specialist</span>
-        </div>
-        <div class="cell cap-cell">152 hrs</div>
-
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:25%"></div>
-            <div class="bar-committed" style="width:45%"></div>
-          </div>
-          <div class="load-pct">70%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:25%"></div>
-            <div class="bar-committed" style="width:55%"></div>
-          </div>
-          <div class="load-pct">80%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:25%"></div>
-            <div class="bar-committed" style="width:60%"></div>
-          </div>
-          <div class="load-pct">85%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:20%"></div>
-            <div class="bar-committed" style="width:55%"></div>
-          </div>
-          <div class="load-pct">75%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:15%"></div>
-            <div class="bar-committed" style="width:45%"></div>
-          </div>
-          <div class="load-pct">60%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:15%"></div>
-            <div class="bar-committed" style="width:40%"></div>
-          </div>
-          <div class="load-pct">55%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:10%"></div>
-            <div class="bar-committed" style="width:30%"></div>
-          </div>
-          <div class="load-pct">40%</div>
-        </div>
-        <div class="cell load">
-          <div class="bar-track">
-            <div class="bar-bau" style="width:10%"></div>
-            <div class="bar-committed" style="width:25%"></div>
-          </div>
-          <div class="load-pct">35%</div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- Legend -->
-    <div class="legend">
-      <div class="legend-item"><span class="swatch bau"></span> BAU</div>
-      <div class="legend-item"><span class="swatch committed"></span> Committed (Accepted + Allocated)</div>
-      <div class="legend-item"><span class="swatch overlay"></span> Overlay (Submitted under review)</div>
-      <div class="legend-item"><span class="swatch over-person"></span> Over-allocated</div>
-      <div class="legend-item" style="margin-left:auto; font-style:italic">Click any cell to open details →</div>
+  <div class="toolbar-section">
+    <span class="toolbar-label">Horizon</span>
+    <div class="segmented">
+      <button>6m</button>
+      <button class="active">12m</button>
+      <button>24m</button>
+      <button>60m</button>
     </div>
   </div>
 
-  <!-- SIDE PANEL -->
-  <div class="panel">
-    <div class="panel-header">
-      <button class="panel-close">×</button>
-      <div class="panel-breadcrumb">Demand item</div>
-      <h2 class="panel-title">Site X MES Upgrade</h2>
-      <div class="panel-meta">
-        <span class="tag type">Plant Project</span>
-        <span class="tag status-submitted">Submitted</span>
-        <span class="tag theme">MOM</span>
-      </div>
+  <div class="toolbar-section">
+    <span class="toolbar-label">Overlay</span>
+    <div class="overlay-chip">
+      <span class="dot"></span>
+      Site X MES Upgrade
+      <span class="close">×</span>
+    </div>
+    <button class="add-overlay">+ Add submitted demand</button>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- SECTION A: OVERALL TEAM CAPACITY -->
+  <div class="section">
+    <div class="section-heading">
+      <h2>Overall Team Capacity</h2>
     </div>
 
-    <div class="panel-body">
-
-      <div class="panel-section">
-        <div class="impact-box">
-          <strong>Capacity impact:</strong> Sarah Jones over-allocated at 115% in Jun–Jul 26.
-          MOM Specialist demand exceeds capacity in Jun–Aug by ~15 hrs/month.
+    <div class="overall-card">
+      <div class="overall-meta">
+        <div class="meta-stat">
+          <span class="val">1,824</span>
+          <span class="lbl">Team capacity (hrs/mo)</span>
+        </div>
+        <div class="meta-stat">
+          <span class="val">1,410</span>
+          <span class="lbl">Committed demand</span>
+        </div>
+        <div class="meta-stat warn">
+          <span class="val">+380</span>
+          <span class="lbl">Overlay (Site X MES)</span>
+        </div>
+        <div class="meta-stat warn">
+          <span class="val">Aug–Oct</span>
+          <span class="lbl">Months over capacity with overlay</span>
         </div>
       </div>
 
-      <div class="panel-section">
-        <div class="panel-section-title">Phases</div>
+      <!-- Overall chart - width 1200, height 240 -->
+      <svg viewBox="0 0 1200 260" preserveAspectRatio="none" style="height:260px">
+        <!-- Grid -->
+        <g stroke="#f3f4f6" stroke-width="1">
+          <line x1="60" x2="1180" y1="40"  y2="40"/>
+          <line x1="60" x2="1180" y1="90"  y2="90"/>
+          <line x1="60" x2="1180" y1="140" y2="140"/>
+          <line x1="60" x2="1180" y1="190" y2="190"/>
+        </g>
+        <!-- Y-axis labels -->
+        <g font-size="10" fill="#9ca3af" font-family="monospace">
+          <text x="55" y="44"  text-anchor="end">2400</text>
+          <text x="55" y="94"  text-anchor="end">1800</text>
+          <text x="55" y="144" text-anchor="end">1200</text>
+          <text x="55" y="194" text-anchor="end">600</text>
+          <text x="55" y="234" text-anchor="end">0</text>
+        </g>
+        <!-- X-axis labels -->
+        <g font-size="10" fill="#6b7280">
+          <text x="107" y="250" text-anchor="middle">May</text>
+          <text x="201" y="250" text-anchor="middle">Jun</text>
+          <text x="294" y="250" text-anchor="middle">Jul</text>
+          <text x="388" y="250" text-anchor="middle">Aug</text>
+          <text x="482" y="250" text-anchor="middle">Sep</text>
+          <text x="576" y="250" text-anchor="middle">Oct</text>
+          <text x="669" y="250" text-anchor="middle">Nov</text>
+          <text x="763" y="250" text-anchor="middle">Dec</text>
+          <text x="857" y="250" text-anchor="middle">Jan 27</text>
+          <text x="950" y="250" text-anchor="middle">Feb</text>
+          <text x="1044" y="250" text-anchor="middle">Mar</text>
+          <text x="1138" y="250" text-anchor="middle">Apr</text>
+        </g>
 
-        <!-- Phase 1 -->
-        <div class="phase-card">
-          <div class="phase-header">
-            <span class="phase-name">1. Design</span>
-            <span class="phase-dates">May 26 → Aug 26</span>
-          </div>
-          <div class="phase-funding">Investment Scheme · <em>IS-2026-04 Site X MES</em></div>
+        <!-- Stacked areas: BAU (bottom), Plant, NPD, Strategy (top) -->
+        <!-- Values (hrs/month) for 12 months -->
+        <!-- BAU: 180, 175, 165, 155, 140, 135, 125, 120, 115, 115, 115, 115 -->
+        <!-- Plant: 480, 510, 540, 560, 540, 520, 490, 470, 420, 380, 340, 320 -->
+        <!-- NPD: 0, 0, 0, 50, 100, 100, 100, 100, 50, 50, 0, 0 -->
+        <!-- Strategy: 460, 480, 500, 520, 500, 470, 420, 400, 380, 360, 340, 320 -->
+        <!-- Total committed: 1120, 1165, 1205, 1285, 1280, 1225, 1135, 1090, 965, 905, 795, 755 -->
 
-          <div class="requirement">
-            <div class="req-main">
-              <span class="req-desc req-shape-named">Sarah Jones</span>
-              <span class="req-notes">Lead architect — must have done a full MES rollout</span>
-            </div>
-            <div class="req-hours">56 hrs/mo</div>
-          </div>
+        <!-- BAU layer -->
+        <path d="M 60,238 L 107,208 L 201,209 L 294,211 L 388,212 L 482,215 L 576,215 L 669,217 L 763,218 L 857,219 L 950,219 L 1044,219 L 1138,219 L 1180,219 L 1180,238 Z" fill="#94a3b8" opacity="0.85"/>
 
-          <div class="requirement">
-            <div class="req-main">
-              <span class="req-desc req-shape-named">Chris Patel</span>
-              <span class="req-notes">Split from original 80hr Advanced requirement</span>
-            </div>
-            <div class="req-hours">24 hrs/mo</div>
-          </div>
+        <!-- Plant layer on top of BAU -->
+        <path d="M 60,208 L 107,128 L 201,124 L 294,119 L 388,117 L 482,121 L 576,124 L 669,132 L 763,139 L 857,148 L 950,155 L 1044,162 L 1138,166 L 1180,166 L 1180,219 L 1138,219 L 1044,219 L 950,219 L 857,219 L 763,218 L 669,217 L 576,215 L 482,215 L 388,212 L 294,211 L 201,209 L 107,208 Z" fill="#60a5fa" opacity="0.85"/>
 
-          <div class="requirement">
-            <div class="req-main">
-              <span class="req-desc req-shape-skill">MOM Advanced</span>
-              <span class="req-notes">Second slot — not yet named</span>
-              <div class="req-split-indicator">Skill-shaped <span class="bullet"></span> awaiting promotion</div>
-            </div>
-            <div class="req-hours">40 hrs/mo</div>
-          </div>
+        <!-- NPD layer -->
+        <path d="M 60,128 L 107,128 L 201,124 L 294,119 L 388,109 L 482,105 L 576,108 L 669,115 L 763,123 L 857,140 L 950,147 L 1044,162 L 1138,166 L 1180,166 L 1180,166 L 1138,166 L 1044,162 L 950,155 L 857,148 L 763,139 L 669,132 L 576,124 L 482,121 L 388,117 L 294,119 L 201,124 L 107,128 Z" fill="#34d399" opacity="0.85"/>
 
-          <div class="requirement">
-            <div class="req-main">
-              <span class="req-desc req-shape-skill">MI&amp;V Basic</span>
-              <span class="req-notes">HMI screen design</span>
-            </div>
-            <div class="req-hours">20 hrs/mo</div>
-          </div>
-        </div>
+        <!-- Strategy layer -->
+        <path d="M 60,128 L 107,51 L 201,44 L 294,36 L 388,28 L 482,32 L 576,41 L 669,55 L 763,63 L 857,77 L 950,87 L 1044,105 L 1138,113 L 1180,113 L 1180,166 L 1138,166 L 1044,162 L 950,147 L 857,140 L 763,123 L 669,115 L 576,108 L 482,105 L 388,109 L 294,119 L 201,124 L 107,128 Z" fill="#a78bfa" opacity="0.85"/>
 
-        <!-- Phase 2 -->
-        <div class="phase-card">
-          <div class="phase-header">
-            <span class="phase-name">2. Build</span>
-            <span class="phase-dates">Sep 26 → Dec 26</span>
-          </div>
-          <div class="phase-funding">Mixed · <em>IS-2026-04 + Plant X allocation</em></div>
+        <!-- Overlay layer (Site X MES Submitted) -->
+        <!-- Only contributes May-Dec; 100, 120, 130, 140 (over cap), 110, 100, 80, 60, 0, 0, 0, 0 -->
+        <defs>
+          <pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6">
+            <rect width="6" height="6" fill="#f59e0b" opacity="0.25"/>
+            <path d="M-1,1 l2,-2 M0,6 l6,-6 M5,7 l2,-2" stroke="#f59e0b" stroke-width="1.5" opacity="0.8"/>
+          </pattern>
+        </defs>
+        <path d="M 107,51 L 201,34 L 294,14 L 388,8 L 482,19 L 576,25 L 669,42 L 763,53 L 857,77 L 950,87 L 1044,105 L 1138,113 L 1138,113 L 1044,105 L 950,87 L 857,77 L 763,63 L 669,55 L 576,41 L 482,32 L 388,28 L 294,36 L 201,44 L 107,51 Z" fill="url(#hatch)"/>
 
-          <div class="requirement">
-            <div class="req-main">
-              <span class="req-desc req-shape-skill">MOM Specialist</span>
-            </div>
-            <div class="req-hours">40 hrs/mo</div>
-          </div>
+        <!-- Capacity line -->
+        <path d="M 60,26 L 107,26 L 201,26 L 294,26 L 388,26 L 482,26 L 576,26 L 669,26 L 763,26 L 857,26 L 950,26 L 1044,26 L 1138,26 L 1180,26" stroke="#111827" stroke-width="2" fill="none"/>
+        <text x="1175" y="22" text-anchor="end" font-size="10" fill="#111827" font-weight="600">Capacity 1,824 hrs</text>
 
-          <div class="requirement">
-            <div class="req-main">
-              <span class="req-desc req-shape-skill">MOM Advanced</span>
-            </div>
-            <div class="req-hours">80 hrs/mo</div>
-          </div>
+        <!-- Over-capacity tint where overlay pushes above capacity -->
+        <path d="M 294,14 L 388,8 L 482,19 L 482,26 L 294,26 Z" fill="rgba(239,68,68,0.20)"/>
 
-          <div class="requirement">
-            <div class="req-main">
-              <span class="req-desc req-shape-skill">MI&amp;V Advanced</span>
-              <span class="req-notes">Historian integration</span>
-            </div>
-            <div class="req-hours">40 hrs/mo</div>
-          </div>
-        </div>
-
-      </div>
-
-    </div>
-
-    <div class="panel-footer">
-      <button class="btn primary">Accept</button>
-      <button class="btn">Park</button>
-      <button class="btn secondary" style="margin-left:auto">Duplicate</button>
+      </svg>
     </div>
   </div>
 
+  <!-- SECTION B: BREAKDOWN -->
+  <div class="section">
+    <div class="section-heading">
+      <h2>Breakdown</h2>
+      <div class="toolbar-section">
+        <div class="segmented">
+          <button class="active">By Theme</button>
+          <button>By Skill</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+
+      <!-- MOM -->
+      <div class="chart-card constrained">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">MOM</div>
+            <div class="chart-sub">Manufacturing Operations Management · 4 people</div>
+          </div>
+          <div class="constraint-pill">Constrained Aug–Oct</div>
+        </div>
+
+        <svg viewBox="0 0 400 180" preserveAspectRatio="none" style="height:180px">
+          <g stroke="#f3f4f6" stroke-width="1">
+            <line x1="30" x2="395" y1="30" y2="30"/>
+            <line x1="30" x2="395" y1="75" y2="75"/>
+            <line x1="30" x2="395" y1="120" y2="120"/>
+          </g>
+          <g font-size="9" fill="#9ca3af" font-family="monospace">
+            <text x="27" y="33"  text-anchor="end">600</text>
+            <text x="27" y="78"  text-anchor="end">400</text>
+            <text x="27" y="123" text-anchor="end">200</text>
+          </g>
+
+          <!-- Stacked: BAU + Plant + Strategy (no NPD on MOM here) -->
+          <!-- BAU ~60, Plant ~300, Strategy ~200 = ~560 vs capacity ~520 -->
+          <!-- BAU layer -->
+          <path d="M 30,165 L 60,148 L 90,148 L 120,149 L 150,149 L 180,150 L 210,150 L 240,151 L 270,151 L 300,152 L 330,152 L 360,152 L 390,152 L 390,165 Z" fill="#94a3b8" opacity="0.85"/>
+
+          <!-- Plant layer -->
+          <path d="M 30,148 L 60,95 L 90,87 L 120,82 L 150,76 L 180,72 L 210,78 L 240,85 L 270,92 L 300,100 L 330,110 L 360,120 L 390,128 L 390,152 L 360,152 L 330,152 L 300,152 L 270,151 L 240,151 L 210,150 L 180,150 L 150,149 L 120,149 L 90,148 L 60,148 Z" fill="#60a5fa" opacity="0.85"/>
+
+          <!-- Strategy layer -->
+          <path d="M 30,95 L 60,52 L 90,42 L 120,30 L 150,22 L 180,28 L 210,40 L 240,55 L 270,70 L 300,80 L 330,90 L 360,100 L 390,108 L 390,128 L 360,120 L 330,110 L 300,100 L 270,92 L 240,85 L 210,78 L 180,72 L 150,76 L 120,82 L 90,87 L 60,95 Z" fill="#a78bfa" opacity="0.85"/>
+
+          <!-- Overlay (Site X MES hits MOM heavily) -->
+          <path d="M 60,52 L 90,32 L 120,10 L 150,4 L 180,14 L 210,26 L 240,40 L 270,55 L 300,80 L 330,90 L 360,100 L 390,108 L 390,108 L 360,100 L 330,90 L 300,80 L 270,70 L 240,55 L 210,40 L 180,28 L 150,22 L 120,30 L 90,42 L 60,52 Z" fill="url(#hatch)"/>
+
+          <!-- Over-capacity tint -->
+          <path d="M 90,32 L 120,10 L 150,4 L 180,14 L 210,26 L 210,35 L 90,35 Z" fill="rgba(239,68,68,0.20)"/>
+
+          <!-- Capacity line -->
+          <line x1="30" x2="395" y1="35" y2="35" stroke="#111827" stroke-width="2"/>
+          <text x="392" y="30" text-anchor="end" font-size="9" fill="#111827" font-weight="600">Cap 520</text>
+
+          <!-- X labels -->
+          <g font-size="8" fill="#6b7280">
+            <text x="45"  y="178">M</text>
+            <text x="75"  y="178">J</text>
+            <text x="105" y="178">J</text>
+            <text x="135" y="178">A</text>
+            <text x="165" y="178">S</text>
+            <text x="195" y="178">O</text>
+            <text x="225" y="178">N</text>
+            <text x="255" y="178">D</text>
+            <text x="285" y="178">J</text>
+            <text x="315" y="178">F</text>
+            <text x="345" y="178">M</text>
+            <text x="375" y="178">A</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- MI&V -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">MI&amp;V</div>
+            <div class="chart-sub">Manufacturing Intelligence &amp; Visualisation · 4 people</div>
+          </div>
+        </div>
+
+        <svg viewBox="0 0 400 180" preserveAspectRatio="none" style="height:180px">
+          <g stroke="#f3f4f6" stroke-width="1">
+            <line x1="30" x2="395" y1="30" y2="30"/>
+            <line x1="30" x2="395" y1="75" y2="75"/>
+            <line x1="30" x2="395" y1="120" y2="120"/>
+          </g>
+          <g font-size="9" fill="#9ca3af" font-family="monospace">
+            <text x="27" y="33"  text-anchor="end">600</text>
+            <text x="27" y="78"  text-anchor="end">400</text>
+            <text x="27" y="123" text-anchor="end">200</text>
+          </g>
+
+          <!-- BAU ~80, Plant ~120, NPD ~40, Strategy ~180 = ~420 vs capacity ~540 -->
+          <path d="M 30,165 L 60,145 L 90,145 L 120,145 L 150,146 L 180,147 L 210,147 L 240,148 L 270,148 L 300,149 L 330,149 L 360,150 L 390,150 L 390,165 Z" fill="#94a3b8" opacity="0.85"/>
+
+          <path d="M 30,145 L 60,110 L 90,105 L 120,98 L 150,95 L 180,94 L 210,98 L 240,105 L 270,110 L 300,120 L 330,125 L 360,135 L 390,140 L 390,150 L 360,150 L 330,149 L 300,149 L 270,148 L 240,148 L 210,147 L 180,147 L 150,146 L 120,145 L 90,145 L 60,145 Z" fill="#60a5fa" opacity="0.85"/>
+
+          <!-- NPD from Aug onwards -->
+          <path d="M 30,110 L 60,110 L 90,105 L 120,98 L 150,85 L 180,78 L 210,82 L 240,92 L 270,102 L 300,120 L 330,125 L 360,135 L 390,140 L 390,140 L 360,135 L 330,125 L 300,120 L 270,110 L 240,105 L 210,98 L 180,94 L 150,95 L 120,98 L 90,105 L 60,110 Z" fill="#34d399" opacity="0.85"/>
+
+          <path d="M 30,110 L 60,70 L 90,62 L 120,50 L 150,42 L 180,44 L 210,52 L 240,62 L 270,75 L 300,92 L 330,102 L 360,118 L 390,128 L 390,140 L 360,135 L 330,125 L 300,120 L 270,102 L 240,92 L 210,82 L 180,78 L 150,85 L 120,98 L 90,105 L 60,110 Z" fill="#a78bfa" opacity="0.85"/>
+
+          <!-- Small overlay from Site X -->
+          <path d="M 60,70 L 90,58 L 120,45 L 150,40 L 180,42 L 210,50 L 240,60 L 270,73 L 300,92 L 330,102 L 360,118 L 390,128 L 390,128 L 360,118 L 330,102 L 300,92 L 270,75 L 240,62 L 210,52 L 180,44 L 150,42 L 120,50 L 90,62 L 60,70 Z" fill="url(#hatch)"/>
+
+          <line x1="30" x2="395" y1="30" y2="30" stroke="#111827" stroke-width="2"/>
+          <text x="392" y="25" text-anchor="end" font-size="9" fill="#111827" font-weight="600">Cap 540</text>
+
+          <g font-size="8" fill="#6b7280">
+            <text x="45"  y="178">M</text>
+            <text x="75"  y="178">J</text>
+            <text x="105" y="178">J</text>
+            <text x="135" y="178">A</text>
+            <text x="165" y="178">S</text>
+            <text x="195" y="178">O</text>
+            <text x="225" y="178">N</text>
+            <text x="255" y="178">D</text>
+            <text x="285" y="178">J</text>
+            <text x="315" y="178">F</text>
+            <text x="345" y="178">M</text>
+            <text x="375" y="178">A</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- MBM -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">MBM</div>
+            <div class="chart-sub">Model-Based Manufacturing · 4 people</div>
+          </div>
+        </div>
+
+        <svg viewBox="0 0 400 180" preserveAspectRatio="none" style="height:180px">
+          <g stroke="#f3f4f6" stroke-width="1">
+            <line x1="30" x2="395" y1="30" y2="30"/>
+            <line x1="30" x2="395" y1="75" y2="75"/>
+            <line x1="30" x2="395" y1="120" y2="120"/>
+          </g>
+          <g font-size="9" fill="#9ca3af" font-family="monospace">
+            <text x="27" y="33"  text-anchor="end">600</text>
+            <text x="27" y="78"  text-anchor="end">400</text>
+            <text x="27" y="123" text-anchor="end">200</text>
+          </g>
+
+          <!-- Low load - mostly strategy work (Digital Twin Pilot) -->
+          <path d="M 30,165 L 60,155 L 90,155 L 120,155 L 150,155 L 180,156 L 210,156 L 240,157 L 270,157 L 300,158 L 330,158 L 360,158 L 390,158 L 390,165 Z" fill="#94a3b8" opacity="0.85"/>
+
+          <!-- NPD small contribution -->
+          <path d="M 30,155 L 60,155 L 90,155 L 120,155 L 150,155 L 180,156 L 210,148 L 240,142 L 270,148 L 300,158 L 330,158 L 360,158 L 390,158 L 390,158 L 360,158 L 330,158 L 300,158 L 270,157 L 240,157 L 210,156 L 180,156 L 150,155 L 120,155 L 90,155 L 60,155 Z" fill="#34d399" opacity="0.85"/>
+
+          <path d="M 30,155 L 60,155 L 90,130 L 120,110 L 150,95 L 180,82 L 210,70 L 240,62 L 270,72 L 300,95 L 330,118 L 360,145 L 390,155 L 390,158 L 360,158 L 330,158 L 300,158 L 270,148 L 240,142 L 210,148 L 180,156 L 150,155 L 120,155 L 90,155 L 60,155 Z" fill="#a78bfa" opacity="0.85"/>
+
+          <line x1="30" x2="395" y1="45" y2="45" stroke="#111827" stroke-width="2"/>
+          <text x="392" y="40" text-anchor="end" font-size="9" fill="#111827" font-weight="600">Cap 480</text>
+
+          <g font-size="8" fill="#6b7280">
+            <text x="45"  y="178">M</text>
+            <text x="75"  y="178">J</text>
+            <text x="105" y="178">J</text>
+            <text x="135" y="178">A</text>
+            <text x="165" y="178">S</text>
+            <text x="195" y="178">O</text>
+            <text x="225" y="178">N</text>
+            <text x="255" y="178">D</text>
+            <text x="285" y="178">J</text>
+            <text x="315" y="178">F</text>
+            <text x="345" y="178">M</text>
+            <text x="375" y="178">A</text>
+          </g>
+        </svg>
+      </div>
+
+    </div>
+
+    <div style="margin-top:12px; font-size:11px; color:var(--text-muted); font-style:italic;">
+      Click a theme chart to drill into skill-level detail. Click a skill chart to see the people contributing to that skill.
+    </div>
+  </div>
+
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><span class="swatch bau"></span> BAU</div>
+  <div class="legend-item"><span class="swatch plant"></span> Plant Project</div>
+  <div class="legend-item"><span class="swatch npd"></span> NPD Demand</div>
+  <div class="legend-item"><span class="swatch strategy"></span> Group Strategy Project</div>
+  <div class="legend-item"><span class="swatch overlay"></span> Submitted (overlay)</div>
+  <div class="legend-item"><span class="line-swatch"></span> Capacity</div>
+  <div class="legend-item" style="margin-left:auto">Theme and skill capacity lines are independent and not additive — the same person contributes to multiple themes/skills.</div>
 </div>
 
 </body>

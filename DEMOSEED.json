@@ -245,23 +245,23 @@
   ],
 
   "bau_allocations": [
-    { "id": "ba_001", "person_id": "per_001", "stream_id": "bau_001", "hours_per_month": 20, "effective_from": "2026-05", "effective_to": null },
-    { "id": "ba_002", "person_id": "per_002", "stream_id": "bau_001", "hours_per_month": 12, "effective_from": "2026-05", "effective_to": null },
-    { "id": "ba_003", "person_id": "per_003", "stream_id": "bau_001", "hours_per_month": 8,  "effective_from": "2026-05", "effective_to": null },
+    { "id": "ba_001", "person_id": "per_001", "stream_id": "bau_001", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": null },
+    { "id": "ba_002", "person_id": "per_002", "stream_id": "bau_001", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": null },
+    { "id": "ba_003", "person_id": "per_003", "stream_id": "bau_001", "hours_per_month": 0,  "effective_from": "2026-05", "effective_to": null },
 
-    { "id": "ba_004", "person_id": "per_002", "stream_id": "bau_002", "hours_per_month": 30, "effective_from": "2026-05", "effective_to": "2026-08" },
-    { "id": "ba_005", "person_id": "per_002", "stream_id": "bau_002", "hours_per_month": 15, "effective_from": "2026-09", "effective_to": "2026-12" },
-    { "id": "ba_006", "person_id": "per_002", "stream_id": "bau_002", "hours_per_month": 5,  "effective_from": "2027-01", "effective_to": null },
-    { "id": "ba_007", "person_id": "per_004", "stream_id": "bau_002", "hours_per_month": 20, "effective_from": "2026-05", "effective_to": "2026-10" },
+    { "id": "ba_004", "person_id": "per_002", "stream_id": "bau_002", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": "2026-08" },
+    { "id": "ba_005", "person_id": "per_002", "stream_id": "bau_002", "hours_per_month": 0, "effective_from": "2026-09", "effective_to": "2026-12" },
+    { "id": "ba_006", "person_id": "per_002", "stream_id": "bau_002", "hours_per_month": 0,  "effective_from": "2027-01", "effective_to": null },
+    { "id": "ba_007", "person_id": "per_004", "stream_id": "bau_002", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": "2026-10" },
 
-    { "id": "ba_008", "person_id": "per_005", "stream_id": "bau_003", "hours_per_month": 25, "effective_from": "2026-05", "effective_to": null },
-    { "id": "ba_009", "person_id": "per_006", "stream_id": "bau_003", "hours_per_month": 15, "effective_from": "2026-05", "effective_to": null },
+    { "id": "ba_008", "person_id": "per_005", "stream_id": "bau_003", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": null },
+    { "id": "ba_009", "person_id": "per_006", "stream_id": "bau_003", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": null },
 
-    { "id": "ba_010", "person_id": "per_007", "stream_id": "bau_004", "hours_per_month": 30, "effective_from": "2026-05", "effective_to": null },
-    { "id": "ba_011", "person_id": "per_006", "stream_id": "bau_004", "hours_per_month": 10, "effective_from": "2026-05", "effective_to": null },
+    { "id": "ba_010", "person_id": "per_007", "stream_id": "bau_004", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": null },
+    { "id": "ba_011", "person_id": "per_006", "stream_id": "bau_004", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": null },
 
-    { "id": "ba_012", "person_id": "per_009", "stream_id": "bau_005", "hours_per_month": 15, "effective_from": "2026-05", "effective_to": null },
-    { "id": "ba_013", "person_id": "per_011", "stream_id": "bau_005", "hours_per_month": 10, "effective_from": "2026-05", "effective_to": "2026-10" }
+    { "id": "ba_012", "person_id": "per_009", "stream_id": "bau_005", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": null },
+    { "id": "ba_013", "person_id": "per_011", "stream_id": "bau_005", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": "2026-10" }
   ],
 
   "demand_items": [
