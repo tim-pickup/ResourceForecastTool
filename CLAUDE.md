@@ -19,6 +19,10 @@ Resourcing planning tool to forecast skillsets by Person/Project/Skill.
 - Use feature branches, ask to commit to main
 - Maintain sync with GitHub.
 - Write tests for all new functions
+- Use DESIGN.md for guidance on UI/UX.
+- Use REQUIREMENTS.md for referece of the requirements.
+- PAGE_MOCKUP.html provides context as to what functionality the app should have.
+- DEMOSEED.json holds the demo data that should be used for the PoC. GitHub Actions deployment should read and reflect the latest of this with each deployment.
 
 # Claude Code Configuration - RuFlo V3
 
