@@ -54,7 +54,7 @@ export default function TeamActivity() {
         if (!monthInRange(month, phase.start_month, phase.end_month)) continue
         for (const req of phase.requirements) {
           if (req.shape === 'named' && req.person_id === personId) {
-            blocks.push({ label: item.name, hours: req.hours_per_month, type: 'project', demandId: item.id })
+            blocks.push({ label: item.name, hours: req.hours_by_month[month] ?? 0, type: 'project', demandId: item.id })
           }
         }
       }

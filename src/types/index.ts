@@ -52,7 +52,7 @@ export interface SkillRequirement {
   shape: 'skill'
   skill_id: string
   level: Level
-  hours_per_month: number
+  hours_by_month: Record<string, number>
   notes: string | null
   promoted_from?: string
 }
@@ -61,7 +61,7 @@ export interface NamedRequirement {
   id: string
   shape: 'named'
   person_id: string
-  hours_per_month: number
+  hours_by_month: Record<string, number>
   notes: string | null
   promoted_from?: string
 }

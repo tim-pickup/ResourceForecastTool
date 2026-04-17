@@ -2,6 +2,7 @@ import { HashRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom'
 import CapacityValidation from './views/CapacityValidation'
 import TeamActivity from './views/TeamActivity'
 import DemandDiscovery from './views/DemandDiscovery'
+import DemandEdit from './views/DemandEdit'
 import Admin from './views/Admin'
 
 const navItems = [
@@ -44,6 +45,8 @@ export default function App() {
             <Route path="/capacity" element={<CapacityValidation />} />
             <Route path="/team" element={<TeamActivity />} />
             <Route path="/demand" element={<DemandDiscovery />} />
+            <Route path="/demand/new" element={<DemandEdit />} />
+            <Route path="/demand/:id/edit" element={<DemandEdit />} />
             <Route path="/admin/*" element={<Admin />} />
           </Routes>
         </main>

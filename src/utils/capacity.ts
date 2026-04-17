@@ -29,7 +29,7 @@ export function getPersonNamedProjectHours(
       if (!monthInRange(month, phase.start_month, phase.end_month)) continue
       for (const req of phase.requirements) {
         if (req.shape === 'named' && req.person_id === personId) {
-          total += req.hours_per_month
+          total += req.hours_by_month[month] ?? 0
         }
       }
     }
@@ -64,7 +64,7 @@ export function getOverlayHoursForPerson(
       if (!monthInRange(month, phase.start_month, phase.end_month)) continue
       for (const req of phase.requirements) {
         if (req.shape === 'named' && req.person_id === personId) {
-          total += req.hours_per_month
+          total += req.hours_by_month[month] ?? 0
         }
       }
     }
@@ -145,7 +145,7 @@ function demandFromItems(
     if (!statuses.has(item.status)) continue
     for (const phase of item.phases) {
       if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-      const hrs = phase.requirements.filter(reqFilter).reduce((s, r) => s + r.hours_per_month, 0)
+      const hrs = phase.requirements.filter(reqFilter).reduce((s, r) => s + (r.hours_by_month[month] ?? 0), 0)
       if (hrs === 0) continue
       if (item.type === 'Group Strategy Project') out.strategy += hrs
       else if (item.type === 'Plant Project') out.plant += hrs
@@ -224,7 +224,7 @@ export function getOverlayDemand(month: string, overlayItems: DemandItem[]): num
   for (const item of overlayItems) {
     for (const phase of item.phases) {
       if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-      total += phase.requirements.reduce((s, r) => s + r.hours_per_month, 0)
+      total += phase.requirements.reduce((s, r) => s + (r.hours_by_month[month] ?? 0), 0)
     }
   }
   return total
@@ -254,10 +254,10 @@ export function getThemeSkillDemand(
       for (const req of phase.requirements) {
         if (req.shape === 'skill') {
           const skill = state.skills.find(s => s.id === req.skill_id)
-          if (skill?.theme_id === themeId) total += req.hours_per_month
+          if (skill?.theme_id === themeId) total += req.hours_by_month[month] ?? 0
         } else {
           const person = state.people.find(p => p.id === req.person_id)
-          if (person?.primary_theme_id === themeId) total += req.hours_per_month
+          if (person?.primary_theme_id === themeId) total += req.hours_by_month[month] ?? 0
         }
       }
     }

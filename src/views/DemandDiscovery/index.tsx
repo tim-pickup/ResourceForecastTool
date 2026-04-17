@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Search, LayoutGrid, List, GripVertical, ChevronUp, ChevronDown } from 'lucide-react'
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { useDroppable, useDraggable } from '@dnd-kit/core'
 import { useAppStore } from '../../store/useAppStore'
-import { DemandEditor } from '../../components/DemandEditor/DemandEditor'
+import { DemandDrawer } from '../../components/DemandEditor/DemandEditor'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import type { DemandItem, DemandStatus, DemandType } from '../../types'
@@ -71,10 +72,9 @@ function DroppableColumn({ status, children }: { status: DemandStatus; children:
 
 export default function DemandDiscovery() {
   const store = useAppStore()
+  const navigate = useNavigate()
   const [mode, setMode] = useState<ViewMode>('table')
-  const [editorId, setEditorId] = useState<string | null>(null)
-  const [editorOpen, setEditorOpen] = useState(false)
-  const [isNew, setIsNew] = useState(false)
+  const [drawerId, setDrawerId] = useState<string | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [filterStatus, setFilterStatus] = useState('')
@@ -121,9 +121,9 @@ export default function DemandDiscovery() {
     return sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
   }
 
-  function openEditor(id: string) { setEditorId(id); setIsNew(false); setEditorOpen(true) }
-  function openNew() { setEditorId(null); setIsNew(true); setEditorOpen(true) }
-  function closeEditor() { setEditorOpen(false); setEditorId(null); setIsNew(false) }
+  function openDrawer(id: string) { setDrawerId(id) }
+  function closeDrawer() { setDrawerId(null) }
+  function openNew() { navigate('/demand/new') }
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
@@ -221,7 +221,7 @@ export default function DemandDiscovery() {
               {filtered.map(item => (
                 <tr
                   key={item.id}
-                  onClick={() => openEditor(item.id)}
+                  onClick={() => openDrawer(item.id)}
                   className="border-b border-border/50 hover:bg-gray-50 cursor-pointer"
                 >
                   <td className="px-4 py-2.5 font-medium text-near-black">{item.name}</td>
@@ -254,7 +254,7 @@ export default function DemandDiscovery() {
                       <span className="text-xs text-gray-400">{colItems.length}</span>
                     </div>
                     {colItems.map(item => (
-                      <DraggableCard key={item.id} item={item} onEdit={() => openEditor(item.id)} />
+                      <DraggableCard key={item.id} item={item} onEdit={() => openDrawer(item.id)} />
                     ))}
                     {colItems.length === 0 && (
                       <p className="text-xs text-gray-400 italic text-center pt-4">No items</p>
@@ -280,7 +280,7 @@ export default function DemandDiscovery() {
             {filtered.map(item => (
               <div
                 key={item.id}
-                onClick={() => openEditor(item.id)}
+                onClick={() => openDrawer(item.id)}
                 className="border border-border rounded-md p-3 bg-white hover:border-border-hover cursor-pointer shadow-sm transition-colors"
               >
                 <div className="flex items-center gap-2 mb-1">
@@ -295,11 +295,8 @@ export default function DemandDiscovery() {
         </div>
       )}
 
-      {editorOpen && (
-        <DemandEditor
-          demandId={isNew ? null : editorId}
-          onClose={closeEditor}
-        />
+      {drawerId && (
+        <DemandDrawer demandId={drawerId} onClose={closeDrawer} />
       )}
     </div>
   )

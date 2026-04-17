@@ -102,7 +102,7 @@ export const useAppStore = create<Store>()(
                   shape: 'skill' as const,
                   skill_id: get().skills[0]?.id ?? '',
                   level: 'Basic' as const,
-                  hours_per_month: r.hours_per_month,
+                  hours_by_month: { ...r.hours_by_month },
                   notes: r.notes,
                 }
               }

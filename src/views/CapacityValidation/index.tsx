@@ -41,7 +41,7 @@ function PersonPanel({
       for (const phase of item.phases) {
         for (const req of phase.requirements) {
           if (req.shape === 'skill' && req.skill_id === skillId) {
-            out.push({ itemName: item.name, itemId: item.id, phase: phase.name, hours: req.hours_per_month, shape: 'skill' })
+            out.push({ itemName: item.name, itemId: item.id, phase: phase.name, hours: Object.values(req.hours_by_month).reduce((s, h) => s + h, 0), shape: 'skill' })
           }
         }
       }

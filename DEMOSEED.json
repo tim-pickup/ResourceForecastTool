@@ -1,47 +1,98 @@
 {
   "_meta": {
-    "version": "1.0",
-    "description": "Seed dataset for the Digital Manufacturing Resource Load & Capacity Tool. Names and specific skills are illustrative — the Head of PMO will tune these before the demo. Dates are set relative to a notional 'today' of 2026-05-01.",
+    "version": "1.1",
+    "description": "Seed dataset for the Digital Manufacturing Resource Load & Capacity Tool. Names and specific skills are illustrative \u2014 the Head of PMO will tune these before the demo. Dates are set relative to a notional 'today' of 2026-05-01. Requirements use hours_by_month keyed by YYYY-MM; BAU allocations remain hours_per_month (forecast model).",
     "today": "2026-05-01"
   },
-
   "themes": [
     {
       "id": "thm_mom",
       "name": "MOM",
-      "description": "Manufacturing Operations Management — MES, order execution, production tracking, OEE."
+      "description": "Manufacturing Operations Management \u2014 MES, order execution, production tracking, OEE."
     },
     {
       "id": "thm_miv",
       "name": "MI&V",
-      "description": "Manufacturing Intelligence & Visualisation — historians, analytics, dashboards, reporting."
+      "description": "Manufacturing Intelligence & Visualisation \u2014 historians, analytics, dashboards, reporting."
     },
     {
       "id": "thm_mbm",
       "name": "MBM",
-      "description": "Model-Based Manufacturing — simulation, digital twins, process modelling."
+      "description": "Model-Based Manufacturing \u2014 simulation, digital twins, process modelling."
     }
   ],
-
   "skills": [
-    { "id": "skl_mom_mes",     "theme_id": "thm_mom", "name": "MES Platform (core configuration)" },
-    { "id": "skl_mom_workflow","theme_id": "thm_mom", "name": "Production Workflow Design" },
-    { "id": "skl_mom_scada",   "theme_id": "thm_mom", "name": "SCADA Integration" },
-    { "id": "skl_mom_oee",     "theme_id": "thm_mom", "name": "OEE & Performance Tracking" },
-    { "id": "skl_mom_genealogy","theme_id": "thm_mom","name": "Genealogy & Traceability" },
-
-    { "id": "skl_miv_historian","theme_id": "thm_miv","name": "Historian Configuration" },
-    { "id": "skl_miv_hmi",     "theme_id": "thm_miv", "name": "HMI & Visualisation Design" },
-    { "id": "skl_miv_reporting","theme_id": "thm_miv","name": "Reporting & Dashboards" },
-    { "id": "skl_miv_analytics","theme_id": "thm_miv","name": "Manufacturing Analytics" },
-    { "id": "skl_miv_integration","theme_id":"thm_miv","name":"Data Integration & Pipelines" },
-
-    { "id": "skl_mbm_simulation","theme_id":"thm_mbm","name": "Process Simulation" },
-    { "id": "skl_mbm_twin",    "theme_id": "thm_mbm", "name": "Digital Twin Development" },
-    { "id": "skl_mbm_modelling","theme_id":"thm_mbm", "name": "Physics-Based Modelling" },
-    { "id": "skl_mbm_optimisation","theme_id":"thm_mbm","name": "Process Optimisation" }
+    {
+      "id": "skl_mom_mes",
+      "theme_id": "thm_mom",
+      "name": "MES Platform (core configuration)"
+    },
+    {
+      "id": "skl_mom_workflow",
+      "theme_id": "thm_mom",
+      "name": "Production Workflow Design"
+    },
+    {
+      "id": "skl_mom_scada",
+      "theme_id": "thm_mom",
+      "name": "SCADA Integration"
+    },
+    {
+      "id": "skl_mom_oee",
+      "theme_id": "thm_mom",
+      "name": "OEE & Performance Tracking"
+    },
+    {
+      "id": "skl_mom_genealogy",
+      "theme_id": "thm_mom",
+      "name": "Genealogy & Traceability"
+    },
+    {
+      "id": "skl_miv_historian",
+      "theme_id": "thm_miv",
+      "name": "Historian Configuration"
+    },
+    {
+      "id": "skl_miv_hmi",
+      "theme_id": "thm_miv",
+      "name": "HMI & Visualisation Design"
+    },
+    {
+      "id": "skl_miv_reporting",
+      "theme_id": "thm_miv",
+      "name": "Reporting & Dashboards"
+    },
+    {
+      "id": "skl_miv_analytics",
+      "theme_id": "thm_miv",
+      "name": "Manufacturing Analytics"
+    },
+    {
+      "id": "skl_miv_integration",
+      "theme_id": "thm_miv",
+      "name": "Data Integration & Pipelines"
+    },
+    {
+      "id": "skl_mbm_simulation",
+      "theme_id": "thm_mbm",
+      "name": "Process Simulation"
+    },
+    {
+      "id": "skl_mbm_twin",
+      "theme_id": "thm_mbm",
+      "name": "Digital Twin Development"
+    },
+    {
+      "id": "skl_mbm_modelling",
+      "theme_id": "thm_mbm",
+      "name": "Physics-Based Modelling"
+    },
+    {
+      "id": "skl_mbm_optimisation",
+      "theme_id": "thm_mbm",
+      "name": "Process Optimisation"
+    }
   ],
-
   "people": [
     {
       "id": "per_001",
@@ -52,9 +103,18 @@
       "available_to": null,
       "active": true,
       "skills": [
-        { "skill_id": "skl_mom_mes",       "level": "Specialist" },
-        { "skill_id": "skl_mom_workflow",  "level": "Advanced" },
-        { "skill_id": "skl_mom_genealogy", "level": "Advanced" }
+        {
+          "skill_id": "skl_mom_mes",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_mom_workflow",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mom_genealogy",
+          "level": "Advanced"
+        }
       ]
     },
     {
@@ -66,9 +126,18 @@
       "available_to": null,
       "active": true,
       "skills": [
-        { "skill_id": "skl_mom_mes",      "level": "Advanced" },
-        { "skill_id": "skl_mom_scada",    "level": "Specialist" },
-        { "skill_id": "skl_mom_oee",      "level": "Advanced" }
+        {
+          "skill_id": "skl_mom_mes",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mom_scada",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_mom_oee",
+          "level": "Advanced"
+        }
       ]
     },
     {
@@ -80,9 +149,18 @@
       "available_to": null,
       "active": true,
       "skills": [
-        { "skill_id": "skl_mom_workflow", "level": "Advanced" },
-        { "skill_id": "skl_mom_oee",      "level": "Basic" },
-        { "skill_id": "skl_miv_reporting","level": "Basic" }
+        {
+          "skill_id": "skl_mom_workflow",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mom_oee",
+          "level": "Basic"
+        },
+        {
+          "skill_id": "skl_miv_reporting",
+          "level": "Basic"
+        }
       ]
     },
     {
@@ -94,11 +172,16 @@
       "available_to": null,
       "active": true,
       "skills": [
-        { "skill_id": "skl_mom_mes",      "level": "Basic" },
-        { "skill_id": "skl_mom_scada",    "level": "Advanced" }
+        {
+          "skill_id": "skl_mom_mes",
+          "level": "Basic"
+        },
+        {
+          "skill_id": "skl_mom_scada",
+          "level": "Advanced"
+        }
       ]
     },
-
     {
       "id": "per_005",
       "name": "James Whitfield",
@@ -108,9 +191,18 @@
       "available_to": null,
       "active": true,
       "skills": [
-        { "skill_id": "skl_miv_historian",  "level": "Specialist" },
-        { "skill_id": "skl_miv_integration","level": "Advanced" },
-        { "skill_id": "skl_miv_analytics",  "level": "Advanced" }
+        {
+          "skill_id": "skl_miv_historian",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_miv_integration",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_miv_analytics",
+          "level": "Advanced"
+        }
       ]
     },
     {
@@ -122,9 +214,18 @@
       "available_to": null,
       "active": true,
       "skills": [
-        { "skill_id": "skl_miv_analytics", "level": "Specialist" },
-        { "skill_id": "skl_miv_reporting", "level": "Advanced" },
-        { "skill_id": "skl_miv_integration","level": "Advanced" }
+        {
+          "skill_id": "skl_miv_analytics",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_miv_reporting",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_miv_integration",
+          "level": "Advanced"
+        }
       ]
     },
     {
@@ -136,9 +237,18 @@
       "available_to": null,
       "active": true,
       "skills": [
-        { "skill_id": "skl_miv_hmi",        "level": "Advanced" },
-        { "skill_id": "skl_miv_reporting",  "level": "Advanced" },
-        { "skill_id": "skl_miv_historian",  "level": "Basic" }
+        {
+          "skill_id": "skl_miv_hmi",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_miv_reporting",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_miv_historian",
+          "level": "Basic"
+        }
       ]
     },
     {
@@ -150,11 +260,16 @@
       "available_to": null,
       "active": true,
       "skills": [
-        { "skill_id": "skl_miv_hmi",       "level": "Basic" },
-        { "skill_id": "skl_miv_reporting", "level": "Basic" }
+        {
+          "skill_id": "skl_miv_hmi",
+          "level": "Basic"
+        },
+        {
+          "skill_id": "skl_miv_reporting",
+          "level": "Basic"
+        }
       ]
     },
-
     {
       "id": "per_009",
       "name": "Marcus Vogel",
@@ -164,9 +279,18 @@
       "available_to": null,
       "active": true,
       "skills": [
-        { "skill_id": "skl_mbm_simulation",   "level": "Specialist" },
-        { "skill_id": "skl_mbm_modelling",    "level": "Specialist" },
-        { "skill_id": "skl_mbm_optimisation", "level": "Advanced" }
+        {
+          "skill_id": "skl_mbm_simulation",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_mbm_modelling",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_mbm_optimisation",
+          "level": "Advanced"
+        }
       ]
     },
     {
@@ -178,9 +302,18 @@
       "available_to": null,
       "active": true,
       "skills": [
-        { "skill_id": "skl_mbm_twin",      "level": "Advanced" },
-        { "skill_id": "skl_mbm_modelling", "level": "Advanced" },
-        { "skill_id": "skl_miv_integration","level": "Basic" }
+        {
+          "skill_id": "skl_mbm_twin",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mbm_modelling",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_miv_integration",
+          "level": "Basic"
+        }
       ]
     },
     {
@@ -192,8 +325,14 @@
       "available_to": "2026-10",
       "active": true,
       "skills": [
-        { "skill_id": "skl_mbm_simulation",   "level": "Advanced" },
-        { "skill_id": "skl_mbm_optimisation", "level": "Advanced" }
+        {
+          "skill_id": "skl_mbm_simulation",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mbm_optimisation",
+          "level": "Advanced"
+        }
       ]
     },
     {
@@ -205,22 +344,27 @@
       "available_to": null,
       "active": true,
       "skills": [
-        { "skill_id": "skl_mbm_twin",      "level": "Basic" },
-        { "skill_id": "skl_mbm_modelling", "level": "Basic" }
+        {
+          "skill_id": "skl_mbm_twin",
+          "level": "Basic"
+        },
+        {
+          "skill_id": "skl_mbm_modelling",
+          "level": "Basic"
+        }
       ]
     }
   ],
-
   "bau_streams": [
     {
       "id": "bau_001",
-      "name": "MES Super User — Plant A",
+      "name": "MES Super User \u2014 Plant A",
       "description": "Day-to-day MES support for Plant A super users, batch troubleshooting, recipe queries.",
       "owning_theme_id": "thm_mom"
     },
     {
       "id": "bau_002",
-      "name": "MES Super User — Plant B",
+      "name": "MES Super User \u2014 Plant B",
       "description": "Day-to-day MES support for Plant B. Planned handoff to business super users through 2026.",
       "owning_theme_id": "thm_mom"
     },
@@ -243,27 +387,112 @@
       "owning_theme_id": "thm_mbm"
     }
   ],
-
   "bau_allocations": [
-    { "id": "ba_001", "person_id": "per_001", "stream_id": "bau_001", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": null },
-    { "id": "ba_002", "person_id": "per_002", "stream_id": "bau_001", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": null },
-    { "id": "ba_003", "person_id": "per_003", "stream_id": "bau_001", "hours_per_month": 0,  "effective_from": "2026-05", "effective_to": null },
-
-    { "id": "ba_004", "person_id": "per_002", "stream_id": "bau_002", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": "2026-08" },
-    { "id": "ba_005", "person_id": "per_002", "stream_id": "bau_002", "hours_per_month": 0, "effective_from": "2026-09", "effective_to": "2026-12" },
-    { "id": "ba_006", "person_id": "per_002", "stream_id": "bau_002", "hours_per_month": 0,  "effective_from": "2027-01", "effective_to": null },
-    { "id": "ba_007", "person_id": "per_004", "stream_id": "bau_002", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": "2026-10" },
-
-    { "id": "ba_008", "person_id": "per_005", "stream_id": "bau_003", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": null },
-    { "id": "ba_009", "person_id": "per_006", "stream_id": "bau_003", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": null },
-
-    { "id": "ba_010", "person_id": "per_007", "stream_id": "bau_004", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": null },
-    { "id": "ba_011", "person_id": "per_006", "stream_id": "bau_004", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": null },
-
-    { "id": "ba_012", "person_id": "per_009", "stream_id": "bau_005", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": null },
-    { "id": "ba_013", "person_id": "per_011", "stream_id": "bau_005", "hours_per_month": 0, "effective_from": "2026-05", "effective_to": "2026-10" }
+    {
+      "id": "ba_001",
+      "person_id": "per_001",
+      "stream_id": "bau_001",
+      "hours_per_month": 20,
+      "effective_from": "2026-05",
+      "effective_to": null
+    },
+    {
+      "id": "ba_002",
+      "person_id": "per_002",
+      "stream_id": "bau_001",
+      "hours_per_month": 12,
+      "effective_from": "2026-05",
+      "effective_to": null
+    },
+    {
+      "id": "ba_003",
+      "person_id": "per_003",
+      "stream_id": "bau_001",
+      "hours_per_month": 8,
+      "effective_from": "2026-05",
+      "effective_to": null
+    },
+    {
+      "id": "ba_004",
+      "person_id": "per_002",
+      "stream_id": "bau_002",
+      "hours_per_month": 30,
+      "effective_from": "2026-05",
+      "effective_to": "2026-08"
+    },
+    {
+      "id": "ba_005",
+      "person_id": "per_002",
+      "stream_id": "bau_002",
+      "hours_per_month": 15,
+      "effective_from": "2026-09",
+      "effective_to": "2026-12"
+    },
+    {
+      "id": "ba_006",
+      "person_id": "per_002",
+      "stream_id": "bau_002",
+      "hours_per_month": 5,
+      "effective_from": "2027-01",
+      "effective_to": null
+    },
+    {
+      "id": "ba_007",
+      "person_id": "per_004",
+      "stream_id": "bau_002",
+      "hours_per_month": 20,
+      "effective_from": "2026-05",
+      "effective_to": "2026-10"
+    },
+    {
+      "id": "ba_008",
+      "person_id": "per_005",
+      "stream_id": "bau_003",
+      "hours_per_month": 25,
+      "effective_from": "2026-05",
+      "effective_to": null
+    },
+    {
+      "id": "ba_009",
+      "person_id": "per_006",
+      "stream_id": "bau_003",
+      "hours_per_month": 15,
+      "effective_from": "2026-05",
+      "effective_to": null
+    },
+    {
+      "id": "ba_010",
+      "person_id": "per_007",
+      "stream_id": "bau_004",
+      "hours_per_month": 30,
+      "effective_from": "2026-05",
+      "effective_to": null
+    },
+    {
+      "id": "ba_011",
+      "person_id": "per_006",
+      "stream_id": "bau_004",
+      "hours_per_month": 10,
+      "effective_from": "2026-05",
+      "effective_to": null
+    },
+    {
+      "id": "ba_012",
+      "person_id": "per_009",
+      "stream_id": "bau_005",
+      "hours_per_month": 15,
+      "effective_from": "2026-05",
+      "effective_to": null
+    },
+    {
+      "id": "ba_013",
+      "person_id": "per_011",
+      "stream_id": "bau_005",
+      "hours_per_month": 10,
+      "effective_from": "2026-05",
+      "effective_to": "2026-10"
+    }
   ],
-
   "demand_items": [
     {
       "id": "dmd_001",
@@ -272,7 +501,7 @@
       "status": "Allocated",
       "owner": "Priya Kumar",
       "primary_theme_id": "thm_mom",
-      "description": "Extension of MES Phase 1 deployment at Plant B covering Lines 3–5, with genealogy and SCADA integration.",
+      "description": "Extension of MES Phase 1 deployment at Plant B covering Lines 3\u20135, with genealogy and SCADA integration.",
       "parked_reason": null,
       "phases": [
         {
@@ -283,9 +512,39 @@
           "funding_source": "Investment Scheme",
           "funding_notes": "IS-2025-18 Plant B MES",
           "requirements": [
-            { "id": "req_001", "shape": "named", "person_id": "per_002", "hours_per_month": 60, "notes": "Lead architect" },
-            { "id": "req_002", "shape": "named", "person_id": "per_001", "hours_per_month": 40, "notes": null },
-            { "id": "req_003", "shape": "named", "person_id": "per_007", "hours_per_month": 20, "notes": "HMI mockups" }
+            {
+              "id": "req_001",
+              "shape": "named",
+              "person_id": "per_002",
+              "notes": "Lead architect",
+              "hours_by_month": {
+                "2026-05": 60,
+                "2026-06": 60,
+                "2026-07": 60
+              }
+            },
+            {
+              "id": "req_002",
+              "shape": "named",
+              "person_id": "per_001",
+              "notes": null,
+              "hours_by_month": {
+                "2026-05": 40,
+                "2026-06": 40,
+                "2026-07": 40
+              }
+            },
+            {
+              "id": "req_003",
+              "shape": "named",
+              "person_id": "per_007",
+              "notes": "HMI mockups",
+              "hours_by_month": {
+                "2026-05": 20,
+                "2026-06": 20,
+                "2026-07": 20
+              }
+            }
           ]
         },
         {
@@ -296,14 +555,46 @@
           "funding_source": "Investment Scheme",
           "funding_notes": "IS-2025-18 Plant B MES",
           "requirements": [
-            { "id": "req_004", "shape": "named", "person_id": "per_002", "hours_per_month": 80, "notes": null },
-            { "id": "req_005", "shape": "named", "person_id": "per_003", "hours_per_month": 60, "notes": null },
-            { "id": "req_006", "shape": "named", "person_id": "per_004", "hours_per_month": 40, "notes": null }
+            {
+              "id": "req_004",
+              "shape": "named",
+              "person_id": "per_002",
+              "notes": null,
+              "hours_by_month": {
+                "2026-08": 80,
+                "2026-09": 80,
+                "2026-10": 80,
+                "2026-11": 80
+              }
+            },
+            {
+              "id": "req_005",
+              "shape": "named",
+              "person_id": "per_003",
+              "notes": null,
+              "hours_by_month": {
+                "2026-08": 60,
+                "2026-09": 60,
+                "2026-10": 60,
+                "2026-11": 60
+              }
+            },
+            {
+              "id": "req_006",
+              "shape": "named",
+              "person_id": "per_004",
+              "notes": null,
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40,
+                "2026-11": 40
+              }
+            }
           ]
         }
       ]
     },
-
     {
       "id": "dmd_002",
       "name": "Group OEE Reporting Standard",
@@ -322,8 +613,26 @@
           "funding_source": "Investment Scheme",
           "funding_notes": "GS-2026-02 OEE Standardisation",
           "requirements": [
-            { "id": "req_007", "shape": "named", "person_id": "per_006", "hours_per_month": 60, "notes": null },
-            { "id": "req_008", "shape": "named", "person_id": "per_002", "hours_per_month": 20, "notes": "MOM KPI input" }
+            {
+              "id": "req_007",
+              "shape": "named",
+              "person_id": "per_006",
+              "notes": null,
+              "hours_by_month": {
+                "2026-05": 60,
+                "2026-06": 60
+              }
+            },
+            {
+              "id": "req_008",
+              "shape": "named",
+              "person_id": "per_002",
+              "notes": "MOM KPI input",
+              "hours_by_month": {
+                "2026-05": 20,
+                "2026-06": 20
+              }
+            }
           ]
         },
         {
@@ -334,14 +643,46 @@
           "funding_source": "Investment Scheme",
           "funding_notes": "GS-2026-02 OEE Standardisation",
           "requirements": [
-            { "id": "req_009", "shape": "named", "person_id": "per_006", "hours_per_month": 50, "notes": null },
-            { "id": "req_010", "shape": "named", "person_id": "per_007", "hours_per_month": 50, "notes": "Dashboard build" },
-            { "id": "req_011", "shape": "named", "person_id": "per_005", "hours_per_month": 30, "notes": "Historian integration" }
+            {
+              "id": "req_009",
+              "shape": "named",
+              "person_id": "per_006",
+              "notes": null,
+              "hours_by_month": {
+                "2026-07": 50,
+                "2026-08": 50,
+                "2026-09": 50,
+                "2026-10": 50
+              }
+            },
+            {
+              "id": "req_010",
+              "shape": "named",
+              "person_id": "per_007",
+              "notes": "Dashboard build",
+              "hours_by_month": {
+                "2026-07": 50,
+                "2026-08": 50,
+                "2026-09": 50,
+                "2026-10": 50
+              }
+            },
+            {
+              "id": "req_011",
+              "shape": "named",
+              "person_id": "per_005",
+              "notes": "Historian integration",
+              "hours_by_month": {
+                "2026-07": 30,
+                "2026-08": 30,
+                "2026-09": 30,
+                "2026-10": 30
+              }
+            }
           ]
         }
       ]
     },
-
     {
       "id": "dmd_003",
       "name": "Line Y Digital Twin Pilot",
@@ -360,9 +701,40 @@
           "funding_source": "Investment Scheme",
           "funding_notes": "GS-2026-07 Digital Twin Pilot",
           "requirements": [
-            { "id": "req_012", "shape": "named", "person_id": "per_009", "hours_per_month": 60, "notes": null },
-            { "id": "req_013", "shape": "named", "person_id": "per_010", "hours_per_month": 40, "notes": null },
-            { "id": "req_014", "shape": "skill", "skill_id": "skl_miv_integration", "level": "Advanced", "hours_per_month": 20, "notes": "Historian → model data pipeline" }
+            {
+              "id": "req_012",
+              "shape": "named",
+              "person_id": "per_009",
+              "notes": null,
+              "hours_by_month": {
+                "2026-06": 60,
+                "2026-07": 60,
+                "2026-08": 60
+              }
+            },
+            {
+              "id": "req_013",
+              "shape": "named",
+              "person_id": "per_010",
+              "notes": null,
+              "hours_by_month": {
+                "2026-06": 40,
+                "2026-07": 40,
+                "2026-08": 40
+              }
+            },
+            {
+              "id": "req_014",
+              "shape": "skill",
+              "skill_id": "skl_miv_integration",
+              "level": "Advanced",
+              "notes": "Historian \u2192 model data pipeline",
+              "hours_by_month": {
+                "2026-06": 20,
+                "2026-07": 20,
+                "2026-08": 20
+              }
+            }
           ]
         },
         {
@@ -373,14 +745,55 @@
           "funding_source": "Investment Scheme",
           "funding_notes": "GS-2026-07 Digital Twin Pilot",
           "requirements": [
-            { "id": "req_015", "shape": "skill", "skill_id": "skl_mbm_twin",    "level": "Advanced",   "hours_per_month": 80, "notes": null },
-            { "id": "req_016", "shape": "skill", "skill_id": "skl_mbm_modelling","level": "Specialist","hours_per_month": 40, "notes": null },
-            { "id": "req_017", "shape": "skill", "skill_id": "skl_mbm_optimisation","level":"Advanced","hours_per_month": 30, "notes": null }
+            {
+              "id": "req_015",
+              "shape": "skill",
+              "skill_id": "skl_mbm_twin",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-09": 80,
+                "2026-10": 80,
+                "2026-11": 80,
+                "2026-12": 80,
+                "2027-01": 80,
+                "2027-02": 80
+              }
+            },
+            {
+              "id": "req_016",
+              "shape": "skill",
+              "skill_id": "skl_mbm_modelling",
+              "level": "Specialist",
+              "notes": null,
+              "hours_by_month": {
+                "2026-09": 40,
+                "2026-10": 40,
+                "2026-11": 40,
+                "2026-12": 40,
+                "2027-01": 40,
+                "2027-02": 40
+              }
+            },
+            {
+              "id": "req_017",
+              "shape": "skill",
+              "skill_id": "skl_mbm_optimisation",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-09": 30,
+                "2026-10": 30,
+                "2026-11": 30,
+                "2026-12": 30,
+                "2027-01": 30,
+                "2027-02": 30
+              }
+            }
           ]
         }
       ]
     },
-
     {
       "id": "dmd_004",
       "name": "Plant C Historian Refresh",
@@ -399,7 +812,16 @@
           "funding_source": "Plant/Sector Allocation",
           "funding_notes": "Plant C infrastructure allocation",
           "requirements": [
-            { "id": "req_018", "shape": "named", "person_id": "per_005", "hours_per_month": 40, "notes": null }
+            {
+              "id": "req_018",
+              "shape": "named",
+              "person_id": "per_005",
+              "notes": null,
+              "hours_by_month": {
+                "2026-07": 40,
+                "2026-08": 40
+              }
+            }
           ]
         },
         {
@@ -410,14 +832,49 @@
           "funding_source": "Mixed",
           "funding_notes": "Plant C allocation + IS-2026-11 Historian Programme",
           "requirements": [
-            { "id": "req_019", "shape": "skill", "skill_id": "skl_miv_historian",  "level": "Specialist", "hours_per_month": 60, "notes": null },
-            { "id": "req_020", "shape": "skill", "skill_id": "skl_miv_integration","level": "Advanced",   "hours_per_month": 40, "notes": null },
-            { "id": "req_021", "shape": "skill", "skill_id": "skl_miv_hmi",        "level": "Advanced",   "hours_per_month": 30, "notes": "Dashboard rebuild" }
+            {
+              "id": "req_019",
+              "shape": "skill",
+              "skill_id": "skl_miv_historian",
+              "level": "Specialist",
+              "notes": null,
+              "hours_by_month": {
+                "2026-09": 60,
+                "2026-10": 60,
+                "2026-11": 60,
+                "2026-12": 60
+              }
+            },
+            {
+              "id": "req_020",
+              "shape": "skill",
+              "skill_id": "skl_miv_integration",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-09": 40,
+                "2026-10": 40,
+                "2026-11": 40,
+                "2026-12": 40
+              }
+            },
+            {
+              "id": "req_021",
+              "shape": "skill",
+              "skill_id": "skl_miv_hmi",
+              "level": "Advanced",
+              "notes": "Dashboard rebuild",
+              "hours_by_month": {
+                "2026-09": 30,
+                "2026-10": 30,
+                "2026-11": 30,
+                "2026-12": 30
+              }
+            }
           ]
         }
       ]
     },
-
     {
       "id": "dmd_005",
       "name": "Site X MES Upgrade",
@@ -436,10 +893,58 @@
           "funding_source": "Investment Scheme",
           "funding_notes": "IS-2026-04 Site X MES",
           "requirements": [
-            { "id": "req_022", "shape": "skill", "skill_id": "skl_mom_mes",      "level": "Specialist", "hours_per_month": 40, "notes": "Lead architect — must have done a full MES rollout" },
-            { "id": "req_023", "shape": "skill", "skill_id": "skl_mom_workflow", "level": "Advanced",   "hours_per_month": 80, "notes": null },
-            { "id": "req_024", "shape": "skill", "skill_id": "skl_mom_workflow", "level": "Advanced",   "hours_per_month": 40, "notes": "Second slot" },
-            { "id": "req_025", "shape": "skill", "skill_id": "skl_miv_hmi",      "level": "Basic",      "hours_per_month": 20, "notes": "HMI screen design" }
+            {
+              "id": "req_022",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Specialist",
+              "notes": "Lead architect \u2014 must have done a full MES rollout",
+              "hours_by_month": {
+                "2026-05": 40,
+                "2026-06": 40,
+                "2026-07": 40,
+                "2026-08": 40
+              }
+            },
+            {
+              "id": "req_023",
+              "shape": "skill",
+              "skill_id": "skl_mom_workflow",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-05": 80,
+                "2026-06": 80,
+                "2026-07": 80,
+                "2026-08": 80
+              }
+            },
+            {
+              "id": "req_024",
+              "shape": "skill",
+              "skill_id": "skl_mom_workflow",
+              "level": "Advanced",
+              "notes": "Second slot",
+              "hours_by_month": {
+                "2026-05": 40,
+                "2026-06": 40,
+                "2026-07": 40,
+                "2026-08": 40
+              }
+            },
+            {
+              "id": "req_025",
+              "shape": "skill",
+              "skill_id": "skl_miv_hmi",
+              "level": "Basic",
+              "notes": "HMI screen design",
+              "hours_by_month": {
+                "2026-05": 20,
+                "2026-06": 20,
+                "2026-07": 20,
+                "2026-08": 20
+              }
+            }
           ]
         },
         {
@@ -450,14 +955,49 @@
           "funding_source": "Mixed",
           "funding_notes": "IS-2026-04 + Site X allocation",
           "requirements": [
-            { "id": "req_026", "shape": "skill", "skill_id": "skl_mom_mes",       "level": "Specialist", "hours_per_month": 40, "notes": null },
-            { "id": "req_027", "shape": "skill", "skill_id": "skl_mom_workflow",  "level": "Advanced",   "hours_per_month": 80, "notes": null },
-            { "id": "req_028", "shape": "skill", "skill_id": "skl_miv_historian", "level": "Advanced",   "hours_per_month": 40, "notes": "Historian integration" }
+            {
+              "id": "req_026",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Specialist",
+              "notes": null,
+              "hours_by_month": {
+                "2026-09": 40,
+                "2026-10": 40,
+                "2026-11": 40,
+                "2026-12": 40
+              }
+            },
+            {
+              "id": "req_027",
+              "shape": "skill",
+              "skill_id": "skl_mom_workflow",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-09": 80,
+                "2026-10": 80,
+                "2026-11": 80,
+                "2026-12": 80
+              }
+            },
+            {
+              "id": "req_028",
+              "shape": "skill",
+              "skill_id": "skl_miv_historian",
+              "level": "Advanced",
+              "notes": "Historian integration",
+              "hours_by_month": {
+                "2026-09": 40,
+                "2026-10": 40,
+                "2026-11": 40,
+                "2026-12": 40
+              }
+            }
           ]
         }
       ]
     },
-
     {
       "id": "dmd_006",
       "name": "NPD Line Y Integration",
@@ -465,7 +1005,7 @@
       "status": "Submitted",
       "owner": "Ishani Bhatia",
       "primary_theme_id": "thm_mom",
-      "description": "New product introduction on Line Y — cross-theme demand spanning MOM workflow changes, MI&V instrumentation, and MBM model updates. Demonstrates the cross-theme composition.",
+      "description": "New product introduction on Line Y \u2014 cross-theme demand spanning MOM workflow changes, MI&V instrumentation, and MBM model updates. Demonstrates the cross-theme composition.",
       "parked_reason": null,
       "phases": [
         {
@@ -476,8 +1016,28 @@
           "funding_source": "Plant/Sector Allocation",
           "funding_notes": "NPD Line Y sector budget",
           "requirements": [
-            { "id": "req_029", "shape": "skill", "skill_id": "skl_mom_workflow",  "level": "Advanced", "hours_per_month": 30, "notes": null },
-            { "id": "req_030", "shape": "skill", "skill_id": "skl_miv_historian", "level": "Advanced", "hours_per_month": 20, "notes": null }
+            {
+              "id": "req_029",
+              "shape": "skill",
+              "skill_id": "skl_mom_workflow",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-08": 30,
+                "2026-09": 30
+              }
+            },
+            {
+              "id": "req_030",
+              "shape": "skill",
+              "skill_id": "skl_miv_historian",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-08": 20,
+                "2026-09": 20
+              }
+            }
           ]
         },
         {
@@ -488,9 +1048,42 @@
           "funding_source": "Plant/Sector Allocation",
           "funding_notes": "NPD Line Y sector budget",
           "requirements": [
-            { "id": "req_031", "shape": "skill", "skill_id": "skl_mom_mes",       "level": "Specialist", "hours_per_month": 40, "notes": null },
-            { "id": "req_032", "shape": "skill", "skill_id": "skl_mom_mes",       "level": "Specialist", "hours_per_month": 40, "notes": "Second slot" },
-            { "id": "req_033", "shape": "skill", "skill_id": "skl_mbm_modelling", "level": "Basic",      "hours_per_month": 20, "notes": null }
+            {
+              "id": "req_031",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Specialist",
+              "notes": null,
+              "hours_by_month": {
+                "2026-10": 40,
+                "2026-11": 40,
+                "2026-12": 40
+              }
+            },
+            {
+              "id": "req_032",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Specialist",
+              "notes": "Second slot",
+              "hours_by_month": {
+                "2026-10": 40,
+                "2026-11": 40,
+                "2026-12": 40
+              }
+            },
+            {
+              "id": "req_033",
+              "shape": "skill",
+              "skill_id": "skl_mbm_modelling",
+              "level": "Basic",
+              "notes": null,
+              "hours_by_month": {
+                "2026-10": 20,
+                "2026-11": 20,
+                "2026-12": 20
+              }
+            }
           ]
         },
         {
@@ -501,13 +1094,32 @@
           "funding_source": "Plant/Sector Allocation",
           "funding_notes": "NPD Line Y sector budget",
           "requirements": [
-            { "id": "req_034", "shape": "skill", "skill_id": "skl_mom_mes",       "level": "Basic", "hours_per_month": 30, "notes": null },
-            { "id": "req_035", "shape": "skill", "skill_id": "skl_miv_reporting", "level": "Basic", "hours_per_month": 20, "notes": null }
+            {
+              "id": "req_034",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Basic",
+              "notes": null,
+              "hours_by_month": {
+                "2027-01": 30,
+                "2027-02": 30
+              }
+            },
+            {
+              "id": "req_035",
+              "shape": "skill",
+              "skill_id": "skl_miv_reporting",
+              "level": "Basic",
+              "notes": null,
+              "hours_by_month": {
+                "2027-01": 20,
+                "2027-02": 20
+              }
+            }
           ]
         }
       ]
     },
-
     {
       "id": "dmd_007",
       "name": "Plant A Genealogy Enhancement",
@@ -515,7 +1127,7 @@
       "status": "Draft",
       "owner": "Alex Morgan",
       "primary_theme_id": "thm_mom",
-      "description": "Enhance genealogy capture at Plant A to support new regulatory traceability requirements. Being shaped — requirements still being gathered from Quality.",
+      "description": "Enhance genealogy capture at Plant A to support new regulatory traceability requirements. Being shaped \u2014 requirements still being gathered from Quality.",
       "parked_reason": null,
       "phases": [
         {
@@ -526,12 +1138,21 @@
           "funding_source": "Plant/Sector Allocation",
           "funding_notes": "Plant A quality allocation",
           "requirements": [
-            { "id": "req_036", "shape": "skill", "skill_id": "skl_mom_genealogy", "level": "Advanced", "hours_per_month": 30, "notes": null }
+            {
+              "id": "req_036",
+              "shape": "skill",
+              "skill_id": "skl_mom_genealogy",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-09": 30,
+                "2026-10": 30
+              }
+            }
           ]
         }
       ]
     },
-
     {
       "id": "dmd_008",
       "name": "Predictive Maintenance Dashboard POC",
@@ -550,14 +1171,49 @@
           "funding_source": "Investment Scheme",
           "funding_notes": "GS-2026-12 Predictive Maintenance (pending approval)",
           "requirements": [
-            { "id": "req_037", "shape": "skill", "skill_id": "skl_miv_analytics",   "level": "Specialist", "hours_per_month": 50, "notes": null },
-            { "id": "req_038", "shape": "skill", "skill_id": "skl_miv_integration", "level": "Advanced",   "hours_per_month": 30, "notes": null },
-            { "id": "req_039", "shape": "skill", "skill_id": "skl_mbm_optimisation","level": "Advanced",   "hours_per_month": 20, "notes": null }
+            {
+              "id": "req_037",
+              "shape": "skill",
+              "skill_id": "skl_miv_analytics",
+              "level": "Specialist",
+              "notes": null,
+              "hours_by_month": {
+                "2026-11": 50,
+                "2026-12": 50,
+                "2027-01": 50,
+                "2027-02": 50
+              }
+            },
+            {
+              "id": "req_038",
+              "shape": "skill",
+              "skill_id": "skl_miv_integration",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-11": 30,
+                "2026-12": 30,
+                "2027-01": 30,
+                "2027-02": 30
+              }
+            },
+            {
+              "id": "req_039",
+              "shape": "skill",
+              "skill_id": "skl_mbm_optimisation",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-11": 20,
+                "2026-12": 20,
+                "2027-01": 20,
+                "2027-02": 20
+              }
+            }
           ]
         }
       ]
     },
-
     {
       "id": "dmd_009",
       "name": "Plant D MES Greenfield",
@@ -576,14 +1232,52 @@
           "funding_source": "Investment Scheme",
           "funding_notes": "IS-2025-22 Plant D Greenfield",
           "requirements": [
-            { "id": "req_040", "shape": "skill", "skill_id": "skl_mom_mes",      "level": "Specialist", "hours_per_month": 60, "notes": null },
-            { "id": "req_041", "shape": "skill", "skill_id": "skl_mom_workflow", "level": "Advanced",   "hours_per_month": 80, "notes": null },
-            { "id": "req_042", "shape": "skill", "skill_id": "skl_mom_scada",    "level": "Specialist", "hours_per_month": 40, "notes": null }
+            {
+              "id": "req_040",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Specialist",
+              "notes": null,
+              "hours_by_month": {
+                "2026-06": 60,
+                "2026-07": 60,
+                "2026-08": 60,
+                "2026-09": 60,
+                "2026-10": 60
+              }
+            },
+            {
+              "id": "req_041",
+              "shape": "skill",
+              "skill_id": "skl_mom_workflow",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-06": 80,
+                "2026-07": 80,
+                "2026-08": 80,
+                "2026-09": 80,
+                "2026-10": 80
+              }
+            },
+            {
+              "id": "req_042",
+              "shape": "skill",
+              "skill_id": "skl_mom_scada",
+              "level": "Specialist",
+              "notes": null,
+              "hours_by_month": {
+                "2026-06": 40,
+                "2026-07": 40,
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              }
+            }
           ]
         }
       ]
     },
-
     {
       "id": "dmd_010",
       "name": "Plant B Advanced Analytics",
@@ -602,8 +1296,32 @@
           "funding_source": "Plant/Sector Allocation",
           "funding_notes": "Plant B operations budget",
           "requirements": [
-            { "id": "req_043", "shape": "skill", "skill_id": "skl_miv_analytics",   "level": "Specialist", "hours_per_month": 60, "notes": null },
-            { "id": "req_044", "shape": "skill", "skill_id": "skl_miv_integration", "level": "Advanced",   "hours_per_month": 30, "notes": null }
+            {
+              "id": "req_043",
+              "shape": "skill",
+              "skill_id": "skl_miv_analytics",
+              "level": "Specialist",
+              "notes": null,
+              "hours_by_month": {
+                "2026-09": 60,
+                "2026-10": 60,
+                "2026-11": 60,
+                "2026-12": 60
+              }
+            },
+            {
+              "id": "req_044",
+              "shape": "skill",
+              "skill_id": "skl_miv_integration",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-09": 30,
+                "2026-10": 30,
+                "2026-11": 30,
+                "2026-12": 30
+              }
+            }
           ]
         }
       ]

@@ -1,6 +1,6 @@
 # Digital Manufacturing Resource Load & Capacity Tool
 
-## Requirements Specification — v1.4
+## Requirements Specification — v1.5
 
 ---
 
@@ -83,12 +83,15 @@ The data model has three layers: **structure** (themes, skills, people), **deman
 
 **Resource Requirement** — how a phase consumes capacity. **A phase has many resource requirements.** Each requirement is one of two shapes:
 
-- **Skill-shaped**: `{skill, level, hours per month, notes}` — used when the work is understood but not yet assigned to a named person.
-- **Named**: `{person, hours per month, notes}` — used when a specific person is committed.
+- **Skill-shaped**: `{skill, level, hours_by_month, notes}` — the entry shape. All new requirements are created as skill-shaped.
+- **Named**: `{person, hours_by_month, notes}` — only created by *promoting* an existing skill-shaped requirement (see section 3 — Promotion of skill-shaped to named). Users do not enter named requirements directly.
 
-A single phase can mix both shapes freely, and multiple requirements of the same skill at the same or different levels are permitted. See section 2.5 for worked examples.
+**Hours are captured per month, not as a flat rate.** The `hours_by_month` field is an object keyed by month (`YYYY-MM`) with the hours value for each month the phase spans. This lets demand be front-loaded, back-loaded, or spiky as real work usually is.
 
-A skill-shaped requirement can be **promoted to named** — and crucially, a single skill-shaped requirement can be split across multiple people. See section 2.5.
+- When a requirement is first created, the UI should pre-fill every month in the phase with a suggested value (e.g. the user's entered "typical" hours) — but each month is then individually editable.
+- Changing the phase's start or end month adds or removes entries in `hours_by_month`. When extending, new months inherit the value from the nearest existing month. When shrinking, removed months' values are discarded (with a confirm if they were non-zero).
+
+A single phase can hold multiple requirements of the same skill at the same or different levels — this is how a phase that needs two MOM Specialists or three different skills gets modelled. See section 2.5 for worked examples.
 
 The `notes` field on a requirement captures tacit context that skill+level alone can't express (e.g. "needs S7 experience specifically", "must have been through site induction").
 
@@ -126,7 +129,7 @@ else:
 
 "Active" means the month falls within the allocation's effective range.
 
-Named project commitments come from Resource Requirements with a person assigned, where the current month falls within the parent Phase's date range, **and the parent Demand Item is in status `Accepted` or `Allocated`**. Hours per month on the requirement are applied flat across every month in the phase.
+Named project commitments come from Resource Requirements with a person assigned, where the current month falls within the parent Phase's date range, **and the parent Demand Item is in status `Accepted` or `Allocated`**. The hours consumed in a given month are taken from the requirement's `hours_by_month[month]` value directly — no flat-rate averaging.
 
 **Skill-shaped requirements** do not consume named capacity but *do* count toward theme-level and skill-level demand forecasts. They represent commitments against the team that haven't yet been landed on individuals.
 
@@ -145,27 +148,27 @@ These examples exist to make the abstract model concrete.
 
 **Example A — Multiple skills and multiple same-skill-different-level on one phase**
 
-Project "Site X MES Upgrade", Phase 1 "Design" (2026-05 to 2026-08):
+Project "Site X MES Upgrade", Phase 1 "Design" (May–Aug 2026). All requirements are skill-shaped on entry. Hours are per-month, not flat:
 
-| # | Shape | Detail |
-|---|---|---|
-| R1 | Skill | MOM Specialist, 40 hrs/month |
-| R2 | Skill | MOM Advanced, 80 hrs/month |
-| R3 | Skill | MOM Advanced, 40 hrs/month (second slot) |
-| R4 | Skill | MI&V Basic, 20 hrs/month |
+| # | Skill | Level | May | Jun | Jul | Aug |
+|---|---|---|---|---|---|---|
+| R1 | MOM — MES Platform | Specialist | 20 | 40 | 60 | 60 |
+| R2 | MOM — Workflow Design | Advanced | 40 | 80 | 80 | 40 |
+| R3 | MOM — Workflow Design | Advanced | 0 | 40 | 40 | 40 |
+| R4 | MI&V — HMI Design | Basic | 0 | 0 | 20 | 30 |
 
-Total skill-shaped demand on this phase: 180 hrs/month across 4 requirement lines, spanning 2 themes and 3 distinct skill/level combinations.
+This shape is impossible to express cleanly with flat-rate hours — the phase has a clear ramp-up, peak, and tail, and requirements start and end at different times within the phase. R3 is a second MOM Advanced slot that only kicks in from June; R4 starts late for HMI work that depends on the workflow design being further along.
 
 **Example B — Splitting a single requirement across multiple people at promotion**
 
-Same project moves from Accepted to Allocated. The MOM Advanced 80 hrs/month requirement (R2) can be split. The user converts it into:
+Same project moves from Accepted to Allocated. R2 (MOM Advanced: 40/80/80/40 across May–Aug) is promoted and split between two people. Each named allocation carries its own `hours_by_month` derived from the original:
 
-| Promoted from | Shape | Detail |
-|---|---|---|
-| R2 | Named | Sarah — 56 hrs/month |
-| R2 | Named | Chris — 24 hrs/month |
+| Promoted from | Named to | May | Jun | Jul | Aug |
+|---|---|---|---|---|---|
+| R2 | Sarah | 30 | 56 | 56 | 30 |
+| R2 | Chris | 10 | 24 | 24 | 10 |
 
-The total still sums to 80 hrs/month against the original requirement. The tool tracks the promotion lineage so the user can see that R2 was fulfilled by two named allocations, and the capacity view credits Sarah and Chris separately.
+The monthly totals still sum to the original (40/80/80/40). The tool tracks the promotion lineage so the user can see R2 was fulfilled by two named allocations. The capacity view credits Sarah and Chris separately in each month.
 
 **Example C — Cross-theme demand item**
 
@@ -368,19 +371,69 @@ The question this view answers: *Where could we close a skill gap by developing 
 - Configurable shortfall threshold (e.g. ignore gaps < 20 hours/month).
 - Ability to flag a development plan as "in progress" for a person/skill — purely informational in v1.
 
-### 4.5 Demand Item Editor (component, used by multiple views)
+### 4.5 Demand Item — viewing and editing
 
-The demand item editor is a **reusable side-panel component** used from Capacity Validation, Team Activity, and the Demand discovery views. It is not a page of its own — it always overlays on the view that invoked it, preserving context.
+Demand items are viewed through a **drawer** and edited on a **full page**. These are two distinct surfaces with different purposes.
 
-**Capabilities**:
-- Edit all demand item fields (name, type, status, owner, primary theme, description, parked reason where relevant).
-- Add, edit, reorder, and delete phases.
-- Within each phase: add, edit, duplicate, and delete resource requirements. Toggle a requirement between skill-shaped and named. Split a skill-shaped requirement into multiple named ones at promotion time.
-- Inline validation: warn on over-allocation with confirm; warn when Allocated status has unresolved skill-shaped requirements.
+#### 4.5.1 The Drawer (read-only preview)
+
+A side-panel drawer shown when a user clicks into a demand item from any view (Capacity Validation chart segment, Team Activity block, Demand list row).
+
+**Purpose**: fast glance at what a demand item is, without leaving the current view. Optimised for *understanding*, not *editing*.
+
+**Content**:
+- Header: name, type, status, primary theme, owner
+- Description
+- Summary stats: phase count, total hours across all phases, date range, funding sources used
+- Phases laid out in a compact read-only form. For each phase: name, dates, funding source, and a summary of its requirements (skill + level + total hours across the phase, e.g. "MOM Specialist — 180 hrs total, May–Aug")
+- A "Total skills/hours" rollup at the bottom, aggregating across all phases
+- Action buttons: **Edit** (opens the full edit page), **Duplicate**, status transition buttons appropriate to the current status, **Park**, **Delete**
 
 **Behaviour**:
-- Edits save live (debounced) and the invoking view recalculates immediately.
-- Closing the panel does not require an explicit save — state is always persisted.
+- Read-only. No form fields, no inline editing.
+- Closing the drawer returns the user to their previous view with no side-effects.
+
+#### 4.5.2 The Edit Page (full-page editor)
+
+A dedicated page reached via the drawer's "Edit" button, or directly via "+ New Demand" from the Demand list.
+
+**Purpose**: comprehensive CRUD for all demand item fields, phases, and requirements. Sufficient space for the per-month hours grid and multiple phases.
+
+**Content**:
+- Top section: demand item fields (name, type, status, owner, primary theme, description, parked reason)
+- Phases section: each phase is a collapsible card showing:
+  - Phase name, start month, end month
+  - Funding source (dropdown) and funding notes (free text)
+  - Requirements list — each requirement displays as a row with skill, level, notes, and a **per-month hours grid** showing one editable cell per month the phase spans
+- Actions: add phase, reorder phases, delete phase, add requirement within a phase, delete requirement
+
+**Save model — explicit save, not live**:
+- All edits on this page are held in local form state.
+- A prominent **Save** button commits changes to the store (and thence to localStorage).
+- A **Cancel** button discards unsaved changes.
+- Navigating away from the page with unsaved changes prompts the user to save or discard.
+- There is **no live/auto-save** on this page. Live save was previously specified but created duplication bugs and made the editing flow feel unsafe. Explicit save is safer for complex multi-phase edits and matches user expectations for form pages.
+- Note: **live recalculation on the Capacity Validation charts is preserved**. Once a save happens on the edit page, the charts react immediately to the new data. What has changed is only how edits are *committed* — not how charts consume committed data.
+
+**Requirements entry — always skill-shaped**:
+- The "Add Requirement" form offers only skill-shaped inputs: **What Skill?** (dropdown), **What Level?** (Basic / Advanced / Specialist), **Hours per month** (starting value, pre-fills the per-month grid which is then individually editable).
+- Named requirements are not entered directly. They arise only by *promoting* a skill-shaped requirement to one or more named allocations (see section 3 — Promotion).
+
+**Per-month hours UI**:
+- Each requirement row shows a horizontal grid of month cells spanning the phase's date range, with the hours value editable per cell.
+- Adjusting the phase start/end month updates the grid (add or remove cells as per section 2.2).
+- A "Fill all" action on each row lets the user quickly flatten hours across the phase if per-month detail isn't needed. Useful for the common case where hours genuinely are flat.
+- A small monthly total and phase total is shown at the end of each row for quick sanity-check.
+
+**Promotion UI (skill-shaped → named)**:
+- Each skill-shaped requirement row has a "Promote" action.
+- Opens a dialog letting the user assign one or more people (filtered to those who hold the skill at the specified level or higher) with a per-month split. The original total per-month hours must still sum to the promoted allocations' per-month totals.
+- Validation: warn if totals don't match; warn if over-allocating a person.
+
+**Validation**:
+- Warn on over-allocation with confirm-to-proceed.
+- Warn when Allocated status has unresolved skill-shaped requirements.
+- No validation blocks save — warnings only.
 
 ### 4.6 Demand discovery
 
@@ -486,10 +539,6 @@ Actual time is recorded in SAP. V2 may ingest a periodic actuals feed to compare
 
 All edit access is open in v1. V2 will introduce authentication and role-based permissions (Theme Lead, Resource Manager, PMO, read-only).
 
-### 8.6 Non-flat allocation profiles
-
-V1 applies hours-per-month flat across every month in a phase. V2 may introduce front-loaded / back-loaded / custom profiles within a phase. Flat is explicitly assumed sufficient for v1.
-
 ---
 
 ## 9. Build sequencing
@@ -513,7 +562,6 @@ Views 3 and 4 should not be started until 1 and 2 have been in active use for lo
 The following are flagged. Assumptions are explicit so they can be challenged before or during build.
 
 - **Scenario mechanics (v2)**: when a scenario shifts a project, does only the phase date move, or do named allocations and/or skill requirements move with it? Does a scenario affect one demand item or many? Does not need answering for v1 but should be resolved before v2 planning.
-- **Flat-rate hours-per-month** (assumption): hours are applied flat across every month in a phase. This is sufficient for v1. Revisit if real usage shows significant intra-phase spikiness.
 - **BAU at theme level** (assumption): all BAU is per-person; there are no theme-level BAU streams. Stream name provides the roll-up view.
 - **Phase name autocomplete source** (assumption): suggestions come from phase names used on the last N demand items, not a fixed master list. No admin burden.
 
@@ -529,26 +577,30 @@ The Capacity Validation view is chart-based, not grid-based. Click behaviour is 
 
 - Clicking a **theme chart** opens the skill breakdown for that theme (switches section B into Skill mode filtered to that theme).
 - Clicking a **skill chart** opens a person-level drill-down panel showing who holds that skill and their individual load — this is where the grid-style individual view now lives.
-- Clicking a **stacked demand segment** (any work type layer in any chart) opens a side panel listing the demand items contributing to that segment, each deep-linking into the Demand Item Editor.
+- Clicking a **stacked demand segment** (any work type layer in any chart) opens a side panel listing the demand items contributing to that segment, each deep-linking into the **Demand Item drawer** (section 4.5.1 — read-only preview). From the drawer, the user can click "Edit" to open the full edit page.
 - Clicking anywhere else on a chart opens a tooltip showing exact numbers (capacity, committed demand by work type, overlay demand) for that month.
-
-The side panel Demand Item Editor (section 4.5) is still the CRUD surface — it's reached through the drill-down, not directly from the chart.
 
 ### 11.2 Adding an overlay
 
 The overlay selector in the toolbar is a search-and-add pattern. The user clicks an "+ Add demand" button which opens a small combobox listing all demand items in `Draft`, `Submitted`, `Accepted`, or `Allocated` status, searchable by name. Selecting one adds it as a chip to the overlay area. Multiple overlays can be stacked. Clicking the × on a chip removes it. No drag-drop, no modal picker.
 
-### 11.3 Status transitions from the side panel
+### 11.3 Status transitions
 
-The side panel footer includes status transition buttons contextual to the current status:
+Status transitions are available from:
+
+- The **drawer** (read-only preview) — the drawer footer includes status transition buttons contextual to the current status, so the user can change status without opening the full edit page.
+- The **edit page** — same transition buttons in the page header or footer, since the user may change status as part of an editing session.
+- The **Board discovery mode** — drag-and-drop between columns, as per 4.6.
+
+The transitions available depend on the current status:
 
 - From Draft: `Submit`, `Park`, `Delete`
-- From Submitted: `Accept`, `Park`, `Delete`
+- From Submitted: `Accept`, `Back to Draft`, `Park`, `Delete`
 - From Accepted: `Move to Allocated`, `Back to Submitted`, `Park`, `Delete`
 - From Allocated: `Back to Accepted`, `Park`, `Delete`
 - From Parked: `Revive to Submitted`, `Delete`
 
-`Duplicate` is available from all statuses as a secondary action.
+Status changes take effect immediately on click (they do not require the explicit save that applies to field edits on the edit page). `Duplicate` is available from all statuses as a secondary action.
 
 This means status transitions are not confined to the Board view — they are a first-class action from the editor.
 
@@ -580,22 +632,35 @@ A curated seed dataset is provided alongside this spec as `seed.json`. **Use thi
 
 The mockup provided (`CapacityValidation_mockup.html`) shows **layout and interaction intent only**. All colours, typography, spacing, borders, shadows, and component styling must come from `DESIGNSYSTEM.md` in the repository root. If the design system conflicts with the mockup's visual choices, the design system wins.
 
-### 11.10 What "live recalc" means in practice
+### 11.10 "Live recalc" — scope and meaning
 
-When the user edits a phase date, requirement hours, named assignment, or BAU allocation:
+Live recalculation applies to the **Capacity Validation charts**, not to the Demand Item edit page. These are two different things:
 
-1. The change writes immediately to the in-memory Zustand store.
-2. All derived selectors re-run synchronously (they are pure functions).
-3. The visible view re-renders within one frame (~16ms).
-4. A debounced write (500ms) persists the store to localStorage.
+**Demand Item edit page** — explicit save, not live:
+- Edits are held in local form state while the user is working.
+- On Save, changes are committed to the Zustand store (and persisted to localStorage).
+- On Cancel, changes are discarded.
+- There is no auto-save, no debounced write from the form, no "saving..." indicator.
 
-The user should experience the edit as instantaneous. There is no "saving…" spinner, no "save" button, no dirty-state tracking.
+**Capacity Validation charts** — live recalc:
+- Once data has been committed to the store (via a Demand edit save, a status change, a BAU edit, or a People admin edit), the charts react immediately.
+- Selectors are pure functions over store state; re-renders happen within one frame (~16ms).
+- Persistence to localStorage is debounced at the store layer (~500ms) — but this is invisible to the UI; the store is the source of truth and views read from it synchronously.
+
+This distinction fixes the v1.5 build problem where per-field auto-save on the demand form was appending rows on every keystroke. Explicit save on forms, live rendering from the store.
 
 ---
 
 ## Changelog
 
-**v1.4** (this revision):
+**v1.5** (this revision):
+- **Demand Item edit save model changed from live-save to explicit Save/Cancel** (section 4.5.2). Live save was causing duplication bugs in the build. Live recalculation on the Capacity Validation charts is preserved — that reads from the committed store, unaffected by how edits are captured. Interpretation guidance 11.10 rewritten to make the distinction between form-edit save (explicit) and chart recalc (live) explicit.
+- **Requirement entry is now always skill-shaped**. Named requirements are no longer entered directly — they exist only as the result of promoting a skill-shaped requirement. The Add Requirement form offers only Skill / Level / Hours. Section 2.2 updated.
+- **Hours are now captured per-month, not flat across a phase**. The `hours_by_month` field is an object keyed by `YYYY-MM`. The edit UI shows a per-month grid of editable cells, with a "Fill all" convenience action. Section 2.2 updated, sections 2.4 and 2.5 updated, the v1 "flat-rate assumption" removed from section 10, and the v2 "non-flat profiles" item (formerly 8.6) removed.
+- **Demand Item view/edit split**. Section 4.5 restructured into 4.5.1 (Drawer — read-only preview with summary, action buttons, and an Edit CTA) and 4.5.2 (Edit Page — dedicated full-page editor with explicit save). The right-hand drawer is no longer an editor.
+- Interpretation guidance 11.1 and 11.3 updated to reflect drawer-vs-page split and to specify where status transitions are available.
+
+**v1.4**:
 - Clarified the Submitted overlay's purpose and scope on the Capacity Validation view. It is explicitly an **intake-assessment tool** for the Submitted queue, restricted to Submitted items only, purely additive and view-only. Items in other statuses are not selectable for overlay.
 - Rewrote the v2 scenario modelling section to make the distinction from the overlay explicit: overlay is additive (view-only, Submitted-only); scenario modelling is mutative (changes committed demand). Both are genuinely useful; they are different tools answering different questions.
 
