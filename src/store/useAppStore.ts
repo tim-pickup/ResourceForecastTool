@@ -118,7 +118,7 @@ export const useAppStore = create<Store>()(
     }),
     {
       name: 'resource-forecast-v1',
-      version: 1,
+      version: 2,
     }
   )
 )
