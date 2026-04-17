@@ -37,7 +37,7 @@ function PersonPanel({
   const activeReqs = useMemo(() => {
     const out: Array<{ itemName: string; itemId: string; phase: string; hours: number; shape: string }> = []
     for (const item of store.demandItems) {
-      if (item.status !== 'Accepted' && item.status !== 'Allocated') continue
+      if (item.status !== 'Approved' && item.status !== 'PartiallyAllocated' && item.status !== 'Allocated') continue
       for (const phase of item.phases) {
         for (const req of phase.requirements) {
           if (req.shape === 'skill' && req.skill_id === skillId) {

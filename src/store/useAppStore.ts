@@ -1,22 +1,31 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Theme, Skill, Person, BauStream, BauAllocation, DemandItem, AppState } from '../types'
+import type { Theme, Skill, Person, BauStream, BauAllocation, DemandItem, AppState, DemandStatus } from '../types'
 import { generateId } from '../utils/ids'
 import seedRaw from '../../DEMOSEED.json'
 
-function normalizeSeed(raw: Record<string, unknown>): AppState {
-  const items = (raw.demand_items as DemandItem[]) || []
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeSeed(raw: any): AppState {
+  const items: any[] = raw.demand_items || []
   return {
-    themes: (raw.themes as Theme[]) || [],
-    skills: (raw.skills as Skill[]) || [],
-    people: (raw.people as Person[]) || [],
-    bauStreams: (raw.bau_streams as BauStream[]) || [],
-    bauAllocations: (raw.bau_allocations as BauAllocation[]) || [],
-    demandItems: items.map(d => ({
+    themes: raw.themes || [],
+    skills: raw.skills || [],
+    people: raw.people || [],
+    bauStreams: raw.bau_streams || [],
+    bauAllocations: raw.bau_allocations || [],
+    demandItems: items.map((d: any): DemandItem => ({
       ...d,
-      phases: d.phases.map(p => ({
+      status: (d.status === 'Accepted' ? 'Approved' : d.status) as DemandStatus,
+      previous_status: (d.previous_status ?? null) as DemandStatus | null,
+      closed_at: d.closed_at ?? null,
+      phases: (d.phases || []).map((p: any) => ({
         ...p,
-        requirements: p.requirements.map(r => ({ ...r, notes: r.notes ?? null })),
+        requirements: (p.requirements || []).map((r: any) => ({
+          ...r,
+          shape: 'skill' as const,
+          notes: r.notes ?? null,
+          allocations: (r.allocations ?? []) as import('../types').NamedAllocation[],
+        })),
       })),
     })),
   }
@@ -92,22 +101,16 @@ export const useAppStore = create<Store>()(
           name: item.name + ' (copy)',
           status: 'Draft',
           parked_reason: null,
+          previous_status: null,
+          closed_at: null,
           phases: item.phases.map(p => ({
             ...p,
             id: generateId('phs'),
-            requirements: p.requirements.map(r => {
-              if (r.shape === 'named') {
-                return {
-                  id: generateId('req'),
-                  shape: 'skill' as const,
-                  skill_id: get().skills[0]?.id ?? '',
-                  level: 'Basic' as const,
-                  hours_by_month: { ...r.hours_by_month },
-                  notes: r.notes,
-                }
-              }
-              return { ...r, id: generateId('req') }
-            }),
+            requirements: p.requirements.map(r => ({
+              ...r,
+              id: generateId('req'),
+              allocations: [], // never copy allocations to a duplicate
+            })),
           })),
         }
         set(s => ({ demandItems: [...s.demandItems, copy] }))
@@ -118,7 +121,7 @@ export const useAppStore = create<Store>()(
     }),
     {
       name: 'resource-forecast-v1',
-      version: 2,
+      version: 3,
     }
   )
 )

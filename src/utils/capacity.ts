@@ -22,14 +22,16 @@ export function getPersonNamedProjectHours(
 ): number {
   let total = 0
   for (const item of demandItems) {
-    const counted = item.status === 'Accepted' || item.status === 'Allocated' ||
+    const counted = item.status === 'Approved' || item.status === 'PartiallyAllocated' || item.status === 'Allocated' ||
       (includeSubmitted && item.status === 'Submitted')
     if (!counted) continue
     for (const phase of item.phases) {
       if (!monthInRange(month, phase.start_month, phase.end_month)) continue
       for (const req of phase.requirements) {
-        if (req.shape === 'named' && req.person_id === personId) {
-          total += req.hours_by_month[month] ?? 0
+        for (const alloc of req.allocations) {
+          if (alloc.person_id === personId) {
+            total += alloc.hours_by_month[month] ?? 0
+          }
         }
       }
     }
@@ -63,8 +65,10 @@ export function getOverlayHoursForPerson(
     for (const phase of item.phases) {
       if (!monthInRange(month, phase.start_month, phase.end_month)) continue
       for (const req of phase.requirements) {
-        if (req.shape === 'named' && req.person_id === personId) {
-          total += req.hours_by_month[month] ?? 0
+        for (const alloc of req.allocations) {
+          if (alloc.person_id === personId) {
+            total += alloc.hours_by_month[month] ?? 0
+          }
         }
       }
     }
@@ -156,9 +160,9 @@ function demandFromItems(
   return out
 }
 
-const COMMITTED = new Set(['Accepted', 'Allocated'])
+const COMMITTED = new Set(['Approved', 'PartiallyAllocated', 'Allocated'])
+void COMMITTED // used as default set reference
 
-// Team level — capacity = gross contracted; demand BAU layer includes allocations + BAU items
 export function getTeamCapacity(month: string, state: AppState): number {
   return activePeopleInMonth(month, state).reduce((s, p) => s + p.contracted_hours_per_month, 0)
 }
@@ -171,14 +175,13 @@ export function getTeamBau(month: string, state: AppState): number {
 export function getTeamDemand(
   month: string,
   state: AppState,
-  statuses: string[] = ['Accepted', 'Allocated']
+  statuses: string[] = ['Approved', 'PartiallyAllocated', 'Allocated']
 ): DemandBreakdown {
   const d = demandFromItems(state.demandItems, month, () => true, new Set(statuses))
   d.bau += getTeamBau(month, state)
   return d
 }
 
-// Theme level — capacity = contracted - BAU for people in theme; demand = project reqs only
 export function getThemeCapacity(themeId: string, month: string, state: AppState): number {
   const inTheme = personIdsWithThemeSkills(themeId, state)
   return activePeopleInMonth(month, state)
@@ -190,17 +193,13 @@ export function getThemeDemand(
   themeId: string,
   month: string,
   state: AppState,
-  statuses: string[] = ['Accepted', 'Allocated']
+  statuses: string[] = ['Approved', 'PartiallyAllocated', 'Allocated']
 ): DemandBreakdown {
   const themeSkillIds = new Set(state.skills.filter(s => s.theme_id === themeId).map(s => s.id))
-  const inTheme = personIdsWithThemeSkills(themeId, state)
-  const reqFilter = (r: Requirement) =>
-    (r.shape === 'skill' && themeSkillIds.has(r.skill_id)) ||
-    (r.shape === 'named' && inTheme.has(r.person_id))
+  const reqFilter = (r: Requirement) => themeSkillIds.has(r.skill_id)
   return demandFromItems(state.demandItems, month, reqFilter, new Set(statuses))
 }
 
-// Skill level — capacity = contracted - BAU for people holding that skill
 export function getSkillCapacity(skillId: string, month: string, state: AppState, minLevel?: Level): number {
   const withSkill = personIdsWithSkill(skillId, state, minLevel)
   return activePeopleInMonth(month, state)
@@ -212,13 +211,12 @@ export function getSkillDemand(
   skillId: string,
   month: string,
   state: AppState,
-  statuses: string[] = ['Accepted', 'Allocated']
+  statuses: string[] = ['Approved', 'PartiallyAllocated', 'Allocated']
 ): DemandBreakdown {
-  const reqFilter = (r: Requirement) => r.shape === 'skill' && r.skill_id === skillId
+  const reqFilter = (r: Requirement) => r.skill_id === skillId
   return demandFromItems(state.demandItems, month, reqFilter, new Set(statuses))
 }
 
-// Overlay — total hours across all requirements in the overlay items for this month
 export function getOverlayDemand(month: string, overlayItems: DemandItem[]): number {
   let total = 0
   for (const item of overlayItems) {
@@ -230,7 +228,6 @@ export function getOverlayDemand(month: string, overlayItems: DemandItem[]): num
   return total
 }
 
-// People who hold a given skill — for the person drill-down panel
 export function getPeopleForSkill(skillId: string, state: AppState): Array<{ person: Person; level: Level }> {
   return state.people
     .filter(p => p.active)
@@ -244,7 +241,7 @@ export function getThemeSkillDemand(
   themeId: string,
   month: string,
   state: AppState,
-  statuses: string[] = ['Accepted', 'Allocated']
+  statuses: string[] = ['Approved', 'PartiallyAllocated', 'Allocated']
 ): number {
   let total = 0
   for (const item of state.demandItems) {
@@ -252,13 +249,8 @@ export function getThemeSkillDemand(
     for (const phase of item.phases) {
       if (!monthInRange(month, phase.start_month, phase.end_month)) continue
       for (const req of phase.requirements) {
-        if (req.shape === 'skill') {
-          const skill = state.skills.find(s => s.id === req.skill_id)
-          if (skill?.theme_id === themeId) total += req.hours_by_month[month] ?? 0
-        } else {
-          const person = state.people.find(p => p.id === req.person_id)
-          if (person?.primary_theme_id === themeId) total += req.hours_by_month[month] ?? 0
-        }
+        const skill = state.skills.find(s => s.id === req.skill_id)
+        if (skill?.theme_id === themeId) total += req.hours_by_month[month] ?? 0
       }
     }
   }

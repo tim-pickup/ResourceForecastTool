@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, LayoutGrid, List, GripVertical, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Search, LayoutGrid, List, GripVertical, ChevronUp, ChevronDown, X } from 'lucide-react'
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { useDroppable, useDraggable } from '@dnd-kit/core'
 import { useAppStore } from '../../store/useAppStore'
@@ -8,15 +8,20 @@ import { DemandDrawer } from '../../components/DemandEditor/DemandEditor'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import type { DemandItem, DemandStatus, DemandType } from '../../types'
+import { isValidTransition } from '../../types'
 import { clsx } from 'clsx'
 
-const STATUSES: DemandStatus[] = ['Draft', 'Submitted', 'Accepted', 'Allocated', 'Parked']
+// Active statuses — Closed items live in Archive, not here
+const ACTIVE_STATUSES: DemandStatus[] = ['Draft', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated', 'Parked']
+
 const COLUMN_COLORS: Record<DemandStatus, string> = {
   Draft: 'bg-gray-50',
   Submitted: 'bg-yellow-50',
-  Accepted: 'bg-blue-50',
+  Approved: 'bg-blue-50',
+  PartiallyAllocated: 'bg-indigo-50',
   Allocated: 'bg-green-50',
   Parked: 'bg-orange-50',
+  Closed: 'bg-gray-50',
 }
 
 type SortKey = 'name' | 'type' | 'status' | 'owner'
@@ -60,7 +65,7 @@ function DroppableColumn({ status, children }: { status: DemandStatus; children:
     <div
       ref={setNodeRef}
       className={clsx(
-        'flex-1 min-w-[200px] rounded-md p-3 flex flex-col gap-2 min-h-[200px] transition-colors',
+        'flex-1 min-w-[180px] rounded-md p-3 flex flex-col gap-2 min-h-[200px] transition-colors',
         COLUMN_COLORS[status],
         isOver && 'ring-2 ring-brand ring-offset-1'
       )}
@@ -81,13 +86,20 @@ export default function DemandDiscovery() {
   const [filterType, setFilterType] = useState('')
   const [filterTheme, setFilterTheme] = useState('')
   const [search, setSearch] = useState('')
+  const [dragError, setDragError] = useState<string | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const themeMap = useMemo(() => new Map(store.themes.map(t => [t.id, t.name])), [store.themes])
 
+  // Active items only (exclude Closed)
+  const activeItems = useMemo(() =>
+    store.demandItems.filter(d => d.status !== 'Closed'),
+    [store.demandItems]
+  )
+
   const filtered = useMemo(() => {
-    let items = [...store.demandItems]
+    let items = [...activeItems]
     if (filterStatus) items = items.filter(d => d.status === filterStatus)
     if (filterType) items = items.filter(d => d.type === filterType)
     if (filterTheme) items = items.filter(d => d.primary_theme_id === filterTheme)
@@ -109,7 +121,7 @@ export default function DemandDiscovery() {
       return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
     })
     return items
-  }, [store.demandItems, filterStatus, filterType, filterTheme, search, sortKey, sortDir])
+  }, [activeItems, filterStatus, filterType, filterTheme, search, sortKey, sortDir])
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -121,16 +133,23 @@ export default function DemandDiscovery() {
     return sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
   }
 
-  function openDrawer(id: string) { setDrawerId(id) }
-  function closeDrawer() { setDrawerId(null) }
-  function openNew() { navigate('/demand/new') }
-
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     if (!over) return
     const itemId = active.id as string
     const newStatus = over.id as DemandStatus
-    store.updateDemandItem(itemId, { status: newStatus })
+    const item = store.demandItems.find(d => d.id === itemId)
+    if (!item || item.status === newStatus) return
+
+    if (!isValidTransition(item.status, newStatus)) {
+      setDragError(`Cannot move "${item.name}" from ${item.status} to ${newStatus}.`)
+      setTimeout(() => setDragError(null), 4000)
+      return
+    }
+
+    const updates: Partial<DemandItem> = { status: newStatus }
+    if (newStatus === 'Parked') updates.parked_reason = null
+    store.updateDemandItem(itemId, updates)
   }
 
   return (
@@ -140,7 +159,6 @@ export default function DemandDiscovery() {
         <span className="text-sm font-semibold text-near-black">Demand</span>
         <div className="h-4 w-px bg-border" />
 
-        {/* View mode */}
         <div className="flex items-center gap-0.5 border border-border rounded overflow-hidden">
           {([['table', <List size={13} />], ['board', <LayoutGrid size={13} />], ['search', <Search size={13} />]] as [ViewMode, React.ReactNode][]).map(([m, icon]) => (
             <button
@@ -154,12 +172,11 @@ export default function DemandDiscovery() {
           ))}
         </div>
 
-        {/* Filters (table/board mode) */}
         {mode !== 'search' && (
           <>
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="text-xs border border-border rounded px-2 py-1 bg-white">
               <option value="">All Statuses</option>
-              {STATUSES.map(s => <option key={s}>{s}</option>)}
+              {ACTIVE_STATUSES.map(s => <option key={s}>{s}</option>)}
             </select>
             <select value={filterType} onChange={e => setFilterType(e.target.value)} className="text-xs border border-border rounded px-2 py-1 bg-white">
               <option value="">All Types</option>
@@ -186,10 +203,19 @@ export default function DemandDiscovery() {
         )}
 
         <div className="flex-1" />
-        <Button size="sm" variant="primary" onClick={openNew}>
+        <Button size="sm" variant="ghost" onClick={() => navigate('/archive')}>Archive</Button>
+        <Button size="sm" variant="primary" onClick={() => navigate('/demand/new')}>
           <Plus size={12} /> New Demand
         </Button>
       </div>
+
+      {/* Drag error banner */}
+      {dragError && (
+        <div className="flex items-center gap-2 px-5 py-2 bg-red-50 border-b border-red-200 text-xs text-red-700">
+          <span className="flex-1">{dragError}</span>
+          <button onClick={() => setDragError(null)}><X size={12} /></button>
+        </div>
+      )}
 
       {/* Table mode */}
       {mode === 'table' && (
@@ -214,19 +240,19 @@ export default function DemandDiscovery() {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={6} className="text-center py-12 text-gray-400">
-                    No demand items found. <button className="text-brand underline" onClick={openNew}>Create one.</button>
+                    No demand items found. <button className="text-brand underline" onClick={() => navigate('/demand/new')}>Create one.</button>
                   </td>
                 </tr>
               )}
               {filtered.map(item => (
                 <tr
                   key={item.id}
-                  onClick={() => openDrawer(item.id)}
+                  onClick={() => setDrawerId(item.id)}
                   className="border-b border-border/50 hover:bg-gray-50 cursor-pointer"
                 >
                   <td className="px-4 py-2.5 font-medium text-near-black">{item.name}</td>
                   <td className="px-4 py-2.5 text-gray-600 text-xs">{item.type}</td>
-                  <td className="px-4 py-2.5"><StatusBadge status={item.status as DemandStatus} /></td>
+                  <td className="px-4 py-2.5"><StatusBadge status={item.status} /></td>
                   <td className="px-4 py-2.5 text-gray-600">{item.owner || '—'}</td>
                   <td className="px-4 py-2.5 text-gray-500 text-xs">{themeMap.get(item.primary_theme_id) ?? '—'}</td>
                   <td className="px-4 py-2.5 text-gray-500 text-center">{item.phases.length}</td>
@@ -242,8 +268,8 @@ export default function DemandDiscovery() {
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
           <div className="flex-1 overflow-x-auto p-4">
             <div className="flex gap-3 h-full min-h-[400px]">
-              {STATUSES.map(status => {
-                const colItems = store.demandItems.filter(d => d.status === status &&
+              {ACTIVE_STATUSES.map(status => {
+                const colItems = activeItems.filter(d => d.status === status &&
                   (!filterTheme || d.primary_theme_id === filterTheme) &&
                   (!filterType || d.type === filterType)
                 )
@@ -254,7 +280,7 @@ export default function DemandDiscovery() {
                       <span className="text-xs text-gray-400">{colItems.length}</span>
                     </div>
                     {colItems.map(item => (
-                      <DraggableCard key={item.id} item={item} onEdit={() => openDrawer(item.id)} />
+                      <DraggableCard key={item.id} item={item} onEdit={() => setDrawerId(item.id)} />
                     ))}
                     {colItems.length === 0 && (
                       <p className="text-xs text-gray-400 italic text-center pt-4">No items</p>
@@ -280,11 +306,11 @@ export default function DemandDiscovery() {
             {filtered.map(item => (
               <div
                 key={item.id}
-                onClick={() => openDrawer(item.id)}
+                onClick={() => setDrawerId(item.id)}
                 className="border border-border rounded-md p-3 bg-white hover:border-border-hover cursor-pointer shadow-sm transition-colors"
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <StatusBadge status={item.status as DemandStatus} />
+                  <StatusBadge status={item.status} />
                   <span className="text-sm font-medium text-near-black">{item.name}</span>
                 </div>
                 <div className="text-xs text-gray-500">{item.type} · {themeMap.get(item.primary_theme_id)} · {item.owner || 'No owner'}</div>
@@ -296,7 +322,7 @@ export default function DemandDiscovery() {
       )}
 
       {drawerId && (
-        <DemandDrawer demandId={drawerId} onClose={closeDrawer} />
+        <DemandDrawer demandId={drawerId} onClose={() => setDrawerId(null)} />
       )}
     </div>
   )

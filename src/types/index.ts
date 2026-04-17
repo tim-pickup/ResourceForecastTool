@@ -1,5 +1,5 @@
 export type Level = 'Basic' | 'Advanced' | 'Specialist'
-export type DemandStatus = 'Draft' | 'Submitted' | 'Accepted' | 'Allocated' | 'Parked'
+export type DemandStatus = 'Draft' | 'Submitted' | 'Approved' | 'PartiallyAllocated' | 'Allocated' | 'Parked' | 'Closed'
 export type DemandType = 'Group Strategy Project' | 'Plant Project' | 'NPD Demand' | 'BAU'
 export type FundingSource = 'Investment Scheme' | 'Plant/Sector Allocation' | 'Mixed'
 
@@ -47,6 +47,13 @@ export interface BauAllocation {
   effective_to: string | null
 }
 
+export interface NamedAllocation {
+  id: string
+  person_id: string
+  hours_by_month: Record<string, number>
+  notes: string | null
+}
+
 export interface SkillRequirement {
   id: string
   shape: 'skill'
@@ -54,19 +61,10 @@ export interface SkillRequirement {
   level: Level
   hours_by_month: Record<string, number>
   notes: string | null
-  promoted_from?: string
+  allocations: NamedAllocation[]
 }
 
-export interface NamedRequirement {
-  id: string
-  shape: 'named'
-  person_id: string
-  hours_by_month: Record<string, number>
-  notes: string | null
-  promoted_from?: string
-}
-
-export type Requirement = SkillRequirement | NamedRequirement
+export type Requirement = SkillRequirement
 
 export interface Phase {
   id: string
@@ -87,6 +85,8 @@ export interface DemandItem {
   primary_theme_id: string
   description: string
   parked_reason: string | null
+  previous_status: DemandStatus | null
+  closed_at: string | null
   phases: Phase[]
 }
 
@@ -97,4 +97,19 @@ export interface AppState {
   bauStreams: BauStream[]
   bauAllocations: BauAllocation[]
   demandItems: DemandItem[]
+}
+
+// State machine — valid user-driven transitions (not including system auto-transitions)
+export const VALID_TRANSITIONS: Partial<Record<DemandStatus, DemandStatus[]>> = {
+  Draft: ['Submitted'],
+  Submitted: ['Draft', 'Approved', 'Parked'],
+  Approved: ['Parked', 'Closed'],
+  PartiallyAllocated: ['Parked', 'Closed'],
+  Allocated: ['Parked', 'Closed'],
+  Parked: ['Submitted'],
+  Closed: [],
+}
+
+export function isValidTransition(from: DemandStatus, to: DemandStatus): boolean {
+  return VALID_TRANSITIONS[from]?.includes(to) ?? false
 }

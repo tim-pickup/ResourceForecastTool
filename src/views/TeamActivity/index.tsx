@@ -49,12 +49,14 @@ export default function TeamActivity() {
     }
 
     for (const item of store.demandItems) {
-      if (item.status !== 'Accepted' && item.status !== 'Allocated') continue
+      if (item.status !== 'Approved' && item.status !== 'PartiallyAllocated' && item.status !== 'Allocated') continue
       for (const phase of item.phases) {
         if (!monthInRange(month, phase.start_month, phase.end_month)) continue
         for (const req of phase.requirements) {
-          if (req.shape === 'named' && req.person_id === personId) {
-            blocks.push({ label: item.name, hours: req.hours_by_month[month] ?? 0, type: 'project', demandId: item.id })
+          for (const alloc of req.allocations) {
+            if (alloc.person_id === personId) {
+              blocks.push({ label: item.name, hours: alloc.hours_by_month[month] ?? 0, type: 'project', demandId: item.id })
+            }
           }
         }
       }

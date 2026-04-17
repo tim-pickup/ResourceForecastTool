@@ -4,8 +4,8 @@ import { useAppStore } from '../../store/useAppStore'
 import type { Theme, Skill, Person, BauStream, BauAllocation, Level, PersonSkill } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { Input, Select, Textarea } from '../../components/ui/FormFields'
+import { ThemeSkillSelector } from '../../components/ThemeSkillSelector'
 import { clsx } from 'clsx'
-import { generateId } from '../../utils/ids'
 
 const LEVELS: Level[] = ['Basic', 'Advanced', 'Specialist']
 const TABS = ['Themes & Skills', 'People', 'BAU', 'Reset'] as const
@@ -130,14 +130,19 @@ function InlineEdit({ value, onSave, onCancel }: { value: string; onSave: (v: st
 // ---- People ----
 function PersonForm({ person, onSave, onCancel }: { person?: Person; onSave: (p: any) => void; onCancel: () => void }) {
   const store = useAppStore()
-  const [form, setForm] = useState(person ?? {
+  const [form, setForm] = useState<Omit<Person, 'id'>>(person ?? {
     name: '', primary_theme_id: store.themes[0]?.id ?? '', contracted_hours_per_month: 152,
     available_from: null, available_to: null, active: true, skills: []
-  } as Omit<Person, 'id'>)
+  })
 
   const addSkill = () => setForm(f => ({ ...f, skills: [...f.skills, { skill_id: store.skills[0]?.id ?? '', level: 'Basic' as Level }] }))
   const updateSkill = (i: number, ps: PersonSkill) => setForm(f => ({ ...f, skills: f.skills.map((s, j) => j === i ? ps : s) }))
   const removeSkill = (i: number) => setForm(f => ({ ...f, skills: f.skills.filter((_, j) => j !== i) }))
+
+  const getThemeName = (skillId: string) => {
+    const skill = store.skills.find(s => s.id === skillId)
+    return store.themes.find(t => t.id === skill?.theme_id)?.name ?? ''
+  }
 
   return (
     <div className="border border-brand rounded-md p-3 bg-blue-50/20 flex flex-col gap-2">
@@ -156,16 +161,22 @@ function PersonForm({ person, onSave, onCancel }: { person?: Person; onSave: (p:
         <input type="checkbox" checked={form.active} onChange={e => setForm(f => ({ ...f, active: e.target.checked }))} className="accent-brand" />
         Active
       </label>
+
       <div>
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">Skills</span>
           <button onClick={addSkill} className="text-xs text-brand flex items-center gap-1"><Plus size={11} /> Add</button>
         </div>
         {form.skills.map((ps, i) => (
-          <div key={i} className="flex items-center gap-2 mb-1">
-            <select value={ps.skill_id} onChange={e => updateSkill(i, { ...ps, skill_id: e.target.value })} className="flex-1 text-xs border border-border rounded px-1.5 py-1 bg-white">
-              {store.skills.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+          <div key={i} className="flex items-center gap-2 mb-1.5">
+            <div className="flex-1">
+              <ThemeSkillSelector
+                value={ps.skill_id}
+                onChange={id => updateSkill(i, { ...ps, skill_id: id })}
+                themes={store.themes}
+                skills={store.skills}
+              />
+            </div>
             <select value={ps.level} onChange={e => updateSkill(i, { ...ps, level: e.target.value as Level })} className="text-xs border border-border rounded px-1.5 py-1 bg-white">
               {LEVELS.map(l => <option key={l}>{l}</option>)}
             </select>
@@ -186,7 +197,7 @@ function PeoplePanel() {
   const [editId, setEditId] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
   const themeMap = new Map(store.themes.map(t => [t.id, t.name]))
-  const skillMap = new Map(store.skills.map(s => [s.id, s.name]))
+  const skillMap = new Map(store.skills.map(s => [s.id, { name: s.name, theme_id: s.theme_id }]))
 
   return (
     <div>
@@ -220,11 +231,16 @@ function PeoplePanel() {
                   </div>
                   {person.skills.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {person.skills.map((ps, i) => (
-                        <span key={i} className="text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">
-                          {skillMap.get(ps.skill_id) ?? ps.skill_id} ({ps.level})
-                        </span>
-                      ))}
+                      {person.skills.map((ps, i) => {
+                        const s = skillMap.get(ps.skill_id)
+                        const theme = s ? themeMap.get(store.skills.find(sk => sk.id === ps.skill_id)?.theme_id ?? '') : ''
+                        return (
+                          <span key={i} className="text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">
+                            {theme && <span className="text-gray-400">{theme} › </span>}
+                            {s?.name ?? ps.skill_id} <span className="text-gray-400">({ps.level})</span>
+                          </span>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -367,7 +383,6 @@ export default function Admin() {
 
   return (
     <div className="flex h-full">
-      {/* Sidebar */}
       <div className="w-48 border-r border-border bg-gray-50 flex flex-col py-4 gap-0.5 px-2">
         {TABS.map(t => (
           <button
@@ -382,8 +397,6 @@ export default function Admin() {
           </button>
         ))}
       </div>
-
-      {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         {tab === 'Themes & Skills' && <ThemesSkillsPanel />}
         {tab === 'People' && <PeoplePanel />}

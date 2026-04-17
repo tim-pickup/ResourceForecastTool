@@ -1,6 +1,6 @@
 # Digital Manufacturing Resource Load & Capacity Tool
 
-## Requirements Specification — v1.5
+## Requirements Specification — v1.6
 
 ---
 
@@ -63,7 +63,7 @@ The data model has three layers: **structure** (themes, skills, people), **deman
 |---|---|
 | Name | Free text |
 | Type | One of: `Group Strategy Project`, `Plant Project`, `NPD Demand`, `BAU` |
-| Status | One of: `Draft`, `Submitted`, `Accepted`, `Allocated`, `Parked` (see section 3) |
+| Status | One of: `Draft`, `Submitted`, `Approved`, `PartiallyAllocated`, `Allocated`, `Parked`, `Closed` (see section 3) |
 | Owner | Free-text field (person or role name) |
 | Primary Theme | Reporting/grouping hint only — **not a constraint**. A demand item can draw resource from any theme via its requirements. |
 | Description | Free text |
@@ -184,47 +184,136 @@ The demand item carries the MOM primary theme tag for reporting, but its require
 
 ## 3. Demand workflow
 
-Demand items move through five statuses. The workflow is lightweight — there is no approval gating in v1; status is set manually by the user.
+Demand items move through a defined state machine. Unlike earlier versions of this spec, transitions are **gated** — only the specific transitions described below are permitted. The Board view and the demand drawer/edit page surface only the valid transitions from the current status.
+
+### Statuses
 
 | Status | Meaning | Capacity impact |
 |---|---|---|
-| **Draft** | Being shaped. Not yet part of the team's commitment picture. | None — excluded from all capacity views. |
-| **Submitted** | Ready for capacity assessment. Requirements are populated. | Shown in capacity views as *proposed* load only when the user toggles it on — visually distinct from committed. |
-| **Accepted** | Agreed the team will do this work. Named assignments may still be pending. | Counted as committed at theme/skill level. Skill-shaped requirements contribute to demand; named requirements consume individual capacity. |
-| **Allocated** | Named people assigned to all requirements. Work is fully committed. | Fully counted — all requirements should be named. |
-| **Parked** | Temporarily set aside. Not resourceable now or cancelled for now, but may come back. | Excluded from all capacity calculations. |
+| **Draft** | Being shaped. Metadata and phases may be incomplete. | None — excluded from all capacity views. |
+| **Submitted** | Ready for capacity assessment. Requirements are populated with skill-shaped demand. | Shown as overlay on Capacity Validation charts when selected (see View 1). Not counted as committed. |
+| **Approved** | The team has committed to doing this work. Named allocation has not yet started. | Counted as committed at theme/skill level. Contributes to demand stacks on charts. No individual capacity is consumed yet (no named people). |
+| **PartiallyAllocated** | Allocation has started but is incomplete — at least one named allocation exists, but not every requirement-month is fully covered. | Counted as committed. Named allocations consume individual capacity; unfilled portions remain as skill-shaped demand at theme/skill level. |
+| **Allocated** | Every requirement's per-month hours are fully covered by named allocations across every month of every phase. | Fully counted. All demand lands on named individuals. |
+| **Parked** | Temporarily set aside. | Excluded from all capacity calculations. |
+| **Closed** | Archived. The work is complete, cancelled, or otherwise concluded. | Excluded from all capacity calculations. Not shown in the main Demand list — only in the Archive view. |
 
-### Status transitions
+### State machine
 
-All transitions are manual and unrestricted in v1 — any user can move an item to any status, in any direction. Specific transitions worth calling out:
+```
+  ┌────────┐
+  │ DRAFT  │◄───┐
+  └───┬────┘    │
+      │         │ (Revert to Draft)
+      ▼         │
+  ┌───────────┐ │
+  │ SUBMITTED │─┘
+  └─┬──┬────┬─┘
+    │  │    │
+    │  │    └──── (Park) ────┐
+    │  │                     ▼
+    │  └──── (Approve) ──► APPROVED ────► (Park) ──┐
+    │                         │                    │
+    │                         ▼ (auto: first alloc ▼
+    │                             added)           │
+    │                     PARTIALLYALLOCATED ───► (Park) ──┐
+    │                         │    ▲                       │
+    │                         │    │ (auto: drops          │
+    │                         │    │  below 100%)          │
+    │                         ▼    │                       │
+    │                     ALLOCATED ─────► (Park) ─────────┤
+    │                         │                            │
+    │                         │                            ▼
+    │                                              ┌─────────┐
+    │                                              │ PARKED  │
+    │                                              └────┬────┘
+    │                                                   │
+    │                 (Revive to Submitted)             │
+    └───────────────────────────────────────────────────┘
 
-- **Any status → Parked**: allowed. When moving from `Accepted` or `Allocated` to `Parked`, all commitments (named and skill-shaped) immediately stop consuming capacity. The data is preserved so the item can be revived later with its requirements intact.
-- **Parked → Submitted** (or any other status): allowed. The item is revived with its full requirement history.
-- **Allocated → Accepted** (or earlier): allowed. Useful when named assignments need to be rethought.
+  APPROVED / PARTIALLYALLOCATED / ALLOCATED ──(Close)──► CLOSED ──► (Restore from Archive)
+```
 
-### Promotion of skill-shaped to named
+### Transition reference
 
-When moving toward `Allocated`, the user resolves skill-shaped requirements into named ones. The tool must support:
+User-driven transitions (the user clicks a button):
 
-- **1-to-1 promotion**: skill-shaped becomes a single named allocation for the same hours.
-- **1-to-many split**: a single skill-shaped requirement is satisfied by two or more named allocations that sum to the original hours. The tool should make it easy to split and to show the sum vs the target.
+| From | To | Action label | Notes |
+|---|---|---|---|
+| Draft | Submitted | **Submit** | Standard forward move. |
+| Submitted | Draft | **Revert to Draft** | For when a submission needs further shaping. |
+| Submitted | Approved | **Approve** | Confirms the team will do this work. |
+| Submitted | Parked | **Park** | With optional reason note. |
+| Approved | Parked | **Park** | Rare — used if the work is pulled post-approval. |
+| PartiallyAllocated | Parked | **Park** | Rare — pulls work mid-allocation. Named allocations are preserved but not counted. |
+| Allocated | Parked | **Park** | Rare — pulls fully-allocated work. Named allocations are preserved but not counted. |
+| Parked | Submitted | **Revive** | Always revives to Submitted. From there the normal flow applies. |
+| Approved / PartiallyAllocated / Allocated | Closed | **Close** | Explicit, manual. Archives the demand; excludes it from the main list and from all charts. |
+| Closed (in Archive view) | previous status | **Restore** | Restores to whatever status the item held immediately before it was closed. |
 
-The tool does not enforce full promotion in v1 — an `Allocated` item with unresolved skill-shaped requirements is permitted and should be visually flagged.
+System-driven transitions (automatic, no user action):
 
-### Deletion
+| From | To | Trigger |
+|---|---|---|
+| Approved | PartiallyAllocated | The first named allocation is added to any requirement on the demand. |
+| PartiallyAllocated | Allocated | Every requirement's per-month hours are fully covered by named allocations (see "Full allocation definition" below). |
+| Allocated | PartiallyAllocated | A named allocation is removed or reduced such that coverage drops below 100% on any requirement-month. |
 
-Two distinct actions:
+Transitions that are **not** permitted:
 
-- **Park** (soft): item is preserved, moved to Parked status. Reversible. This is the default "we don't need this right now" action.
-- **Hard delete**: item is removed entirely from the database. Irreversible. For demand that is genuinely no longer needed (duplicates, requests that were mis-entered, cancelled schemes). Requires a confirmation step.
+- Draft → anywhere except Submitted.
+- Submitted → anywhere except Draft / Approved / Parked.
+- Approved → back to Submitted. (Once approved, the commitment is made; if work needs to be re-assessed, use Park then Revive.)
+- PartiallyAllocated / Allocated → back to Approved. (Editing allocations is permitted in these states without changing status; see 4.5.2.)
+- Closed → any state except via Restore from the Archive view.
+- Any state → Closed except from Approved / PartiallyAllocated / Allocated. (You can't close a Draft or a Submitted — Park them instead.)
 
-### Duplication
+### Full allocation definition
 
-Users can duplicate a demand item to use as a starting point for a new one. The duplicate:
-- Copies name (suffixed with "(copy)"), type, owner, primary theme, description
-- Copies all phases and requirements
-- Named requirements become skill-shaped in the copy (since they're unlikely to be the same people)
-- Status resets to `Draft`
+A demand item is **fully allocated** — and auto-transitions to `Allocated` — when every skill-shaped requirement has named allocations such that, **for every single month in the parent phase's date range**, the sum of named allocation hours exactly equals the skill-shaped requirement's `hours_by_month` value for that month.
+
+- Over-allocation against a requirement's hours (named allocations summing to more than the requirement's per-month target) does not count as "fully allocated" — it triggers a validation warning instead.
+- Partially-allocated months (named allocations summing to less than the requirement's per-month target) keep the demand in PartiallyAllocated.
+- The unfilled portion of each requirement-month remains as skill-shaped demand on the capacity charts, so a PartiallyAllocated demand with gaps shows up correctly as "some committed capacity at theme level, some unfilled by named people."
+
+### Allocation editing
+
+Once a demand is in PartiallyAllocated or Allocated, the user can freely:
+
+- Add, remove, or modify named allocations to any requirement.
+- Change the per-month hours on any named allocation.
+- Add further named people to cover gaps.
+
+No status change is needed before editing allocations. The status auto-updates based on the coverage rule above.
+
+What the user **cannot** do in PartiallyAllocated or Allocated:
+
+- Edit the underlying skill-shaped requirements (skill, level, or target hours).
+- Add, remove, or change phases.
+- Edit demand item metadata that affects the resourcing picture (type, owner, primary theme, phase dates).
+
+If any of those need to change, the user must explicitly `Park` the demand, revive it to `Submitted`, adjust, and re-approve. This is deliberate friction — it prevents casual edits to already-committed work and surfaces them as a conscious decision. (This friction is one of the things v2 scenario modelling will soften.)
+
+### The skill-shaped → named relationship
+
+Skill-shaped requirements are the *definition* of demand. Named allocations are the *fulfilment* of that demand. They are separate records, linked by reference.
+
+- Each named allocation belongs to a specific skill-shaped requirement (its parent).
+- A named allocation carries: person, `hours_by_month`, notes.
+- Multiple named allocations can fulfil a single skill-shaped requirement (e.g. 80 hrs/month split as Sarah 50 + Chris 30).
+- A named allocation's person must hold the parent requirement's skill at the required level or higher (warn, don't block).
+
+This replaces the earlier "promotion" language. Named allocations are not a *shape* of requirement; they are *attached* to a skill-shaped requirement. This keeps the requirement-level demand stable and makes partial allocation trivially representable (some months allocated, others not).
+
+### Deletion and duplication
+
+**Park vs Close vs Delete** — three different actions:
+
+- **Park**: temporary; reversible via Revive. Item stays in the Demand list but is excluded from charts.
+- **Close**: permanent but retrievable; removes from main UI and charts, lives in Archive, restorable.
+- **Hard Delete**: irreversible removal from the database. For genuine mistakes (duplicates, mis-entered demand). Requires confirmation and carries a distinct icon. Available from any status via an admin-style action, not the main transition buttons.
+
+**Duplicate**: copies name (with "(copy)" suffix), type, owner, primary theme, description, all phases and skill-shaped requirements, but **not** named allocations (they never transfer to a duplicate). Status resets to `Draft`.
 
 ---
 
@@ -393,55 +482,108 @@ A side-panel drawer shown when a user clicks into a demand item from any view (C
 - Read-only. No form fields, no inline editing.
 - Closing the drawer returns the user to their previous view with no side-effects.
 
-#### 4.5.2 The Edit Page (full-page editor)
+#### 4.5.2 The Edit Page — two modes based on status
 
-A dedicated page reached via the drawer's "Edit" button, or directly via "+ New Demand" from the Demand list.
+The edit page is reached via the drawer's "Edit" button, or directly via "+ New Demand" from the Demand list. It has **two distinct modes** depending on the demand's current status.
 
-**Purpose**: comprehensive CRUD for all demand item fields, phases, and requirements. Sufficient space for the per-month hours grid and multiple phases.
+**Mode A — Demand Definition** (active when status is `Draft`, `Submitted`, `Parked`)
 
-**Content**:
-- Top section: demand item fields (name, type, status, owner, primary theme, description, parked reason)
+This is where the demand is shaped: metadata, phases, and skill-shaped requirements. Allocation is not available in this mode because the demand hasn't been committed to yet.
+
+Content:
+- Top section: demand item fields (name, type, owner, primary theme, description, parked reason if Parked)
 - Phases section: each phase is a collapsible card showing:
   - Phase name, start month, end month
   - Funding source (dropdown) and funding notes (free text)
   - Requirements list — each requirement displays as a row with skill, level, notes, and a **per-month hours grid** showing one editable cell per month the phase spans
 - Actions: add phase, reorder phases, delete phase, add requirement within a phase, delete requirement
 
-**Save model — explicit save, not live**:
+Requirements entry in this mode is **always skill-shaped**:
+- The "Add Requirement" form offers only: **Skill** (using the THEME > SKILL selector — see 4.5.4), **Level** (Basic / Advanced / Specialist), **Starting hours per month** (pre-fills the per-month grid).
+- Named allocations are not entered in this mode — they're added in Mode B.
+
+Per-month hours UI:
+- Each requirement row shows a horizontal grid of month cells spanning the phase's date range.
+- Adjusting the phase start/end month adds or removes cells (as per section 2.2).
+- A "Fill all" action on each row flattens hours across the phase for the common flat-load case.
+- Row shows a monthly total and phase total for sanity-checking.
+
+**Mode B — Allocation Workspace** (active when status is `Approved`, `PartiallyAllocated`, `Allocated`)
+
+Once approved, the primary purpose of the edit page becomes allocation — naming people against the committed skill-shaped requirements. The demand definition is locked (see section 3 — Allocation editing). A small read-only summary of the demand definition is shown at the top for reference, with a link back to Park-and-revise if changes are truly needed.
+
+Content:
+- Top section: read-only demand summary (name, type, owner, theme, total hours by phase)
+- **Allocation summary header**: overall coverage across the demand (e.g. "68% allocated, 4 unfilled requirement-months"), status pill showing current status.
+- Phases section: each phase listed with its requirements laid out for allocation. For each requirement:
+  - The skill-shaped target (skill, level, per-month target hours)
+  - **Allocation rows** underneath — one per named person allocated to this requirement. Each shows: person, per-month hours grid (editable), sum vs target indicator.
+  - An "Add allocation" action to add another person to this requirement.
+  - **Coverage indicator**: a visual strip under the target row showing per-month coverage — green where fully covered, amber where partial, red where unfilled. This is the single most important visual element of the allocation UI; it turns "is this done?" into a glance-level question.
+
+Allocation row behaviour:
+- Person picker: filtered by default to people who hold the parent skill at the required level or higher; a "Show all" toggle lifts this filter (with a warning if they don't hold the skill).
+- Per-month hours grid: editable per month, with validation highlighting any month where the allocation sum exceeds the target (over-allocated against the requirement) or where the allocation itself exceeds the person's available capacity for that month.
+- Quick-fill actions:
+  - **"Full coverage"** — allocates this person to the entire per-month target for this requirement (useful when one person does all of it).
+  - **"Fill remaining"** — allocates this person to whatever hours are currently unfilled, month by month.
+  - **"Match pattern"** — copies the shape of the requirement's target into this row, scaled to a user-chosen percentage (e.g. "this person covers 60% of each month").
+- Over-allocation warnings: surface inline on the allocation row when a person is being loaded beyond their capacity, but do not block.
+
+Saving in Mode B:
+- Same explicit Save/Cancel pattern as Mode A. All allocation edits are held in form state until Save.
+- After Save, the auto-transition rule evaluates the full coverage state and the status updates if warranted (Approved → PartiallyAllocated, or PartiallyAllocated → Allocated, or the reverse).
+
+**Switching between modes**
+
+The mode is determined by status and is not directly toggleable. To move from Mode B back to Mode A (i.e. to edit the underlying demand), the user must Park the demand and Revive it to Submitted — a deliberate two-step action with a confirmation that warns "this will remove the demand from capacity calculations and clear named allocations."
+
+Named allocations are **preserved** through Park/Revive so they reappear when the demand is re-approved — but they're re-validated against the new requirements and flagged if they no longer fit (e.g. the requirement's skill changed).
+
+**Validation (both modes)**:
+- Warn on over-allocation of a person against their capacity with confirm-to-proceed.
+- Warn when an allocation is made to someone who doesn't hold the required skill at the required level.
+- No validation blocks save — warnings only.
+
+**Save model — explicit save, applies to both modes**:
 - All edits on this page are held in local form state.
 - A prominent **Save** button commits changes to the store (and thence to localStorage).
 - A **Cancel** button discards unsaved changes.
 - Navigating away from the page with unsaved changes prompts the user to save or discard.
-- There is **no live/auto-save** on this page. Live save was previously specified but created duplication bugs and made the editing flow feel unsafe. Explicit save is safer for complex multi-phase edits and matches user expectations for form pages.
-- Note: **live recalculation on the Capacity Validation charts is preserved**. Once a save happens on the edit page, the charts react immediately to the new data. What has changed is only how edits are *committed* — not how charts consume committed data.
+- Live recalculation on the Capacity Validation charts is preserved — once saved, charts react immediately.
 
-**Requirements entry — always skill-shaped**:
-- The "Add Requirement" form offers only skill-shaped inputs: **What Skill?** (dropdown), **What Level?** (Basic / Advanced / Specialist), **Hours per month** (starting value, pre-fills the per-month grid which is then individually editable).
-- Named requirements are not entered directly. They arise only by *promoting* a skill-shaped requirement to one or more named allocations (see section 3 — Promotion).
+#### 4.5.3 THEME > SKILL selector (shared component)
 
-**Per-month hours UI**:
-- Each requirement row shows a horizontal grid of month cells spanning the phase's date range, with the hours value editable per cell.
-- Adjusting the phase start/end month updates the grid (add or remove cells as per section 2.2).
-- A "Fill all" action on each row lets the user quickly flatten hours across the phase if per-month detail isn't needed. Useful for the common case where hours genuinely are flat.
-- A small monthly total and phase total is shown at the end of each row for quick sanity-check.
+A shared hierarchical selector used wherever a skill is picked:
 
-**Promotion UI (skill-shaped → named)**:
-- Each skill-shaped requirement row has a "Promote" action.
-- Opens a dialog letting the user assign one or more people (filtered to those who hold the skill at the specified level or higher) with a per-month split. The original total per-month hours must still sum to the promoted allocations' per-month totals.
-- Validation: warn if totals don't match; warn if over-allocating a person.
+- Demand edit page, when adding a skill-shaped requirement.
+- Admin, when assigning skills to a person (section 5).
+- Filters in Capacity Validation and Team Activity views.
 
-**Validation**:
-- Warn on over-allocation with confirm-to-proceed.
-- Warn when Allocated status has unresolved skill-shaped requirements.
-- No validation blocks save — warnings only.
+Behaviour:
+- Dropdown presents skills grouped under their parent theme. Theme names are shown as non-selectable group headers; only skills are selectable.
+- Display format for a selected skill: "`MOM` > `MES Platform`" — both segments shown, with the theme in muted styling and the skill in primary text.
+- Searchable — typing filters the visible skills by name with the theme remaining visible as context for each match.
+- In admin person-skill assignment (and anywhere else multiple skills are picked), the selector supports multi-select — each selected skill appears as a chip with both the theme and skill visible, plus the level for admin person-skill context.
+
+Implementation note: this is one component. Build it once and reuse everywhere a skill is picked. Without this discipline, the demand form, admin, and filters end up with three different skill pickers.
 
 ### 4.6 Demand discovery
 
-Finding a specific demand item among many. Three switchable modes, default is Table:
+Finding a specific demand item among many. Three switchable modes, default is Table. Active statuses only (Draft, Submitted, Approved, PartiallyAllocated, Allocated, Parked). Closed items appear in the Archive view, not here.
 
 - **Table mode (default)**: spreadsheet-style, sortable columns (name, type, status, primary theme, owner, phase count, total committed hours). Filterable.
-- **Board mode**: cards grouped by status, visual kanban-style. Drag between columns changes status.
+- **Board mode**: cards grouped by status across six columns (Draft / Submitted / Approved / PartiallyAllocated / Allocated / Parked). Drag between columns triggers the valid status transition. If a drag would be invalid (e.g. Approved → Draft) the drop is rejected with a tooltip explaining the constraint.
 - **Search mode**: full-text search across name, description, owner, and phase names.
+
+### 4.7 Archive view
+
+A dedicated page listing all demand items in status `Closed`. Reachable from the main navigation.
+
+- Spreadsheet-style table (similar to Demand list Table mode).
+- Columns include the status the item was closed *from*, and the date closed.
+- Read-only per row, with a **Restore** action per item that returns it to the status it held before Close.
+- Archive items are excluded from all other views (Demand list, Capacity Validation, Team Activity, Forecast) so Closed demand never affects operational numbers.
 
 ---
 
@@ -449,11 +591,18 @@ Finding a specific demand item among many. Three switchable modes, default is Ta
 
 All admin is open — anyone with access can edit any of the following. No permissions in v1.
 
-- Themes and Skills (CRUD)
-- People, their skill profiles, contracted hours, `available_from` / `available_to` (CRUD)
-- BAU Streams and BAU Allocations (CRUD)
+- **Themes and Skills** (CRUD). Flat admin screens; themes and skills are simple named records.
+- **People** (CRUD). Each person's screen shows: name, primary theme, contracted hours, `available_from` / `available_to`, active flag, and a **skill profile section** where skills are assigned.
+- **BAU Streams and BAU Allocations** (CRUD).
 
-A simple admin area is sufficient — no need for sophisticated UX here.
+**Skill profile on the Person admin screen**:
+
+- Uses the shared **THEME > SKILL selector** (section 4.5.3) for adding skills — showing theme as group header and skill as the selectable item. Flat lists of skills without theme grouping are not acceptable; the selector gives users the same hierarchical mental model as the demand form.
+- Each assigned skill appears as a row showing: theme, skill name, and a level selector (Basic / Advanced / Specialist).
+- Remove button per row.
+- A person can hold skills across multiple themes; nothing restricts them to their primary theme.
+
+A simple admin area is otherwise sufficient — no need for sophisticated UX beyond the skill selector consistency.
 
 ---
 
@@ -545,13 +694,15 @@ All edit access is open in v1. V2 will introduce authentication and role-based p
 
 Suggested order for the v1 build:
 
-1. **Data model and admin** — themes, skills, people (inc. available_from/to), BAU streams, BAU allocations. Populated via seed data and simple admin screens.
-2. **Demand items and phases** — CRUD for demand items with phases and both requirement shapes. Status workflow including Park/Revive and hard delete. Duplicate action.
-3. **Demand Item Editor as a reusable side-panel component** — built early since it's used by multiple views.
-4. **View 1: Capacity Validation** — the core value of the tool. Build this against live data.
-5. **View 2: Team Activity** — secondary MVP view.
-6. **Demand discovery** — Table mode first, then Board and Search.
-7. **Post-MVP**: View 3 then View 4.
+1. **Data model and admin** — themes, skills, people (inc. available_from/to), BAU streams, BAU allocations. Populated via seed data and simple admin screens. Includes the **THEME > SKILL selector** as a shared component used in admin and elsewhere.
+2. **Demand items and phases** — CRUD for demand items with phases and skill-shaped requirements (per-month hours). Mode A of the edit page. Drawer (read-only preview).
+3. **State machine and status transitions** — the gated workflow from section 3. Apply to Table, Board, Drawer, and Edit page consistently.
+4. **Mode B — Allocation Workspace** — named allocations, per-requirement coverage indicators, auto-transitions between Approved / PartiallyAllocated / Allocated.
+5. **Archive view** — for Closed items, with Restore.
+6. **View 1: Capacity Validation** — the core value of the tool. Build this against live data.
+7. **View 2: Team Activity** — secondary MVP view.
+8. **Demand discovery** — Table mode first, then Board (with valid-transition drag constraints) and Search.
+9. **Post-MVP**: View 3 then View 4.
 
 Views 3 and 4 should not be started until 1 and 2 have been in active use for long enough to validate the data model and uncover real workflow patterns.
 
@@ -592,17 +743,24 @@ Status transitions are available from:
 - The **edit page** — same transition buttons in the page header or footer, since the user may change status as part of an editing session.
 - The **Board discovery mode** — drag-and-drop between columns, as per 4.6.
 
-The transitions available depend on the current status:
+The transitions available depend on the current status. See section 3 for the complete state machine.
 
-- From Draft: `Submit`, `Park`, `Delete`
-- From Submitted: `Accept`, `Back to Draft`, `Park`, `Delete`
-- From Accepted: `Move to Allocated`, `Back to Submitted`, `Park`, `Delete`
-- From Allocated: `Back to Accepted`, `Park`, `Delete`
-- From Parked: `Revive to Submitted`, `Delete`
+User-driven transitions exposed in the UI:
+
+- From Draft: `Submit`, `Delete`
+- From Submitted: `Approve`, `Revert to Draft`, `Park`, `Delete`
+- From Approved: `Park`, `Close`, `Delete`
+- From PartiallyAllocated: `Park`, `Close` (with confirm), `Delete`
+- From Allocated: `Park`, `Close`, `Delete`
+- From Parked: `Revive` (always to Submitted), `Delete`
+- From Closed (Archive view only): `Restore` (to prior status), `Delete`
 
 Status changes take effect immediately on click (they do not require the explicit save that applies to field edits on the edit page). `Duplicate` is available from all statuses as a secondary action.
 
-This means status transitions are not confined to the Board view — they are a first-class action from the editor.
+Auto-transitions (no button, system-driven — see section 3 for full rules):
+- Approved → PartiallyAllocated: when the first named allocation is saved.
+- PartiallyAllocated → Allocated: when all requirement-months are fully covered.
+- Allocated → PartiallyAllocated: when coverage drops below 100% on any requirement-month due to allocation edits.
 
 ### 11.4 Empty states
 
@@ -653,16 +811,29 @@ This distinction fixes the v1.5 build problem where per-field auto-save on the d
 
 ## Changelog
 
-**v1.5** (this revision):
-- **Demand Item edit save model changed from live-save to explicit Save/Cancel** (section 4.5.2). Live save was causing duplication bugs in the build. Live recalculation on the Capacity Validation charts is preserved — that reads from the committed store, unaffected by how edits are captured. Interpretation guidance 11.10 rewritten to make the distinction between form-edit save (explicit) and chart recalc (live) explicit.
-- **Requirement entry is now always skill-shaped**. Named requirements are no longer entered directly — they exist only as the result of promoting a skill-shaped requirement. The Add Requirement form offers only Skill / Level / Hours. Section 2.2 updated.
-- **Hours are now captured per-month, not flat across a phase**. The `hours_by_month` field is an object keyed by `YYYY-MM`. The edit UI shows a per-month grid of editable cells, with a "Fill all" convenience action. Section 2.2 updated, sections 2.4 and 2.5 updated, the v1 "flat-rate assumption" removed from section 10, and the v2 "non-flat profiles" item (formerly 8.6) removed.
-- **Demand Item view/edit split**. Section 4.5 restructured into 4.5.1 (Drawer — read-only preview with summary, action buttons, and an Edit CTA) and 4.5.2 (Edit Page — dedicated full-page editor with explicit save). The right-hand drawer is no longer an editor.
-- Interpretation guidance 11.1 and 11.3 updated to reflect drawer-vs-page split and to specify where status transitions are available.
+**v1.6** (this revision):
+- **Demand workflow is now a proper gated state machine** (section 3). Rewritten from scratch. Seven statuses — `Draft`, `Submitted`, `Approved`, `PartiallyAllocated`, `Allocated`, `Parked`, `Closed`. Transitions are defined explicitly; unlisted transitions are not permitted. Free movement between states is no longer allowed.
+- **Renamed `Accepted` → `Approved`** to match PMO terminology.
+- **Added `PartiallyAllocated` status** for the in-between state where some allocation exists but not all requirement-months are fully covered. Auto-transitioned to on first allocation; auto-transitioned out of (to `Allocated`) when coverage reaches 100%; auto-reverted from `Allocated` if coverage drops. This makes partial allocation a first-class state rather than a hidden flag.
+- **Added `Closed` status and Archive view (section 4.7)**. Closed items are excluded from the main Demand list and all charts, visible only in the read-only Archive view with a Restore action.
+- **Edit page now has two modes** (section 4.5.2):
+  - **Mode A (Demand Definition)**: active for Draft / Submitted / Parked. Metadata, phases, skill-shaped requirements with per-month hours.
+  - **Mode B (Allocation Workspace)**: active for Approved / PartiallyAllocated / Allocated. Primary surface for naming people to requirements, per-month coverage indicators, quick-fill actions, auto-status updates on save.
+  - The demand definition is locked in Mode B — changes require an explicit Park → Revise → re-Approve cycle.
+- **Added THEME > SKILL selector as a named shared component (section 4.5.3)**. Used in demand requirement entry, admin person-skill assignment, and filters. Replaces the current flat-list skill pickers.
+- **Admin person-skill assignment updated (section 5)** to use the THEME > SKILL selector.
+- **"Promotion" language replaced with "named allocations"**. Named allocations are now records attached to skill-shaped requirements, not a shape-change. This makes partial allocation trivially representable.
+- **Build sequencing reordered** — state machine and allocation workspace are now explicit phases of work.
+- **Interpretation guidance 11.3 updated** with the new transition set.
+
+**v1.5**:
+- Demand Item edit save model changed from live-save to explicit Save/Cancel. Live recalculation on the Capacity Validation charts preserved.
+- Requirement entry is always skill-shaped; hours captured per-month, not flat.
+- Demand Item view/edit split — drawer (read-only) vs edit page (full CRUD).
 
 **v1.4**:
-- Clarified the Submitted overlay's purpose and scope on the Capacity Validation view. It is explicitly an **intake-assessment tool** for the Submitted queue, restricted to Submitted items only, purely additive and view-only. Items in other statuses are not selectable for overlay.
-- Rewrote the v2 scenario modelling section to make the distinction from the overlay explicit: overlay is additive (view-only, Submitted-only); scenario modelling is mutative (changes committed demand). Both are genuinely useful; they are different tools answering different questions.
+- Clarified the Submitted overlay's purpose and scope on the Capacity Validation view.
+- Rewrote the v2 scenario modelling section to distinguish from the overlay.
 
 **v1.3**:
 - **Rewrote View 1 — Capacity Validation** to be a chart-based, team-level strategic view rather than a person-level grid.

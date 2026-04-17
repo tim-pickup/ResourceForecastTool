@@ -4,6 +4,7 @@ import TeamActivity from './views/TeamActivity'
 import DemandDiscovery from './views/DemandDiscovery'
 import DemandEdit from './views/DemandEdit'
 import Admin from './views/Admin'
+import Archive from './views/Archive'
 
 const navItems = [
   { to: '/capacity', label: 'Capacity' },
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/demand" element={<DemandDiscovery />} />
             <Route path="/demand/new" element={<DemandEdit />} />
             <Route path="/demand/:id/edit" element={<DemandEdit />} />
+            <Route path="/archive" element={<Archive />} />
             <Route path="/admin/*" element={<Admin />} />
           </Routes>
         </main>
