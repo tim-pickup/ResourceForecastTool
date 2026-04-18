@@ -1,15 +1,119 @@
 import { useState, useMemo } from 'react'
 import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
-import { parseISO, isAfter, differenceInMonths } from 'date-fns'
+import { parseISO, isAfter, differenceInMonths, addMonths, format } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
 import type { Phase, Requirement, FundingSource, Level, SkillRequirement } from '../../types'
 import { Input, Select } from '../../components/ui/FormFields'
 import { ThemeSkillSelector } from '../../components/ThemeSkillSelector'
 import { generateId } from '../../utils/ids'
-import { generateMonths, formatMonthLabel } from '../../utils/capacity'
+import { generateMonths, formatMonthLabel, getCurrentMonth } from '../../utils/capacity'
 
 const FUNDING_SOURCES: FundingSource[] = ['Investment Scheme', 'Plant/Sector Allocation', 'Mixed']
 const LEVELS: Level[] = ['Basic', 'Advanced', 'Specialist']
+const PHASE_COLORS = ['#60a5fa', '#34d399', '#a78bfa', '#f59e0b', '#f87171', '#818cf8']
+
+// ─── Phase Gantt ─────────────────────────────────────────────────────────────
+
+interface GanttProps {
+  phases: Phase[]
+  onClickPhase: (phaseId: string) => void
+}
+
+export function PhaseGantt({ phases, onClickPhase }: GanttProps) {
+  const validPhases = phases.filter(p => p.start_month)
+  if (validPhases.length === 0) return null
+
+  const starts = validPhases.map(p => p.start_month).sort()
+  const finiteEnds = validPhases.filter(p => p.end_month).map(p => p.end_month!).sort()
+  const hasIndefinite = validPhases.some(p => !p.end_month)
+
+  const tlStart = starts[0]
+  let tlEndDate: Date
+  if (finiteEnds.length > 0) {
+    const latestFiniteDate = parseISO(finiteEnds[finiteEnds.length - 1] + '-01')
+    tlEndDate = hasIndefinite ? addMonths(latestFiniteDate, 8) : latestFiniteDate
+  } else {
+    tlEndDate = addMonths(parseISO(tlStart + '-01'), 18)
+  }
+
+  const totalMonths = differenceInMonths(tlEndDate, parseISO(tlStart + '-01')) + 1
+  if (totalMonths <= 1) return null
+
+  const sortedPhases = [...validPhases].sort((a, b) => a.start_month.localeCompare(b.start_month))
+
+  function monthOff(month: string): number {
+    return Math.max(0, differenceInMonths(parseISO(month + '-01'), parseISO(tlStart + '-01')))
+  }
+
+  const tickInterval = totalMonths > 36 ? 6 : totalMonths > 18 ? 3 : totalMonths > 9 ? 2 : 1
+  const ticks: { label: string; pct: number }[] = []
+  for (let i = 0; i < totalMonths; i += tickInterval) {
+    const d = addMonths(parseISO(tlStart + '-01'), i)
+    ticks.push({ label: format(d, 'MMM yy'), pct: (i / (totalMonths - 1)) * 100 })
+  }
+
+  return (
+    <div className="bg-gray-50 border border-border rounded p-3 mb-3">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 block mb-2">Phase Timeline</span>
+      <div className="overflow-x-auto">
+        <div style={{ minWidth: 360 }}>
+          {/* Tick axis */}
+          <div className="relative h-5 mb-1">
+            {ticks.map(({ label, pct }) => (
+              <span
+                key={label}
+                className="absolute text-[9px] text-gray-400 whitespace-nowrap"
+                style={{ left: `${pct}%`, transform: 'translateX(-50%)' }}
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+          {/* Phase bars */}
+          <div className="flex flex-col gap-1">
+            {sortedPhases.map((phase) => {
+              const origIdx = phases.indexOf(phase)
+              const startOff = monthOff(phase.start_month)
+              const isIndefinite = !phase.end_month
+              const endOff = isIndefinite
+                ? totalMonths - 1
+                : Math.min(monthOff(phase.end_month!), totalMonths - 1)
+              const leftPct = (startOff / (totalMonths - 1)) * 100
+              const widthPct = Math.max(((endOff - startOff) / (totalMonths - 1)) * 100, 3)
+              const color = PHASE_COLORS[origIdx % PHASE_COLORS.length]
+              const label = phase.name || `Phase ${origIdx + 1}`
+              const dateLabel = isIndefinite
+                ? `${phase.start_month} → ongoing`
+                : `${phase.start_month} → ${phase.end_month}`
+
+              return (
+                <div key={phase.id} className="relative h-7">
+                  <button
+                    type="button"
+                    onClick={() => onClickPhase(phase.id)}
+                    title={`${label} · ${dateLabel}`}
+                    className="absolute top-0 h-full rounded flex items-center px-2 overflow-hidden text-white text-[10px] font-medium hover:opacity-80 transition-opacity"
+                    style={{
+                      left: `${leftPct}%`,
+                      width: `${widthPct}%`,
+                      backgroundColor: color,
+                      ...(isIndefinite ? {
+                        backgroundImage: `repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(255,255,255,0.2) 4px, rgba(255,255,255,0.2) 8px)`,
+                      } : {}),
+                    }}
+                  >
+                    <span className="truncate">{label}</span>
+                    {isIndefinite && <span className="ml-1 opacity-80 shrink-0">→</span>}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function getMonths(start: string, end: string | null): string[] {
   if (!start || !end) return []

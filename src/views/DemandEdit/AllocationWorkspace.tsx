@@ -183,8 +183,15 @@ function AllocationRow({ alloc, req, phase, months, onChange, onDelete }: Alloca
 
   const contracted = alloc.person_id ? (store.people.find(p => p.id === alloc.person_id)?.contracted_hours_per_month ?? 0) : 0
 
-  const setMonth = (m: string, val: number) =>
-    onChange({ ...alloc, hours_by_month: { ...alloc.hours_by_month, [m]: Math.max(0, val) } })
+  const setMonth = (m: string, rawVal: number) => {
+    const target = req.hours_by_month[m] ?? 0
+    const othersAllocated = req.allocations
+      .filter(a => a.id !== alloc.id)
+      .reduce((s, a) => s + (a.hours_by_month[m] ?? 0), 0)
+    const headroom = Math.max(0, target - othersAllocated)
+    const val = Math.min(Math.max(0, rawVal), headroom)
+    onChange({ ...alloc, hours_by_month: { ...alloc.hours_by_month, [m]: val } })
+  }
 
   const rowTotal = months.reduce((s, m) => s + (alloc.hours_by_month[m] ?? 0), 0)
 
@@ -437,9 +444,10 @@ interface Props {
   draft: Omit<DemandItem, 'id'>
   onChange: (d: Omit<DemandItem, 'id'>) => void
   onParkToRevise: () => void
+  onRevise?: () => void
 }
 
-export function AllocationWorkspace({ draft, onChange, onParkToRevise }: Props) {
+export function AllocationWorkspace({ draft, onChange, onParkToRevise, onRevise }: Props) {
   const { themes } = useAppStore()
   const theme = themes.find(t => t.id === draft.primary_theme_id)
 
@@ -516,11 +524,20 @@ export function AllocationWorkspace({ draft, onChange, onParkToRevise }: Props) 
         )}
       </div>
 
-      {/* Park to revise banner */}
+      {/* Lock banner — action differs by status */}
       <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded p-2.5 text-xs text-amber-700">
         <Lock size={12} className="shrink-0" />
-        <span className="flex-1">Demand definition is locked. To edit phases or requirements, park and revive this item.</span>
-        <Button size="sm" variant="secondary" onClick={onParkToRevise}>Park &amp; Revise</Button>
+        <span className="flex-1">Demand definition is locked.
+          {draft.status === 'Approved'
+            ? ' Use Revise to return to Submitted and edit phases or requirements (allocations preserved).'
+            : ' To edit phases or requirements, park and revive this item.'
+          }
+        </span>
+        {draft.status === 'Approved' && onRevise ? (
+          <Button size="sm" variant="secondary" onClick={onRevise}>Revise</Button>
+        ) : (
+          <Button size="sm" variant="secondary" onClick={onParkToRevise}>Park &amp; Revise</Button>
+        )}
       </div>
 
       {/* Phase cards */}

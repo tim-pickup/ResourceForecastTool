@@ -291,6 +291,30 @@ export default function CapacityValidation() {
     return store.themes.map(t => ({ theme: t, skills: groups.get(t.id) ?? [] })).filter(g => g.skills.length > 0)
   }, [skillCharts, store.themes])
 
+  // Over-capacity summary items for Section B strip
+  const overCapacityItems = useMemo(() => {
+    function overInfo(data: ChartPoint[], name: string, id: string) {
+      const over = data.filter(d => d.bau + d.plant + d.npd + d.strategy + d.overlay > d.capacity)
+      if (over.length === 0) return null
+      const peak = Math.max(...over.map(d => d.bau + d.plant + d.npd + d.strategy + d.overlay - d.capacity))
+      const first = over[0].label
+      const last = over[over.length - 1].label
+      return { id, name, monthRange: first === last ? first : `${first}–${last}`, peak }
+    }
+    const items = []
+    for (const { theme, data } of themeCharts) {
+      const info = overInfo(data, theme.name, theme.id)
+      if (info) items.push(info)
+    }
+    if (sectionBMode === 'skill') {
+      for (const { skill, data } of skillCharts) {
+        const info = overInfo(data, skill.name, skill.id)
+        if (info) items.push(info)
+      }
+    }
+    return items.sort((a, b) => b.peak - a.peak)
+  }, [themeCharts, skillCharts, sectionBMode])
+
   function handleThemeClick(themeId: string) {
     setDrillThemeId(themeId)
     setSectionBMode('skill')
@@ -465,17 +489,46 @@ export default function CapacityValidation() {
             )}
           </div>
 
+          {/* Over-capacity summary strip */}
+          {overCapacityItems.length === 0 ? (
+            <div className="mb-3 px-3 py-2 rounded bg-green-50 border border-green-200 text-xs text-green-700">
+              All themes within capacity across the visible horizon
+            </div>
+          ) : (
+            <div className="mb-3 px-3 py-2.5 rounded bg-red-50 border border-red-200">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-red-600 block mb-1.5">Over capacity</span>
+              <div className="flex flex-wrap gap-2">
+                {overCapacityItems.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      document.getElementById(`chart-${item.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    }}
+                    className="flex items-center gap-1.5 text-xs text-red-700 bg-white border border-red-200 rounded-full px-2.5 py-1 hover:bg-red-100 transition-colors"
+                  >
+                    <span className="font-medium">{item.name}</span>
+                    <span className="text-red-400">·</span>
+                    <span>{item.monthRange}</span>
+                    <span className="text-red-400">·</span>
+                    <span className="font-semibold">+{Math.round(item.peak)}h peak</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {sectionBMode === 'theme' ? (
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))' }}>
               {themeCharts.map(({ theme, data }) => (
-                <CapacityChart
-                  key={theme.id}
-                  title={theme.name}
-                  subtitle="Click to drill into skills"
-                  data={data}
-                  compact
-                  onClick={() => handleThemeClick(theme.id)}
-                />
+                <div key={theme.id} id={`chart-${theme.id}`}>
+                  <CapacityChart
+                    title={theme.name}
+                    subtitle="Click to drill into skills"
+                    data={data}
+                    compact
+                    onClick={() => handleThemeClick(theme.id)}
+                  />
+                </div>
               ))}
               {themeCharts.length === 0 && (
                 <p className="text-sm text-gray-400 py-8">Add themes in Admin to see breakdown.</p>
@@ -496,15 +549,16 @@ export default function CapacityValidation() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">{theme.name}</p>
                     <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))' }}>
                       {skills.map(({ skill, data }) => (
-                        <CapacityChart
-                          key={skill.id}
-                          title={skill.name}
-                          subtitle="Click to see people"
-                          data={data}
-                          subCapacityLabel="Specialist capacity"
-                          compact
-                          onClick={() => handleSkillClick(skill.id)}
-                        />
+                        <div key={skill.id} id={`chart-${skill.id}`}>
+                          <CapacityChart
+                            title={skill.name}
+                            subtitle="Click to see people"
+                            data={data}
+                            subCapacityLabel="Specialist capacity"
+                            compact
+                            onClick={() => handleSkillClick(skill.id)}
+                          />
+                        </div>
                       ))}
                     </div>
                   </div>

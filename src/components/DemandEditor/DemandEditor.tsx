@@ -26,6 +26,7 @@ function drawerTransitions(status: DemandStatus): Transition[] {
       ]
     case 'Approved':
       return [
+        { label: 'Revise', next: 'Submitted' },
         { label: 'Park', next: 'Parked' },
         { label: 'Close', next: 'Closed', variant: 'danger' },
       ]

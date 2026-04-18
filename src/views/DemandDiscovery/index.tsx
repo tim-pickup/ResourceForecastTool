@@ -79,7 +79,7 @@ export default function DemandDiscovery() {
   const store = useAppStore()
   const navigate = useNavigate()
   const location = useLocation()
-  const [mode, setMode] = useState<ViewMode>('table')
+  const [mode, setMode] = useState<ViewMode>('board')
   const [drawerId, setDrawerId] = useState<string | null>(null)
 
   // Re-open drawer when navigating back from Model Impact

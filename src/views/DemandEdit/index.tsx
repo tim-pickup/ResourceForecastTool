@@ -7,7 +7,7 @@ import { Button } from '../../components/ui/Button'
 import { Input, Select, Textarea } from '../../components/ui/FormFields'
 import { StatusBadge } from '../../components/ui/Badge'
 import { generateId } from '../../utils/ids'
-import { PhaseEditor, blankPhase } from './ModeAEditor'
+import { PhaseEditor, blankPhase, PhaseGantt } from './ModeAEditor'
 import { AllocationWorkspace, computeAutoStatus } from './AllocationWorkspace'
 
 const TYPES: DemandType[] = ['Group Strategy Project', 'Plant Project', 'NPD Demand', 'BAU']
@@ -21,7 +21,7 @@ function pageTransitions(status: DemandStatus, isNew: boolean): Transition[] {
   switch (status) {
     case 'Draft':     return [{ label: 'Submit', next: 'Submitted' }]
     case 'Submitted': return [{ label: 'Approve', next: 'Approved' }, { label: 'Revert to Draft', next: 'Draft' }, { label: 'Park', next: 'Parked' }]
-    case 'Approved':  return [{ label: 'Park', next: 'Parked' }, { label: 'Close', next: 'Closed', variant: 'danger' }]
+    case 'Approved':  return [{ label: 'Revise', next: 'Submitted' }, { label: 'Park', next: 'Parked' }, { label: 'Close', next: 'Closed', variant: 'danger' }]
     case 'PartiallyAllocated': return [{ label: 'Park', next: 'Parked' }, { label: 'Close', next: 'Closed', variant: 'danger' }]
     case 'Allocated': return [{ label: 'Park', next: 'Parked' }, { label: 'Close', next: 'Closed', variant: 'danger' }]
     case 'Parked':    return [{ label: 'Revive', next: 'Submitted' }]
@@ -67,6 +67,27 @@ export default function DemandEdit() {
   const handleSave = () => {
     let toSave = { ...draft }
     if (mode === 'B') {
+      // Requirement-level over-allocation check (hard block)
+      for (const phase of toSave.phases) {
+        for (const req of phase.requirements) {
+          if (phase.end_month === null) {
+            const target = req.steady_state_hours ?? 0
+            const allocated = req.allocations.reduce((s, a) => s + (a.steady_state_hours ?? 0), 0)
+            if (allocated > target) {
+              window.alert(`Allocation error: a requirement in "${phase.name || 'a phase'}" has more allocated hours than its target (${allocated}h vs ${target}h/mo). Reduce allocations before saving.`)
+              return
+            }
+          } else {
+            for (const [m, target] of Object.entries(req.hours_by_month)) {
+              const allocated = req.allocations.reduce((s, a) => s + (a.hours_by_month[m] ?? 0), 0)
+              if (allocated > target) {
+                window.alert(`Allocation error: ${m} on a requirement in "${phase.name || 'a phase'}" exceeds its target (${allocated}h vs ${target}h). Reduce allocations before saving.`)
+                return
+              }
+            }
+          }
+        }
+      }
       toSave = { ...toSave, status: computeAutoStatus(toSave) }
     }
     if (isNew) {
@@ -106,6 +127,14 @@ export default function DemandEdit() {
     if (!isNew && id) {
       store.updateDemandItem(id, { status: next, parked_reason: next === 'Parked' ? parkedReason : null })
     }
+    setIsDirty(false)
+  }
+
+  const handleRevise = () => {
+    if (!window.confirm('Return this demand to Submitted for revision? Existing allocations are preserved but will be excluded from capacity calculations while Submitted. On re-Approval they will be re-validated.')) return
+    const updates: Partial<DemandItem> = { status: 'Submitted' }
+    if (!isNew && id) store.updateDemandItem(id, updates)
+    update(d => ({ ...d, status: 'Submitted' }))
     setIsDirty(false)
   }
 
@@ -204,18 +233,27 @@ export default function DemandEdit() {
                     + Add Phase
                   </button>
                 </div>
+                {draft.phases.length > 0 && (
+                  <PhaseGantt
+                    phases={draft.phases}
+                    onClickPhase={phaseId => {
+                      document.getElementById(`phase-${phaseId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }}
+                  />
+                )}
                 <div className="flex flex-col gap-2">
                   {draft.phases.length === 0 && (
                     <p className="text-xs text-gray-400 italic">No phases yet. Add a phase to define resource requirements.</p>
                   )}
                   {draft.phases.map((phase, idx) => (
-                    <PhaseEditor
-                      key={phase.id}
-                      phase={phase}
-                      index={idx}
-                      onChange={p => updatePhase(phase.id, p)}
-                      onDelete={() => deletePhase(phase.id)}
-                    />
+                    <div key={phase.id} id={`phase-${phase.id}`}>
+                      <PhaseEditor
+                        phase={phase}
+                        index={idx}
+                        onChange={p => updatePhase(phase.id, p)}
+                        onDelete={() => deletePhase(phase.id)}
+                      />
+                    </div>
                   ))}
                 </div>
               </div>
@@ -228,6 +266,7 @@ export default function DemandEdit() {
               draft={draft}
               onChange={d => { setDraft(d); setIsDirty(true) }}
               onParkToRevise={handleParkToRevise}
+              onRevise={handleRevise}
             />
           )}
 

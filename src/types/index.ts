@@ -87,7 +87,7 @@ export interface AppState {
 export const VALID_TRANSITIONS: Partial<Record<DemandStatus, DemandStatus[]>> = {
   Draft: ['Submitted'],
   Submitted: ['Draft', 'Approved', 'Parked'],
-  Approved: ['Parked', 'Closed'],
+  Approved: ['Submitted', 'Parked', 'Closed'],
   PartiallyAllocated: ['Parked', 'Closed'],
   Allocated: ['Parked', 'Closed'],
   Parked: ['Submitted'],

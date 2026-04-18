@@ -75,15 +75,23 @@ interface Props {
 export function CapacityChart({ title, subtitle, data, subCapacityLabel, compact = false, onClick }: Props) {
   const h = compact ? 180 : 260
   const overMonths = data.filter(d => totalDemand(d) > d.capacity).map(d => d.label)
+  const isOverCapacity = overMonths.length > 0
 
   return (
     <div
-      className={`bg-white border border-border rounded-lg p-4 transition-colors ${onClick ? 'cursor-pointer hover:border-gray-400' : ''}`}
+      className={`bg-white border rounded-lg p-4 transition-colors ${isOverCapacity ? 'border-red-300' : 'border-border'} ${onClick ? 'cursor-pointer hover:border-gray-400' : ''}`}
       onClick={onClick}
     >
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold text-near-black">{title}</h3>
-        {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-near-black">{title}</h3>
+          {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+        </div>
+        {isOverCapacity && (
+          <span className="shrink-0 px-2 py-0.5 text-[10px] font-semibold bg-red-100 text-red-700 rounded-full border border-red-200 whitespace-nowrap">
+            Over capacity
+          </span>
+        )}
       </div>
       <ResponsiveContainer width="100%" height={h}>
         <ComposedChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
