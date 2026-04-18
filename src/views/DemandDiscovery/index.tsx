@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useMemo, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, Search, LayoutGrid, List, GripVertical, ChevronUp, ChevronDown, X } from 'lucide-react'
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { useDroppable, useDraggable } from '@dnd-kit/core'
@@ -78,8 +78,19 @@ function DroppableColumn({ status, children }: { status: DemandStatus; children:
 export default function DemandDiscovery() {
   const store = useAppStore()
   const navigate = useNavigate()
+  const location = useLocation()
   const [mode, setMode] = useState<ViewMode>('table')
   const [drawerId, setDrawerId] = useState<string | null>(null)
+
+  // Re-open drawer when navigating back from Model Impact
+  useEffect(() => {
+    const state = location.state as { openDrawer?: string } | null
+    if (state?.openDrawer) {
+      setDrawerId(state.openDrawer)
+      // Clear the state so it doesn't re-trigger on future renders
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [location.state])
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [filterStatus, setFilterStatus] = useState('')

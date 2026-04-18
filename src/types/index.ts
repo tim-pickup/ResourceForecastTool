@@ -31,26 +31,11 @@ export interface Person {
   skills: PersonSkill[]
 }
 
-export interface BauStream {
-  id: string
-  name: string
-  description: string
-  owning_theme_id: string
-}
-
-export interface BauAllocation {
-  id: string
-  person_id: string
-  stream_id: string
-  hours_per_month: number
-  effective_from: string
-  effective_to: string | null
-}
-
 export interface NamedAllocation {
   id: string
   person_id: string
   hours_by_month: Record<string, number>
+  steady_state_hours?: number | null
   notes: string | null
 }
 
@@ -60,6 +45,7 @@ export interface SkillRequirement {
   skill_id: string
   level: Level
   hours_by_month: Record<string, number>
+  steady_state_hours?: number | null
   notes: string | null
   allocations: NamedAllocation[]
 }
@@ -70,7 +56,7 @@ export interface Phase {
   id: string
   name: string
   start_month: string
-  end_month: string
+  end_month: string | null  // null = indefinite phase
   funding_source: FundingSource
   funding_notes: string
   requirements: Requirement[]
@@ -94,8 +80,6 @@ export interface AppState {
   themes: Theme[]
   skills: Skill[]
   people: Person[]
-  bauStreams: BauStream[]
-  bauAllocations: BauAllocation[]
   demandItems: DemandItem[]
 }
 

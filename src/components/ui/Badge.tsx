@@ -11,10 +11,20 @@ const STATUS_STYLES: Record<DemandStatus, string> = {
   Closed: 'bg-gray-50 text-gray-500 border border-gray-200',
 }
 
+const STATUS_LABELS: Record<DemandStatus, string> = {
+  Draft: 'Draft',
+  Submitted: 'Submitted',
+  Approved: 'Approved',
+  PartiallyAllocated: 'Partially Allocated',
+  Allocated: 'Allocated',
+  Parked: 'Parked',
+  Closed: 'Closed',
+}
+
 export function StatusBadge({ status }: { status: DemandStatus }) {
   return (
     <span className={clsx('inline-flex items-center px-2 py-0.5 rounded text-xs font-medium', STATUS_STYLES[status])}>
-      {status}
+      {STATUS_LABELS[status]}
     </span>
   )
 }

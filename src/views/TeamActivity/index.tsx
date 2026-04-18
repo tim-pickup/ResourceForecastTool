@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useAppStore } from '../../store/useAppStore'
-import { generateMonths, getCurrentMonth, getPersonBauHours, getPersonNamedProjectHours, monthInRange, formatMonthLabel, utilPct } from '../../utils/capacity'
+import { generateMonths, getCurrentMonth, getPersonBauHoursFromDemand, getPersonNamedProjectHours, monthInRange, formatMonthLabel, utilPct } from '../../utils/capacity'
 import { DemandEditor } from '../../components/DemandEditor/DemandEditor'
 import { clsx } from 'clsx'
 
@@ -38,16 +38,6 @@ export default function TeamActivity() {
   function getBlocksForPersonMonth(personId: string, month: string): Block[] {
     const blocks: Block[] = []
 
-    if (showBau) {
-      const bauAllocsForPerson = store.bauAllocations.filter(a =>
-        a.person_id === personId && monthInRange(month, a.effective_from, a.effective_to)
-      )
-      for (const alloc of bauAllocsForPerson) {
-        const stream = store.bauStreams.find(s => s.id === alloc.stream_id)
-        blocks.push({ label: stream?.name ?? 'BAU', hours: alloc.hours_per_month, type: 'bau' })
-      }
-    }
-
     for (const item of store.demandItems) {
       if (item.status !== 'Approved' && item.status !== 'PartiallyAllocated' && item.status !== 'Allocated') continue
       for (const phase of item.phases) {
@@ -55,7 +45,14 @@ export default function TeamActivity() {
         for (const req of phase.requirements) {
           for (const alloc of req.allocations) {
             if (alloc.person_id === personId) {
-              blocks.push({ label: item.name, hours: alloc.hours_by_month[month] ?? 0, type: 'project', demandId: item.id })
+              const hours = phase.end_month === null
+                ? (alloc.steady_state_hours ?? 0)
+                : (alloc.hours_by_month[month] ?? 0)
+              if (hours > 0) {
+                const isBau = item.type === 'BAU'
+                if (isBau && !showBau) continue
+                blocks.push({ label: item.name, hours, type: isBau ? 'bau' : 'project', demandId: item.id })
+              }
             }
           }
         }
@@ -66,9 +63,10 @@ export default function TeamActivity() {
   }
 
   function getTotalHours(personId: string, month: string): number {
-    const bau = showBau ? getPersonBauHours(personId, month, store.bauAllocations) : 0
-    const project = getPersonNamedProjectHours(personId, month, store.demandItems)
-    return bau + project
+    const bau = showBau ? getPersonBauHoursFromDemand(personId, month, store.demandItems) : 0
+    const allNamed = getPersonNamedProjectHours(personId, month, store.demandItems)
+    const project = allNamed - getPersonBauHoursFromDemand(personId, month, store.demandItems)
+    return showBau ? allNamed : project
   }
 
   const groupedPeople = useMemo(() =>

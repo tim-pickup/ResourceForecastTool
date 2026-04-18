@@ -208,10 +208,11 @@ export default function DemandEdit() {
                   {draft.phases.length === 0 && (
                     <p className="text-xs text-gray-400 italic">No phases yet. Add a phase to define resource requirements.</p>
                   )}
-                  {draft.phases.map(phase => (
+                  {draft.phases.map((phase, idx) => (
                     <PhaseEditor
                       key={phase.id}
                       phase={phase}
+                      index={idx}
                       onChange={p => updatePhase(phase.id, p)}
                       onDelete={() => deletePhase(phase.id)}
                     />

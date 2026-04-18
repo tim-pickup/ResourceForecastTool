@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Theme, Skill, Person, BauStream, BauAllocation, DemandItem, AppState, DemandStatus } from '../types'
+import type { Theme, Skill, Person, DemandItem, AppState, DemandStatus } from '../types'
 import { generateId } from '../utils/ids'
 import seedRaw from '../../DEMOSEED.json'
 
@@ -11,8 +11,6 @@ function normalizeSeed(raw: any): AppState {
     themes: raw.themes || [],
     skills: raw.skills || [],
     people: raw.people || [],
-    bauStreams: raw.bau_streams || [],
-    bauAllocations: raw.bau_allocations || [],
     demandItems: items.map((d: any): DemandItem => ({
       ...d,
       status: (d.status === 'Accepted' ? 'Approved' : d.status) as DemandStatus,
@@ -20,11 +18,16 @@ function normalizeSeed(raw: any): AppState {
       closed_at: d.closed_at ?? null,
       phases: (d.phases || []).map((p: any) => ({
         ...p,
+        end_month: p.end_month ?? null,
         requirements: (p.requirements || []).map((r: any) => ({
           ...r,
           shape: 'skill' as const,
           notes: r.notes ?? null,
-          allocations: (r.allocations ?? []) as import('../types').NamedAllocation[],
+          steady_state_hours: r.steady_state_hours ?? null,
+          allocations: (r.allocations ?? []).map((a: any) => ({
+            ...a,
+            steady_state_hours: a.steady_state_hours ?? null,
+          })) as import('../types').NamedAllocation[],
         })),
       })),
     })),
@@ -45,14 +48,6 @@ interface Store extends AppState {
   addPerson: (p: Omit<Person, 'id'>) => void
   updatePerson: (id: string, p: Partial<Person>) => void
   deletePerson: (id: string) => void
-
-  addBauStream: (s: Omit<BauStream, 'id'>) => void
-  updateBauStream: (id: string, s: Partial<BauStream>) => void
-  deleteBauStream: (id: string) => void
-
-  addBauAllocation: (a: Omit<BauAllocation, 'id'>) => void
-  updateBauAllocation: (id: string, a: Partial<BauAllocation>) => void
-  deleteBauAllocation: (id: string) => void
 
   addDemandItem: (d: Omit<DemandItem, 'id'>) => void
   updateDemandItem: (id: string, d: Partial<DemandItem>) => void
@@ -79,14 +74,6 @@ export const useAppStore = create<Store>()(
       updatePerson: (id, p) => set(s => ({ people: s.people.map(x => x.id === id ? { ...x, ...p } : x) })),
       deletePerson: id => set(s => ({ people: s.people.filter(x => x.id !== id) })),
 
-      addBauStream: b => set(s => ({ bauStreams: [...s.bauStreams, { ...b, id: generateId('bau') }] })),
-      updateBauStream: (id, b) => set(s => ({ bauStreams: s.bauStreams.map(x => x.id === id ? { ...x, ...b } : x) })),
-      deleteBauStream: id => set(s => ({ bauStreams: s.bauStreams.filter(x => x.id !== id) })),
-
-      addBauAllocation: a => set(s => ({ bauAllocations: [...s.bauAllocations, { ...a, id: generateId('ba') }] })),
-      updateBauAllocation: (id, a) => set(s => ({ bauAllocations: s.bauAllocations.map(x => x.id === id ? { ...x, ...a } : x) })),
-      deleteBauAllocation: id => set(s => ({ bauAllocations: s.bauAllocations.filter(x => x.id !== id) })),
-
       addDemandItem: d => set(s => ({ demandItems: [...s.demandItems, { ...d, id: generateId('dmd') }] })),
       updateDemandItem: (id, d) => set(s => ({ demandItems: s.demandItems.map(x => x.id === id ? { ...x, ...d } : x) })),
       deleteDemandItem: id => set(s => ({ demandItems: s.demandItems.filter(x => x.id !== id) })),
@@ -109,7 +96,7 @@ export const useAppStore = create<Store>()(
             requirements: p.requirements.map(r => ({
               ...r,
               id: generateId('req'),
-              allocations: [], // never copy allocations to a duplicate
+              allocations: [],
             })),
           })),
         }
@@ -121,7 +108,7 @@ export const useAppStore = create<Store>()(
     }),
     {
       name: 'resource-forecast-v1',
-      version: 3,
+      version: 4,
     }
   )
 )

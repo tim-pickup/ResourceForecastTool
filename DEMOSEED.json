@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "version": "1.2",
-    "description": "Seed dataset for the Digital Manufacturing Resource Load & Capacity Tool, v1.6 data model. Requirements are skill-shaped with hours_by_month; named allocations are separate records attached to requirements. Statuses: Draft, Submitted, Approved, PartiallyAllocated, Allocated, Parked, Closed.",
+    "version": "1.3",
+    "description": "Seed dataset for the Digital Manufacturing Resource Load & Capacity Tool, v1.7 data model. BAU is represented as demand items of type BAU (no separate bau_streams/bau_allocations). Phases can be finite (hours_by_month) or indefinite (steady_state_hours, end_month null). Requirements are skill-shaped with allocations attached. Statuses follow the v1.6 state machine.",
     "today": "2026-05-01"
   },
   "themes": [
@@ -353,144 +353,6 @@
           "level": "Basic"
         }
       ]
-    }
-  ],
-  "bau_streams": [
-    {
-      "id": "bau_001",
-      "name": "MES Super User \u2014 Plant A",
-      "description": "Day-to-day MES support for Plant A super users, batch troubleshooting, recipe queries.",
-      "owning_theme_id": "thm_mom"
-    },
-    {
-      "id": "bau_002",
-      "name": "MES Super User \u2014 Plant B",
-      "description": "Day-to-day MES support for Plant B. Planned handoff to business super users through 2026.",
-      "owning_theme_id": "thm_mom"
-    },
-    {
-      "id": "bau_003",
-      "name": "Historian Day-to-Day Support",
-      "description": "Tag management, historian health, data quality investigations.",
-      "owning_theme_id": "thm_miv"
-    },
-    {
-      "id": "bau_004",
-      "name": "Reporting Maintenance",
-      "description": "Dashboard fixes, report tweaks, ad-hoc reporting requests.",
-      "owning_theme_id": "thm_miv"
-    },
-    {
-      "id": "bau_005",
-      "name": "Simulation Tooling Support",
-      "description": "Licence admin, tooling updates, model troubleshooting for existing simulation users.",
-      "owning_theme_id": "thm_mbm"
-    }
-  ],
-  "bau_allocations": [
-    {
-      "id": "ba_001",
-      "person_id": "per_001",
-      "stream_id": "bau_001",
-      "hours_per_month": 20,
-      "effective_from": "2026-05",
-      "effective_to": null
-    },
-    {
-      "id": "ba_002",
-      "person_id": "per_002",
-      "stream_id": "bau_001",
-      "hours_per_month": 12,
-      "effective_from": "2026-05",
-      "effective_to": null
-    },
-    {
-      "id": "ba_003",
-      "person_id": "per_003",
-      "stream_id": "bau_001",
-      "hours_per_month": 8,
-      "effective_from": "2026-05",
-      "effective_to": null
-    },
-    {
-      "id": "ba_004",
-      "person_id": "per_002",
-      "stream_id": "bau_002",
-      "hours_per_month": 30,
-      "effective_from": "2026-05",
-      "effective_to": "2026-08"
-    },
-    {
-      "id": "ba_005",
-      "person_id": "per_002",
-      "stream_id": "bau_002",
-      "hours_per_month": 15,
-      "effective_from": "2026-09",
-      "effective_to": "2026-12"
-    },
-    {
-      "id": "ba_006",
-      "person_id": "per_002",
-      "stream_id": "bau_002",
-      "hours_per_month": 5,
-      "effective_from": "2027-01",
-      "effective_to": null
-    },
-    {
-      "id": "ba_007",
-      "person_id": "per_004",
-      "stream_id": "bau_002",
-      "hours_per_month": 20,
-      "effective_from": "2026-05",
-      "effective_to": "2026-10"
-    },
-    {
-      "id": "ba_008",
-      "person_id": "per_005",
-      "stream_id": "bau_003",
-      "hours_per_month": 25,
-      "effective_from": "2026-05",
-      "effective_to": null
-    },
-    {
-      "id": "ba_009",
-      "person_id": "per_006",
-      "stream_id": "bau_003",
-      "hours_per_month": 15,
-      "effective_from": "2026-05",
-      "effective_to": null
-    },
-    {
-      "id": "ba_010",
-      "person_id": "per_007",
-      "stream_id": "bau_004",
-      "hours_per_month": 30,
-      "effective_from": "2026-05",
-      "effective_to": null
-    },
-    {
-      "id": "ba_011",
-      "person_id": "per_006",
-      "stream_id": "bau_004",
-      "hours_per_month": 10,
-      "effective_from": "2026-05",
-      "effective_to": null
-    },
-    {
-      "id": "ba_012",
-      "person_id": "per_009",
-      "stream_id": "bau_005",
-      "hours_per_month": 15,
-      "effective_from": "2026-05",
-      "effective_to": null
-    },
-    {
-      "id": "ba_013",
-      "person_id": "per_011",
-      "stream_id": "bau_005",
-      "hours_per_month": 10,
-      "effective_from": "2026-05",
-      "effective_to": "2026-10"
     }
   ],
   "demand_items": [
@@ -1547,6 +1409,320 @@
                 "2026-12": 30
               },
               "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_bau_bau_001",
+      "name": "MES Super User \u2014 Plant A",
+      "type": "BAU",
+      "status": "Allocated",
+      "owner": "Alex Morgan",
+      "primary_theme_id": "thm_mom",
+      "description": "Day-to-day MES support for Plant A super users, batch troubleshooting, recipe queries.",
+      "parked_reason": null,
+      "phases": [
+        {
+          "id": "phs_bau_001_1",
+          "name": "Ongoing support",
+          "start_month": "2026-05",
+          "end_month": null,
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "MOM BAU budget",
+          "requirements": [
+            {
+              "id": "req_bau9000",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Basic",
+              "notes": null,
+              "steady_state_hours": 40,
+              "allocations": [
+                {
+                  "id": "alloc_bau9000",
+                  "person_id": "per_001",
+                  "steady_state_hours": 20,
+                  "notes": null
+                },
+                {
+                  "id": "alloc_bau9001",
+                  "person_id": "per_002",
+                  "steady_state_hours": 12,
+                  "notes": null
+                },
+                {
+                  "id": "alloc_bau9002",
+                  "person_id": "per_003",
+                  "steady_state_hours": 8,
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_bau_bau_002",
+      "name": "MES Super User \u2014 Plant B",
+      "type": "BAU",
+      "status": "Allocated",
+      "owner": "Priya Kumar",
+      "primary_theme_id": "thm_mom",
+      "description": "Day-to-day MES support for Plant B. Planned handoff to business super users through 2026.",
+      "parked_reason": null,
+      "phases": [
+        {
+          "id": "phs_bau002_1",
+          "name": "Current support",
+          "start_month": "2026-05",
+          "end_month": "2026-08",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant B operations budget",
+          "requirements": [
+            {
+              "id": "req_bau9001",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Basic",
+              "notes": "Super user support",
+              "hours_by_month": {
+                "2026-05": 50,
+                "2026-06": 50,
+                "2026-07": 50,
+                "2026-08": 50
+              },
+              "allocations": [
+                {
+                  "id": "alloc_bau9003",
+                  "person_id": "per_002",
+                  "hours_by_month": {
+                    "2026-05": 30,
+                    "2026-06": 30,
+                    "2026-07": 30,
+                    "2026-08": 30
+                  },
+                  "notes": null
+                },
+                {
+                  "id": "alloc_bau9004",
+                  "person_id": "per_004",
+                  "hours_by_month": {
+                    "2026-05": 20,
+                    "2026-06": 20,
+                    "2026-07": 20,
+                    "2026-08": 20
+                  },
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "phs_bau002_2",
+          "name": "Handover period",
+          "start_month": "2026-09",
+          "end_month": "2026-12",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant B operations budget",
+          "requirements": [
+            {
+              "id": "req_bau9002",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Basic",
+              "notes": "Super user support",
+              "hours_by_month": {
+                "2026-09": 35,
+                "2026-10": 35,
+                "2026-11": 35,
+                "2026-12": 35
+              },
+              "allocations": [
+                {
+                  "id": "alloc_bau9005",
+                  "person_id": "per_002",
+                  "hours_by_month": {
+                    "2026-09": 15,
+                    "2026-10": 15,
+                    "2026-11": 15,
+                    "2026-12": 15
+                  },
+                  "notes": null
+                },
+                {
+                  "id": "alloc_bau9006",
+                  "person_id": "per_004",
+                  "hours_by_month": {
+                    "2026-09": 20,
+                    "2026-10": 20,
+                    "2026-11": 20,
+                    "2026-12": 20
+                  },
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "phs_bau002_3",
+          "name": "Residual support",
+          "start_month": "2027-01",
+          "end_month": null,
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant B operations budget (residual)",
+          "requirements": [
+            {
+              "id": "req_bau9003",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Basic",
+              "notes": "Super user support \u2014 steady residual",
+              "steady_state_hours": 5,
+              "allocations": [
+                {
+                  "id": "alloc_bau9007",
+                  "person_id": "per_002",
+                  "steady_state_hours": 5,
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_bau_bau_003",
+      "name": "Historian Day-to-Day Support",
+      "type": "BAU",
+      "status": "Allocated",
+      "owner": "James Whitfield",
+      "primary_theme_id": "thm_miv",
+      "description": "Tag management, historian health, data quality investigations.",
+      "parked_reason": null,
+      "phases": [
+        {
+          "id": "phs_bau_003_1",
+          "name": "Ongoing support",
+          "start_month": "2026-05",
+          "end_month": null,
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "MI&V BAU budget",
+          "requirements": [
+            {
+              "id": "req_bau9004",
+              "shape": "skill",
+              "skill_id": "skl_miv_historian",
+              "level": "Basic",
+              "notes": null,
+              "steady_state_hours": 40,
+              "allocations": [
+                {
+                  "id": "alloc_bau9008",
+                  "person_id": "per_005",
+                  "steady_state_hours": 25,
+                  "notes": null
+                },
+                {
+                  "id": "alloc_bau9009",
+                  "person_id": "per_006",
+                  "steady_state_hours": 15,
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_bau_bau_004",
+      "name": "Reporting Maintenance",
+      "type": "BAU",
+      "status": "Allocated",
+      "owner": "Ben Carter",
+      "primary_theme_id": "thm_miv",
+      "description": "Dashboard fixes, report tweaks, ad-hoc reporting requests.",
+      "parked_reason": null,
+      "phases": [
+        {
+          "id": "phs_bau_004_1",
+          "name": "Ongoing support",
+          "start_month": "2026-05",
+          "end_month": null,
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "MI&V BAU budget",
+          "requirements": [
+            {
+              "id": "req_bau9005",
+              "shape": "skill",
+              "skill_id": "skl_miv_historian",
+              "level": "Basic",
+              "notes": null,
+              "steady_state_hours": 40,
+              "allocations": [
+                {
+                  "id": "alloc_bau9010",
+                  "person_id": "per_007",
+                  "steady_state_hours": 30,
+                  "notes": null
+                },
+                {
+                  "id": "alloc_bau9011",
+                  "person_id": "per_006",
+                  "steady_state_hours": 10,
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_bau_bau_005",
+      "name": "Simulation Tooling Support",
+      "type": "BAU",
+      "status": "Allocated",
+      "owner": "Marcus Vogel",
+      "primary_theme_id": "thm_mbm",
+      "description": "Licence admin, tooling updates, model troubleshooting for existing simulation users.",
+      "parked_reason": null,
+      "phases": [
+        {
+          "id": "phs_bau_005_1",
+          "name": "Ongoing support",
+          "start_month": "2026-05",
+          "end_month": null,
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "MBM BAU budget",
+          "requirements": [
+            {
+              "id": "req_bau9006",
+              "shape": "skill",
+              "skill_id": "skl_mbm_simulation",
+              "level": "Basic",
+              "notes": null,
+              "steady_state_hours": 25,
+              "allocations": [
+                {
+                  "id": "alloc_bau9012",
+                  "person_id": "per_009",
+                  "steady_state_hours": 15,
+                  "notes": null
+                },
+                {
+                  "id": "alloc_bau9013",
+                  "person_id": "per_011",
+                  "steady_state_hours": 10,
+                  "notes": null
+                }
+              ]
             }
           ]
         }

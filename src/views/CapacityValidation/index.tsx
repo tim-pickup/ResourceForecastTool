@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react'
-import { Plus, X, ChevronLeft } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { Plus, X, ChevronLeft, AlertCircle } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   generateMonths, getCurrentMonth, formatMonthLabel,
-  getTeamCapacity, getTeamDemand, getTeamBau,
+  getTeamCapacity, getTeamDemand,
   getThemeCapacity, getThemeDemand,
   getSkillCapacity, getSkillDemand,
   getOverlayDemand, getPersonLoad, getPeopleForSkill,
@@ -16,6 +17,33 @@ import { clsx } from 'clsx'
 import type { Level } from '../../types'
 
 const HORIZONS = [6, 12, 24, 60] as const
+
+// ─── Model Impact banner ──────────────────────────────────────────────────────
+
+function ModelImpactBanner({
+  demandName,
+  onBack,
+  onDismiss,
+}: {
+  demandName: string
+  onBack: () => void
+  onDismiss: () => void
+}) {
+  return (
+    <div className="flex items-center gap-3 px-5 py-2 bg-indigo-50 border-b border-indigo-200 text-xs text-indigo-800">
+      <AlertCircle size={13} className="shrink-0" />
+      <span className="flex-1">
+        Modelling impact of <strong>{demandName}</strong>.{' '}
+        <button onClick={onBack} className="font-semibold underline hover:no-underline">
+          Back to demand
+        </button>
+      </span>
+      <button onClick={onDismiss} className="hover:opacity-70">
+        <X size={13} />
+      </button>
+    </div>
+  )
+}
 
 // ─── Person drill-down panel ─────────────────────────────────────────────────
 
@@ -35,13 +63,16 @@ function PersonPanel({
   const people = useMemo(() => getPeopleForSkill(skillId, store), [skillId, store])
 
   const activeReqs = useMemo(() => {
-    const out: Array<{ itemName: string; itemId: string; phase: string; hours: number; shape: string }> = []
+    const out: Array<{ itemName: string; itemId: string; phase: string; hours: number }> = []
     for (const item of store.demandItems) {
       if (item.status !== 'Approved' && item.status !== 'PartiallyAllocated' && item.status !== 'Allocated') continue
       for (const phase of item.phases) {
         for (const req of phase.requirements) {
           if (req.shape === 'skill' && req.skill_id === skillId) {
-            out.push({ itemName: item.name, itemId: item.id, phase: phase.name, hours: Object.values(req.hours_by_month).reduce((s, h) => s + h, 0), shape: 'skill' })
+            const hrs = phase.end_month === null
+              ? (req.steady_state_hours ?? 0)
+              : Object.values(req.hours_by_month).reduce((s, h) => s + h, 0)
+            out.push({ itemName: item.name, itemId: item.id, phase: phase.name, hours: hrs })
           }
         }
       }
@@ -109,7 +140,7 @@ function PersonPanel({
                     </button>
                     <span className="text-xs text-gray-400 ml-2">/ {r.phase}</span>
                   </div>
-                  <span className="text-xs text-gray-500 tabular-nums">{r.hours}h/mo</span>
+                  <span className="text-xs text-gray-500 tabular-nums">{r.hours}h</span>
                   <span className="text-[10px] uppercase tracking-wide text-gray-400">skill-shaped</span>
                 </div>
               ))}
@@ -142,6 +173,9 @@ function MetaStat({ label, value, warn }: { label: string; value: string | numbe
 
 export default function CapacityValidation() {
   const store = useAppStore()
+  const location = useLocation()
+  const navigate = useNavigate()
+
   const [horizon, setHorizon] = useState<6 | 12 | 24 | 60>(12)
   const [sectionBMode, setSectionBMode] = useState<'theme' | 'skill'>('theme')
   const [drillThemeId, setDrillThemeId] = useState<string | null>(null)
@@ -151,15 +185,33 @@ export default function CapacityValidation() {
   const [overlaySearch, setOverlaySearch] = useState('')
   const [editorId, setEditorId] = useState<string | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
+  const [modelImpactId, setModelImpactId] = useState<string | null>(null)
+  const [bannerVisible, setBannerVisible] = useState(false)
+
+  // Read URL query params for Model Impact deep-link
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const overlayParam = params.get('overlay')
+    const fromParam = params.get('from')
+    if (overlayParam && fromParam === 'demand') {
+      setOverlayIds([overlayParam])
+      setModelImpactId(overlayParam)
+      setBannerVisible(true)
+    }
+  }, [location.search])
 
   const months = useMemo(() => generateMonths(getCurrentMonth(), horizon), [horizon])
+
+  const submittedItems = useMemo(
+    () => store.demandItems.filter(d => d.status === 'Submitted'),
+    [store.demandItems]
+  )
 
   const overlayItems = useMemo(
     () => store.demandItems.filter(d => overlayIds.includes(d.id)),
     [store.demandItems, overlayIds]
   )
 
-  // v1.4: only Submitted items are selectable for overlay
   const availableOverlays = useMemo(
     () => store.demandItems.filter(d =>
       d.status === 'Submitted' &&
@@ -168,6 +220,21 @@ export default function CapacityValidation() {
     ),
     [store.demandItems, overlayIds, overlaySearch]
   )
+
+  const modelImpactItem = modelImpactId ? store.demandItems.find(d => d.id === modelImpactId) : null
+
+  const handleSelectAllSubmitted = () => {
+    const allSubmittedIds = submittedItems.map(d => d.id)
+    setOverlayIds(allSubmittedIds)
+  }
+
+  const handleClearAll = () => {
+    setOverlayIds([])
+  }
+
+  const handleBackToDemand = () => {
+    navigate('/demand', { state: { openDrawer: modelImpactId } })
+  }
 
   // ── Section A: overall team chart ──────────────────────────────────────────
   const teamData: ChartPoint[] = useMemo(() => months.map(month => ({
@@ -194,7 +261,6 @@ export default function CapacityValidation() {
     } as ChartPoint)),
   })), [months, store, overlayItems])
 
-  // ── Section B: skill charts ────────────────────────────────────────────────
   const skillsForSectionB = useMemo(() =>
     drillThemeId
       ? store.skills.filter(s => s.theme_id === drillThemeId)
@@ -215,7 +281,6 @@ export default function CapacityValidation() {
     } as ChartPoint)),
   })), [months, store, skillsForSectionB, overlayItems])
 
-  // ── Skill charts grouped by theme ──────────────────────────────────────────
   const skillsByTheme = useMemo(() => {
     const groups = new Map<string, typeof skillCharts>()
     for (const sc of skillCharts) {
@@ -249,6 +314,16 @@ export default function CapacityValidation() {
 
   return (
     <div className="flex flex-col h-full overflow-auto bg-gray-50">
+
+      {/* Model Impact banner */}
+      {bannerVisible && modelImpactItem && (
+        <ModelImpactBanner
+          demandName={modelImpactItem.name}
+          onBack={handleBackToDemand}
+          onDismiss={() => setBannerVisible(false)}
+        />
+      )}
+
       {/* Toolbar */}
       <div className="sticky top-0 z-20 flex items-center gap-3 px-5 py-2.5 border-b border-border bg-white flex-wrap">
         <span className="text-sm font-semibold text-near-black">Capacity Validation</span>
@@ -272,7 +347,25 @@ export default function CapacityValidation() {
 
         <div className="flex-1" />
 
-        {/* Overlay chips — Submitted only (v1.4) */}
+        {/* Overlay bulk actions */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSelectAllSubmitted}
+            disabled={submittedItems.length === 0}
+            className="text-xs text-brand hover:text-brand-hover font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Select all Submitted
+          </button>
+          {overlayIds.length > 0 && (
+            <button onClick={handleClearAll} className="text-xs text-gray-500 hover:text-near-black font-medium">
+              Clear all
+            </button>
+          )}
+        </div>
+
+        <div className="h-4 w-px bg-border" />
+
+        {/* Overlay chips */}
         <div className="flex items-center gap-2 flex-wrap">
           {overlayIds.map(id => {
             const item = store.demandItems.find(d => d.id === id)
@@ -331,7 +424,7 @@ export default function CapacityValidation() {
       {/* Page body */}
       <div className="flex-1 px-5 py-5 max-w-[1400px] mx-auto w-full">
 
-        {/* Section A — Overall team */}
+        {/* Section A */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Overall Team Capacity</h2>
@@ -342,15 +435,11 @@ export default function CapacityValidation() {
               <MetaStat label="Committed demand" value={`${Math.round(totalDemand)}h`} />
               <MetaStat label="Over-capacity months" value={overMonths} warn={overMonths > 0} />
             </div>
-            <CapacityChart
-              title=""
-              data={teamData}
-              compact={false}
-            />
+            <CapacityChart title="" data={teamData} compact={false} />
           </div>
         </div>
 
-        {/* Section B — Theme / Skill breakdown */}
+        {/* Section B */}
         <div>
           <div className="flex items-center gap-3 mb-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
@@ -393,7 +482,6 @@ export default function CapacityValidation() {
               )}
             </div>
           ) : (
-            /* Skill mode */
             drillSkillId ? (
               <PersonPanel
                 skillId={drillSkillId}
@@ -437,10 +525,7 @@ export default function CapacityValidation() {
       </div>
 
       {editorOpen && (
-        <DemandEditor
-          demandId={editorId}
-          onClose={closeEditor}
-        />
+        <DemandEditor demandId={editorId} onClose={closeEditor} />
       )}
     </div>
   )

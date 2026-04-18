@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Copy, Trash2, Edit2, AlertTriangle } from 'lucide-react'
+import { X, MoreHorizontal, Copy, Trash2, Edit2, AlertTriangle, ExternalLink } from 'lucide-react'
 import { parseISO, format } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
 import { Button } from '../ui/Button'
@@ -42,23 +42,33 @@ function drawerTransitions(status: DemandStatus): Transition[] {
     case 'Parked':
       return [{ label: 'Revive', next: 'Submitted' }]
     case 'Closed':
-      return [] // Restore is handled in Archive view
+      return []
   }
 }
 
-function totalItemHours(item: DemandItem): number {
-  return item.phases
-    .flatMap(p => p.requirements)
-    .flatMap(r => Object.values(r.hours_by_month))
-    .reduce((s, h) => s + h, 0)
+function totalItemHours(item: DemandItem): { finite: number; indefiniteCount: number } {
+  let finite = 0
+  let indefiniteCount = 0
+  for (const phase of item.phases) {
+    if (phase.end_month === null) {
+      indefiniteCount++
+    } else {
+      for (const req of phase.requirements) {
+        finite += Object.values(req.hours_by_month).reduce((s, h) => s + h, 0)
+      }
+    }
+  }
+  return { finite, indefiniteCount }
 }
 
 function dateRange(item: DemandItem): string {
   const starts = item.phases.map(p => p.start_month).filter(Boolean).sort()
-  const ends = item.phases.map(p => p.end_month).filter(Boolean).sort()
+  const ends = item.phases.map(p => p.end_month).filter((e): e is string => e !== null && e !== '').sort()
   if (!starts.length) return '—'
   const fmt = (m: string) => format(parseISO(m + '-01'), 'MMM yy')
-  return `${fmt(starts[0])} – ${fmt(ends[ends.length - 1])}`
+  const hasIndefinite = item.phases.some(p => p.end_month === null)
+  const endLabel = hasIndefinite ? 'ongoing' : (ends.length ? fmt(ends[ends.length - 1]) : '—')
+  return `${fmt(starts[0])} – ${endLabel}`
 }
 
 function MetaRow({ label, value }: { label: string; value: string }) {
@@ -74,14 +84,24 @@ function allocationSummary(item: DemandItem): string {
   let totalReqMonths = 0
   let coveredMonths = 0
   for (const phase of item.phases) {
-    for (const req of phase.requirements) {
-      const months = Object.keys(req.hours_by_month)
-      for (const m of months) {
-        const target = req.hours_by_month[m] ?? 0
+    if (phase.end_month === null) {
+      for (const req of phase.requirements) {
+        const target = req.steady_state_hours ?? 0
         if (target === 0) continue
         totalReqMonths++
-        const allocated = req.allocations.reduce((s, a) => s + (a.hours_by_month[m] ?? 0), 0)
+        const allocated = req.allocations.reduce((s, a) => s + (a.steady_state_hours ?? 0), 0)
         if (allocated >= target) coveredMonths++
+      }
+    } else {
+      for (const req of phase.requirements) {
+        const months = Object.keys(req.hours_by_month)
+        for (const m of months) {
+          const target = req.hours_by_month[m] ?? 0
+          if (target === 0) continue
+          totalReqMonths++
+          const allocated = req.allocations.reduce((s, a) => s + (a.hours_by_month[m] ?? 0), 0)
+          if (allocated >= target) coveredMonths++
+        }
       }
     }
   }
@@ -90,10 +110,68 @@ function allocationSummary(item: DemandItem): string {
   return `${pct}% allocated (${coveredMonths}/${totalReqMonths} req-months covered)`
 }
 
+// ─── Overflow menu ────────────────────────────────────────────────────────────
+
+function OverflowMenu({ onDuplicate, onDelete }: { onDuplicate: () => void; onDelete: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+        setConfirmDelete(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="text-gray-400 hover:text-near-black transition-colors p-1 rounded"
+        title="More actions"
+      >
+        <MoreHorizontal size={15} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-border rounded shadow-card z-50">
+          <button
+            onClick={() => { setOpen(false); onDuplicate() }}
+            className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 flex items-center gap-2"
+          >
+            <Copy size={12} className="text-gray-400" /> Duplicate
+          </button>
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="w-full text-left px-3 py-2 text-xs text-accent-red hover:bg-red-50 flex items-center gap-2"
+            >
+              <Trash2 size={12} /> Delete
+            </button>
+          ) : (
+            <div className="px-3 py-2 border-t border-border">
+              <p className="text-xs text-accent-red font-medium mb-1.5">Confirm delete?</p>
+              <div className="flex gap-2">
+                <button onClick={() => { setOpen(false); setConfirmDelete(false); onDelete() }} className="text-xs font-medium text-accent-red hover:underline">Yes</button>
+                <button onClick={() => setConfirmDelete(false)} className="text-xs text-gray-500 hover:underline">No</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Drawer ───────────────────────────────────────────────────────────────────
+
 export function DemandDrawer({ demandId, onClose }: Props) {
   const store = useAppStore()
   const navigate = useNavigate()
-  const [confirmDelete, setConfirmDelete] = useState(false)
 
   if (!demandId) return null
   const item = store.demandItems.find(d => d.id === demandId)
@@ -101,7 +179,8 @@ export function DemandDrawer({ demandId, onClose }: Props) {
 
   const theme = store.themes.find(t => t.id === item.primary_theme_id)
   const trans = drawerTransitions(item.status)
-  const totalHours = totalItemHours(item)
+  const { finite: totalFiniteHours, indefiniteCount } = totalItemHours(item)
+  const isAllocationMode = ['Approved', 'PartiallyAllocated', 'Allocated'].includes(item.status)
 
   const handleStatusChange = (next: DemandStatus) => {
     if (next === 'Closed') {
@@ -140,36 +219,58 @@ export function DemandDrawer({ demandId, onClose }: Props) {
     navigate(`/demand/${demandId}/edit`)
   }
 
-  const isAllocationMode = ['Approved', 'PartiallyAllocated', 'Allocated'].includes(item.status)
+  const handleModelImpact = () => {
+    onClose()
+    navigate(`/capacity?overlay=${demandId}&from=demand`)
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-black/20" onClick={onClose} />
       <div className="w-[440px] bg-white border-l border-border flex flex-col shadow-panel overflow-hidden">
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-          <div className="flex items-center gap-2 min-w-0">
-            <StatusBadge status={item.status} />
-            <span className="text-sm font-semibold text-near-black truncate max-w-[260px]">
-              {item.name || 'Unnamed'}
-            </span>
+        {/* ── Zone 1: Header ─────────────────────────────────────────────── */}
+        <div className="px-5 py-3.5 border-b border-border">
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-semibold text-near-black leading-snug">
+                {item.name || 'Unnamed'}
+              </h2>
+              <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-gray-500">
+                <span>{item.type}</span>
+                {theme && <><span className="text-gray-300">·</span><span>{theme.name}</span></>}
+                {item.owner && <><span className="text-gray-300">·</span><span>{item.owner}</span></>}
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <OverflowMenu onDuplicate={handleDuplicate} onDelete={handleDelete} />
+              <button onClick={onClose} className="text-gray-400 hover:text-near-black transition-colors p-1 rounded">
+                <X size={15} />
+              </button>
+            </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-near-black transition-colors p-0.5 rounded ml-2 shrink-0">
-            <X size={16} />
-          </button>
         </div>
 
-        {/* Body */}
+        {/* ── Zone 2: Status ─────────────────────────────────────────────── */}
+        <div className="px-5 py-2.5 border-b border-border bg-gray-50/50">
+          <div className="flex items-center gap-2 flex-wrap">
+            <StatusBadge status={item.status} />
+            {trans.map(t => (
+              <Button key={t.label} size="sm" variant={t.variant ?? 'secondary'} onClick={() => handleStatusChange(t.next)}>
+                {t.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Zone 3: Body ───────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
 
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-            <MetaRow label="Type" value={item.type} />
-            <MetaRow label="Theme" value={theme?.name ?? '—'} />
-            <MetaRow label="Owner" value={item.owner || '—'} />
             <MetaRow label="Phases" value={String(item.phases.length)} />
             <MetaRow label="Date range" value={dateRange(item)} />
-            <MetaRow label="Total hours" value={`${Math.round(totalHours)}h`} />
+            {totalFiniteHours > 0 && <MetaRow label="Total hours (finite)" value={`${Math.round(totalFiniteHours)}h`} />}
+            {indefiniteCount > 0 && <MetaRow label="Indefinite phases" value={String(indefiniteCount)} />}
           </div>
 
           {isAllocationMode && (
@@ -189,34 +290,41 @@ export function DemandDrawer({ demandId, onClose }: Props) {
             </div>
           )}
 
-          {/* Phases summary */}
           {item.phases.length > 0 && (
             <div>
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 block mb-2">Phases</span>
               <div className="flex flex-col gap-2.5">
-                {item.phases.map(phase => {
-                  const phaseHrs = phase.requirements
-                    .flatMap(r => Object.values(r.hours_by_month))
-                    .reduce((s, h) => s + h, 0)
+                {item.phases.map((phase, idx) => {
+                  const isIndefinite = phase.end_month === null
+                  const phaseHrs = isIndefinite
+                    ? null
+                    : phase.requirements.flatMap(r => Object.values(r.hours_by_month)).reduce((s, h) => s + h, 0)
+                  const dateLabel = isIndefinite
+                    ? `${phase.start_month} → ongoing`
+                    : `${phase.start_month} → ${phase.end_month}`
                   return (
                     <div key={phase.id} className="border border-border rounded p-3">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-medium">{phase.name || 'Unnamed Phase'}</span>
-                        <span className="text-xs text-gray-400">{phase.start_month} → {phase.end_month}</span>
+                        <span className="text-xs font-medium">
+                          Phase {idx + 1}{phase.name ? ` · ${phase.name}` : ''}
+                        </span>
+                        <span className="text-xs text-gray-400">{dateLabel}</span>
                       </div>
                       <div className="text-xs text-gray-500 mb-2">
                         {phase.funding_source}{phase.funding_notes ? ` — ${phase.funding_notes}` : ''}
                       </div>
                       <div className="flex flex-col gap-1">
                         {phase.requirements.map(req => {
-                          const hrs = Object.values(req.hours_by_month).reduce((s, h) => s + h, 0)
                           const skill = store.skills.find(s => s.id === req.skill_id)
                           const allocCount = req.allocations.length
+                          const hrsLabel = isIndefinite
+                            ? `${req.steady_state_hours ?? 0}h/mo`
+                            : `${Math.round(Object.values(req.hours_by_month).reduce((s, h) => s + h, 0))}h`
                           return (
                             <div key={req.id} className="flex justify-between text-xs text-gray-600">
                               <span>{skill?.name ?? req.skill_id} — {req.level}</span>
                               <span className="text-gray-400">
-                                {Math.round(hrs)}h
+                                {hrsLabel}
                                 {allocCount > 0 && <span className="ml-1 text-blue-500">({allocCount} alloc)</span>}
                               </span>
                             </div>
@@ -226,9 +334,11 @@ export function DemandDrawer({ demandId, onClose }: Props) {
                           <p className="text-xs text-gray-400 italic">No requirements</p>
                         )}
                       </div>
-                      <div className="mt-2 pt-1.5 border-t border-gray-100 text-xs text-gray-500 text-right">
-                        {Math.round(phaseHrs)}h total
-                      </div>
+                      {phaseHrs !== null && (
+                        <div className="mt-2 pt-1.5 border-t border-gray-100 text-xs text-gray-500 text-right">
+                          {Math.round(phaseHrs)}h total
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -237,36 +347,16 @@ export function DemandDrawer({ demandId, onClose }: Props) {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-border px-5 py-3 flex flex-col gap-2.5">
-          <div className="flex flex-wrap gap-2">
-            {trans.map(t => (
-              <Button key={t.label} size="sm" variant={t.variant ?? 'secondary'} onClick={() => handleStatusChange(t.next)}>
-                {t.label}
-              </Button>
-            ))}
-            <Button size="sm" variant="ghost" onClick={handleDuplicate}>
-              <Copy size={12} /> Duplicate
+        {/* ── Zone 4: Footer ─────────────────────────────────────────────── */}
+        <div className="border-t border-border px-5 py-3 flex items-center gap-2">
+          <Button size="sm" variant="primary" onClick={handleEdit}>
+            <Edit2 size={12} /> Edit
+          </Button>
+          {item.status === 'Submitted' && (
+            <Button size="sm" variant="primary" onClick={handleModelImpact}>
+              <ExternalLink size={12} /> Model Impact
             </Button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="primary" onClick={handleEdit}>
-              <Edit2 size={12} /> Edit
-            </Button>
-            <div className="flex-1" />
-            {!confirmDelete ? (
-              <Button size="sm" variant="danger" onClick={() => setConfirmDelete(true)}>
-                <Trash2 size={12} /> Delete
-              </Button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-accent-red font-medium">Confirm?</span>
-                <Button size="sm" variant="danger" onClick={handleDelete}>Yes</Button>
-                <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>No</Button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>

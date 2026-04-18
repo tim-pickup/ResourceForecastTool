@@ -11,7 +11,7 @@ import { generateMonths, formatMonthLabel } from '../../utils/capacity'
 const FUNDING_SOURCES: FundingSource[] = ['Investment Scheme', 'Plant/Sector Allocation', 'Mixed']
 const LEVELS: Level[] = ['Basic', 'Advanced', 'Specialist']
 
-export function getMonths(start: string, end: string): string[] {
+export function getMonths(start: string, end: string | null): string[] {
   if (!start || !end) return []
   try {
     const s = parseISO(start + '-01')
@@ -25,21 +25,42 @@ function adjustRequirements(reqs: Requirement[], newMonths: string[]): Requireme
   return reqs.map(req => {
     const hbm: Record<string, number> = {}
     newMonths.forEach(m => { hbm[m] = req.hours_by_month[m] ?? 0 })
-    return { ...req, hours_by_month: hbm }
+    return { ...req, hours_by_month: hbm, steady_state_hours: null }
+  })
+}
+
+function requirementsToIndefinite(reqs: Requirement[]): Requirement[] {
+  return reqs.map(req => {
+    const vals = Object.values(req.hours_by_month)
+    const avg = vals.length > 0 ? Math.round(vals.reduce((s, h) => s + h, 0) / vals.length) : 0
+    return { ...req, hours_by_month: {}, steady_state_hours: avg }
+  })
+}
+
+function requirementsToFinite(reqs: Requirement[], months: string[], defaultHrs: number): Requirement[] {
+  return reqs.map(req => {
+    const hbm: Record<string, number> = {}
+    const fillVal = req.steady_state_hours ?? defaultHrs
+    months.forEach(m => { hbm[m] = fillVal })
+    return { ...req, hours_by_month: hbm, steady_state_hours: null }
   })
 }
 
 export function blankSkillReq(skillId: string, months: string[]): SkillRequirement {
   const hours_by_month: Record<string, number> = {}
   months.forEach(m => { hours_by_month[m] = 0 })
-  return { id: generateId('req'), shape: 'skill', skill_id: skillId, level: 'Basic', hours_by_month, notes: null, allocations: [] }
+  return { id: generateId('req'), shape: 'skill', skill_id: skillId, level: 'Basic', hours_by_month, steady_state_hours: null, notes: null, allocations: [] }
+}
+
+export function blankSkillReqIndefinite(skillId: string): SkillRequirement {
+  return { id: generateId('req'), shape: 'skill', skill_id: skillId, level: 'Basic', hours_by_month: {}, steady_state_hours: 0, notes: null, allocations: [] }
 }
 
 export function blankPhase(): Phase {
   return { id: generateId('phs'), name: '', start_month: '', end_month: '', funding_source: 'Investment Scheme', funding_notes: '', requirements: [] }
 }
 
-// ─── Requirement row ──────────────────────────────────────────────────────────
+// ─── Requirement row (finite) ─────────────────────────────────────────────────
 
 interface ReqRowProps {
   req: SkillRequirement
@@ -137,34 +158,115 @@ function RequirementRow({ req, months, onChange, onDelete }: ReqRowProps) {
   )
 }
 
+// ─── Requirement row (indefinite) ─────────────────────────────────────────────
+
+function IndefiniteRequirementRow({ req, onChange, onDelete }: { req: SkillRequirement; onChange: (r: SkillRequirement) => void; onDelete: () => void }) {
+  const { skills, themes } = useAppStore()
+
+  return (
+    <div className="border border-border rounded p-2.5 bg-gray-50/50 flex flex-col gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex-1 min-w-[160px]">
+          <ThemeSkillSelector
+            value={req.skill_id}
+            onChange={id => onChange({ ...req, skill_id: id })}
+            themes={themes}
+            skills={skills}
+          />
+        </div>
+        <select
+          value={req.level}
+          onChange={e => onChange({ ...req, level: e.target.value as Level })}
+          className="text-xs border border-border rounded px-1.5 py-1 bg-white"
+        >
+          {LEVELS.map(l => <option key={l}>{l}</option>)}
+        </select>
+        <input
+          type="text"
+          value={req.notes ?? ''}
+          onChange={e => onChange({ ...req, notes: e.target.value || null })}
+          placeholder="Notes (optional)"
+          className="text-xs border border-border rounded px-1.5 py-1 bg-white w-36"
+        />
+        <button onClick={onDelete} className="text-gray-300 hover:text-accent-red transition-colors shrink-0">
+          <Trash2 size={13} />
+        </button>
+      </div>
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-gray-500">Hours per month (indefinite):</label>
+        <input
+          type="number"
+          value={req.steady_state_hours ?? 0}
+          onChange={e => onChange({ ...req, steady_state_hours: Math.max(0, Number(e.target.value)) })}
+          className="w-20 text-xs border border-border rounded px-1.5 py-1 text-right bg-white"
+          min={0}
+        />
+        <span className="text-xs text-gray-400">h/mo</span>
+      </div>
+    </div>
+  )
+}
+
 // ─── Phase editor ─────────────────────────────────────────────────────────────
 
 interface PhaseEditorProps {
   phase: Phase
+  index: number
   onChange: (p: Phase) => void
   onDelete: () => void
 }
 
-export function PhaseEditor({ phase, onChange, onDelete }: PhaseEditorProps) {
+export function PhaseEditor({ phase, index, onChange, onDelete }: PhaseEditorProps) {
   const [open, setOpen] = useState(true)
   const store = useAppStore()
 
+  const isIndefinite = phase.end_month === null
   const months = useMemo(() => getMonths(phase.start_month, phase.end_month), [phase.start_month, phase.end_month])
 
-  const handleMonthBoundaryChange = (field: 'start_month' | 'end_month', value: string) => {
-    const newStart = field === 'start_month' ? value : phase.start_month
-    const newEnd   = field === 'end_month'   ? value : phase.end_month
-    const newMonths = getMonths(newStart, newEnd)
+  const handleStartChange = (value: string) => {
+    const newMonths = getMonths(value, phase.end_month)
+    const updatedReqs = !isIndefinite && newMonths.length > 0 ? adjustRequirements(phase.requirements, newMonths) : phase.requirements
+    onChange({ ...phase, start_month: value, requirements: updatedReqs })
+  }
+
+  const handleEndChange = (value: string) => {
+    const newMonths = getMonths(phase.start_month, value)
     const updatedReqs = newMonths.length > 0 ? adjustRequirements(phase.requirements, newMonths) : phase.requirements
-    onChange({ ...phase, [field]: value, requirements: updatedReqs })
+    onChange({ ...phase, end_month: value, requirements: updatedReqs })
+  }
+
+  const handleIndefiniteToggle = (checked: boolean) => {
+    if (checked) {
+      // Going finite → indefinite: convert hours_by_month to steady_state_hours
+      const updatedReqs = requirementsToIndefinite(phase.requirements)
+      onChange({ ...phase, end_month: null, requirements: updatedReqs })
+    } else {
+      // Going indefinite → finite: prompt for end month, pre-fill per-month
+      const newEnd = window.prompt('End month (YYYY-MM):', '') ?? ''
+      if (!newEnd) return
+      const newMonths = getMonths(phase.start_month, newEnd)
+      if (newMonths.length === 0) return
+      const updatedReqs = requirementsToFinite(phase.requirements, newMonths, 0)
+      onChange({ ...phase, end_month: newEnd, requirements: updatedReqs })
+    }
   }
 
   const updateReq = (reqId: string, r: SkillRequirement) =>
     onChange({ ...phase, requirements: phase.requirements.map(x => x.id === reqId ? r : x) })
   const deleteReq = (reqId: string) =>
     onChange({ ...phase, requirements: phase.requirements.filter(x => x.id !== reqId) })
-  const addReq = () =>
-    onChange({ ...phase, requirements: [...phase.requirements, blankSkillReq(store.skills[0]?.id ?? '', months)] })
+  const addReq = () => {
+    const skillId = store.skills[0]?.id ?? ''
+    const newReq = isIndefinite ? blankSkillReqIndefinite(skillId) : blankSkillReq(skillId, months)
+    onChange({ ...phase, requirements: [...phase.requirements, newReq] })
+  }
+
+  const phaseLabel = phase.name
+    ? `Phase ${index + 1} · ${phase.name}`
+    : `Phase ${index + 1}`
+  const dateLabel = isIndefinite
+    ? `${phase.start_month || '?'} → ongoing`
+    : `${phase.start_month || '?'} → ${phase.end_month || '?'}`
 
   return (
     <div className="border border-border rounded overflow-hidden">
@@ -173,8 +275,8 @@ export function PhaseEditor({ phase, onChange, onDelete }: PhaseEditorProps) {
         onClick={() => setOpen(o => !o)}
       >
         {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        <span className="text-xs font-medium flex-1">{phase.name || 'Unnamed Phase'}</span>
-        <span className="text-xs text-gray-400">{phase.start_month} → {phase.end_month}</span>
+        <span className="text-xs font-medium flex-1">{phaseLabel}</span>
+        <span className="text-xs text-gray-400">{dateLabel}</span>
         <button
           onClick={e => { e.stopPropagation(); onDelete() }}
           className="text-gray-300 hover:text-accent-red transition-colors ml-1"
@@ -194,15 +296,27 @@ export function PhaseEditor({ phase, onChange, onDelete }: PhaseEditorProps) {
             <Input
               label="Start Month (YYYY-MM)"
               value={phase.start_month}
-              onChange={e => handleMonthBoundaryChange('start_month', e.target.value)}
+              onChange={e => handleStartChange(e.target.value)}
               placeholder="2026-05"
             />
-            <Input
-              label="End Month (YYYY-MM)"
-              value={phase.end_month}
-              onChange={e => handleMonthBoundaryChange('end_month', e.target.value)}
-              placeholder="2026-08"
-            />
+            <div className="flex flex-col gap-1">
+              <Input
+                label="End Month (YYYY-MM)"
+                value={phase.end_month ?? ''}
+                onChange={e => handleEndChange(e.target.value)}
+                placeholder="2026-08"
+                disabled={isIndefinite}
+              />
+              <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isIndefinite}
+                  onChange={e => handleIndefiniteToggle(e.target.checked)}
+                  className="accent-brand"
+                />
+                No end date (indefinite)
+              </label>
+            </div>
           </div>
           <Input label="Funding Notes" value={phase.funding_notes} onChange={e => onChange({ ...phase, funding_notes: e.target.value })} placeholder="e.g. IS-2026-04" />
 
@@ -218,13 +332,22 @@ export function PhaseEditor({ phase, onChange, onDelete }: PhaseEditorProps) {
                 <p className="text-xs text-gray-400 italic">No requirements yet.</p>
               )}
               {phase.requirements.map(req => (
-                <RequirementRow
-                  key={req.id}
-                  req={req}
-                  months={months}
-                  onChange={r => updateReq(req.id, r)}
-                  onDelete={() => deleteReq(req.id)}
-                />
+                isIndefinite ? (
+                  <IndefiniteRequirementRow
+                    key={req.id}
+                    req={req}
+                    onChange={r => updateReq(req.id, r)}
+                    onDelete={() => deleteReq(req.id)}
+                  />
+                ) : (
+                  <RequirementRow
+                    key={req.id}
+                    req={req}
+                    months={months}
+                    onChange={r => updateReq(req.id, r)}
+                    onDelete={() => deleteReq(req.id)}
+                  />
+                )
               ))}
             </div>
           </div>
