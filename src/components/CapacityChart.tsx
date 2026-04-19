@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceArea,
@@ -106,11 +107,21 @@ interface Props {
 export function CapacityChart({ title, subtitle, data, compact = false, onClick }: Props) {
   const h = compact ? 180 : 260
 
-  // Derive internal points with grey band base
+  // Unique pattern IDs — multiple charts on same page need distinct SVG ids
+  const uid = useId().replace(/:/g, '')
+  const greyHatchId = `greyHatch${uid}`
+  const overlayHatchId = `overlayHatch${uid}`
+
+  // Derive internal points with grey-band base
   const chartData: InternalPoint[] = data.map(d => ({
     ...d,
     greyBase: Math.max(0, d.capacity - d.grey),
   }))
+
+  // Only mount the overlay Area when at least one month has overlay > 0.
+  // When overlay is universally 0, the stacked Area path is identical to the
+  // top committed-stack path — a silent duplicate. §4 View 1 overlay correctness.
+  const hasOverlay = chartData.some(d => d.overlay > 0)
 
   // Over-capacity: committed demand alone exceeds capacity line
   const overCommittedMonths = data
@@ -165,6 +176,17 @@ export function CapacityChart({ title, subtitle, data, compact = false, onClick 
       </div>
       <ResponsiveContainer width="100%" height={h}>
         <ComposedChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
+
+          {/* Hatch patterns for grey band and overlay — §2.4.4 DOM-layer mandate */}
+          <defs>
+            <pattern id={greyHatchId} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="6" stroke="#9ca3af" strokeWidth="2.5" strokeOpacity="0.45" />
+            </pattern>
+            <pattern id={overlayHatchId} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="6" stroke="#f59e0b" strokeWidth="2.5" strokeOpacity="0.75" />
+            </pattern>
+          </defs>
+
           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
           <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
           <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickFormatter={v => `${v}h`} />
@@ -183,31 +205,51 @@ export function CapacityChart({ title, subtitle, data, compact = false, onClick 
             <ReferenceArea key={`gb-${lbl}`} x1={lbl} x2={lbl} fill="rgba(251,146,60,0.10)" />
           ))}
 
-          {/* Grey band — anchored to capacity line, hanging downward.
-              Rendered as per-month reference areas (y1 = capacity - grey, y2 = capacity).
-              Sits behind the demand stack visually. */}
-          {chartData.map((d, i) => {
-            if (d.grey <= 0) return null
-            return (
-              <ReferenceArea
-                key={`grey-${i}`}
-                x1={d.label}
-                x2={d.label}
-                y1={d.greyBase}
-                y2={d.capacity}
-                fill="rgba(156,163,175,0.40)"
-                ifOverflow="visible"
-              />
-            )
-          })}
+          {/* Grey band — §2.4.4 DOM-layer mandate.
+              Always mounted (even when grey=0 → zero-height band), never absent.
+              Uses its own stackId so it sits independent of the demand stack.
+              greyBase (transparent) raises the floor to capacity−grey;
+              grey (hatched) fills from that floor up to the capacity line. */}
+          <Area
+            type="monotone"
+            dataKey="greyBase"
+            stackId="grey"
+            fill="transparent"
+            stroke="none"
+            legendType="none"
+            isAnimationActive={false}
+            name="_greyBase"
+          />
+          <Area
+            type="monotone"
+            dataKey="grey"
+            stackId="grey"
+            fill={`url(#${greyHatchId})`}
+            stroke="none"
+            isAnimationActive={false}
+            name="Proj. elsewhere"
+          />
 
           {/* Committed demand stack — from x-axis upward */}
           <Area type="monotone" dataKey="bau"      stackId="d" fill={C.bau}      stroke="none" fillOpacity={0.85} name="BAU" />
           <Area type="monotone" dataKey="plant"    stackId="d" fill={C.plant}    stroke="none" fillOpacity={0.85} name="Plant Project" />
           <Area type="monotone" dataKey="npd"      stackId="d" fill={C.npd}      stroke="none" fillOpacity={0.85} name="NPD Demand" />
           <Area type="monotone" dataKey="strategy" stackId="d" fill={C.strategy} stroke="none" fillOpacity={0.85} name="Group Strategy" />
-          {/* Overlay demand — hatched amber, stacked above committed */}
-          <Area type="monotone" dataKey="overlay"  stackId="d" fill={C.overlay}  stroke="none" fillOpacity={0.45} name="Overlay (Submitted)" />
+
+          {/* Overlay demand — hatched amber, stacked above committed.
+              Only mounted when overlay > 0 in at least one month; when overlay is
+              universally 0 the stacked Area's d path duplicates the strategy layer.
+              §4 View 1 overlay layer correctness. */}
+          {hasOverlay && (
+            <Area
+              type="monotone"
+              dataKey="overlay"
+              stackId="d"
+              fill={`url(#${overlayHatchId})`}
+              stroke="none"
+              name="Overlay (Submitted)"
+            />
+          )}
 
           {/* Capacity line — drawn last so it sits on top */}
           <Line type="monotone" dataKey="capacity" stroke={C.capacity} strokeWidth={2.5} dot={false} name="Capacity" />
@@ -221,14 +263,25 @@ export function CapacityChart({ title, subtitle, data, compact = false, onClick 
           { color: C.plant,    label: 'Plant' },
           { color: C.npd,      label: 'NPD' },
           { color: C.strategy, label: 'Group Strategy' },
-          { color: C.overlay,  label: 'Overlay', opacity: 0.45 },
-          { color: '#9ca3af',  label: 'Proj. elsewhere', opacity: 0.40 },
+          { color: C.overlay,  label: 'Overlay', hatch: true },
+          { color: '#9ca3af',  label: 'Proj. elsewhere', hatch: true },
           { color: C.capacity, label: 'Capacity', line: true },
-        ].map(({ color, label, line, opacity = 0.85 }) => (
+        ].map(({ color, label, line, hatch }) => (
           <span key={label} className="flex items-center gap-1 text-[10px] text-gray-500">
             {line
               ? <span className="inline-block w-5 h-0.5 rounded" style={{ background: color }} />
-              : <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: color, opacity }} />
+              : hatch
+              ? (
+                <svg width="10" height="10" className="inline-block">
+                  <defs>
+                    <pattern id={`leg-${label.replace(/\s/g,'')}`} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                      <line x1="0" y1="0" x2="0" y2="4" stroke={color} strokeWidth="1.5" strokeOpacity="0.8" />
+                    </pattern>
+                  </defs>
+                  <rect width="10" height="10" rx="2" fill={`url(#leg-${label.replace(/\s/g,'')})`} />
+                </svg>
+              )
+              : <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: color, opacity: 0.85 }} />
             }
             {label}
           </span>
