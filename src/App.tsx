@@ -1,5 +1,6 @@
 import { HashRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom'
 import CapacityValidation from './views/CapacityValidation'
+import SkillDetail from './views/CapacityValidation/SkillDetail'
 import TeamActivity from './views/TeamActivity'
 import DemandDiscovery from './views/DemandDiscovery'
 import DemandEdit from './views/DemandEdit'
@@ -44,6 +45,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/capacity" replace />} />
             <Route path="/capacity" element={<CapacityValidation />} />
+            <Route path="/capacity/skill/:skillId" element={<SkillDetail />} />
             <Route path="/team" element={<TeamActivity />} />
             <Route path="/demand" element={<DemandDiscovery />} />
             <Route path="/demand/new" element={<DemandEdit />} />

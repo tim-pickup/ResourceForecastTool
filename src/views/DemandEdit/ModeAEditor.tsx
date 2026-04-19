@@ -10,7 +10,13 @@ import { generateMonths, formatMonthLabel, getCurrentMonth } from '../../utils/c
 
 const FUNDING_SOURCES: FundingSource[] = ['Investment Scheme', 'Plant/Sector Allocation', 'Mixed']
 const LEVELS: Level[] = ['Basic', 'Advanced', 'Specialist']
-const PHASE_COLORS = ['#60a5fa', '#34d399', '#a78bfa', '#f59e0b', '#f87171', '#818cf8']
+
+// Funding source colour palette — documented in DESIGN.md §10
+export const FUNDING_SOURCE_COLORS: Record<FundingSource, string> = {
+  'Investment Scheme':      '#0891b2',  // cyan-600
+  'Plant/Sector Allocation': '#d97706', // amber-600
+  'Mixed':                  '#7c3aed',  // violet-600
+}
 
 // ─── Phase Gantt ─────────────────────────────────────────────────────────────
 
@@ -52,9 +58,26 @@ export function PhaseGantt({ phases, onClickPhase }: GanttProps) {
     ticks.push({ label: format(d, 'MMM yy'), pct: (i / (totalMonths - 1)) * 100 })
   }
 
+  // Determine which funding sources are actually used (for compact legend)
+  const usedSources = Array.from(new Set(validPhases.map(p => p.funding_source)))
+
   return (
     <div className="bg-gray-50 border border-border rounded p-3 mb-3">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 block mb-2">Phase Timeline</span>
+      {/* Header with legend */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Phase Timeline</span>
+        <div className="flex items-center gap-3">
+          {(usedSources as FundingSource[]).map(src => (
+            <span key={src} className="flex items-center gap-1 text-[9px] text-gray-500">
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-sm"
+                style={{ backgroundColor: FUNDING_SOURCE_COLORS[src] }}
+              />
+              {src}
+            </span>
+          ))}
+        </div>
+      </div>
       <div className="overflow-x-auto">
         <div style={{ minWidth: 360 }}>
           {/* Tick axis */}
@@ -69,8 +92,8 @@ export function PhaseGantt({ phases, onClickPhase }: GanttProps) {
               </span>
             ))}
           </div>
-          {/* Phase bars */}
-          <div className="flex flex-col gap-1">
+          {/* Phase bars — with vertical padding above first bar and below last bar */}
+          <div className="flex flex-col gap-1" style={{ paddingTop: 7, paddingBottom: 10 }}>
             {sortedPhases.map((phase) => {
               const origIdx = phases.indexOf(phase)
               const startOff = monthOff(phase.start_month)
@@ -80,7 +103,7 @@ export function PhaseGantt({ phases, onClickPhase }: GanttProps) {
                 : Math.min(monthOff(phase.end_month!), totalMonths - 1)
               const leftPct = (startOff / (totalMonths - 1)) * 100
               const widthPct = Math.max(((endOff - startOff) / (totalMonths - 1)) * 100, 3)
-              const color = PHASE_COLORS[origIdx % PHASE_COLORS.length]
+              const color = FUNDING_SOURCE_COLORS[phase.funding_source] ?? '#6b7280'
               const label = phase.name || `Phase ${origIdx + 1}`
               const dateLabel = isIndefinite
                 ? `${phase.start_month} → ongoing`
@@ -91,8 +114,8 @@ export function PhaseGantt({ phases, onClickPhase }: GanttProps) {
                   <button
                     type="button"
                     onClick={() => onClickPhase(phase.id)}
-                    title={`${label} · ${dateLabel}`}
-                    className="absolute top-0 h-full rounded flex items-center px-2 overflow-hidden text-white text-[10px] font-medium hover:opacity-80 transition-opacity"
+                    title={`${label} · ${dateLabel} · ${phase.funding_source}`}
+                    className="absolute top-0 h-full rounded flex items-center px-2 overflow-hidden text-[10px] font-medium hover:opacity-80 transition-opacity"
                     style={{
                       left: `${leftPct}%`,
                       width: `${widthPct}%`,
@@ -102,8 +125,16 @@ export function PhaseGantt({ phases, onClickPhase }: GanttProps) {
                       } : {}),
                     }}
                   >
-                    <span className="truncate">{label}</span>
-                    {isIndefinite && <span className="ml-1 opacity-80 shrink-0">→</span>}
+                    {/* Semi-transparent backing for label legibility regardless of bar colour */}
+                    <span
+                      className="truncate px-1 rounded-sm"
+                      style={{ backgroundColor: 'rgba(0,0,0,0.28)', color: '#ffffff' }}
+                    >
+                      {label}
+                    </span>
+                    {isIndefinite && (
+                      <span className="ml-1 shrink-0" style={{ color: '#ffffff' }}>→</span>
+                    )}
                   </button>
                 </div>
               )

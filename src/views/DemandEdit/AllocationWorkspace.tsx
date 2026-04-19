@@ -2,14 +2,84 @@ import { useState, useMemo } from 'react'
 import { Plus, Trash2, AlertTriangle, Lock } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAppStore } from '../../store/useAppStore'
-import type { DemandItem, SkillRequirement, NamedAllocation, Level, DemandStatus, Phase } from '../../types'
+import type { AppState, DemandItem, SkillRequirement, NamedAllocation, Level, DemandStatus, Phase } from '../../types'
 import { Button } from '../../components/ui/Button'
-import { formatMonthLabel, getPersonAvailableHoursExcluding, getPersonAvgAvailableForPhase } from '../../utils/capacity'
+import { formatMonthLabel, getPersonAvgAvailableForPhase, monthInRange } from '../../utils/capacity'
 import { generateId } from '../../utils/ids'
 import { getMonths } from './ModeAEditor'
 
 const LEVEL_ORDER: Record<Level, number> = { Basic: 0, Advanced: 1, Specialist: 2 }
 function meetsLevel(held: Level, req: Level) { return LEVEL_ORDER[held] >= LEVEL_ORDER[req] }
+
+const ALLOC_STATUSES = new Set<DemandStatus>(['Approved', 'PartiallyAllocated', 'Allocated'])
+
+// ─── Cross-row headroom calculation ──────────────────────────────────────────
+// Section 4.5.2 Mode B formula:
+//   contracted(P, M)
+//   − persisted allocations for P in M from every demand item EXCEPT the one being edited
+//   − in-session (draft) allocations for P in M from every alloc row EXCEPT excludeAllocId
+
+interface HeadroomResult {
+  contracted: number
+  persistedOther: number
+  pendingOther: number
+  headroom: number
+}
+
+function computeHeadroom(
+  personId: string,
+  month: string,
+  excludeAllocId: string,
+  draft: Omit<DemandItem, 'id'>,
+  demandItemId: string | undefined,
+  state: AppState
+): HeadroomResult {
+  const person = state.people.find(p => p.id === personId)
+  if (!person) return { contracted: 0, persistedOther: 0, pendingOther: 0, headroom: 0 }
+
+  const contracted = monthInRange(month, person.available_from, person.available_to)
+    ? person.contracted_hours_per_month : 0
+
+  // Sum persisted allocations from demand items OTHER than the one being edited
+  let persistedOther = 0
+  for (const item of state.demandItems) {
+    if (item.id === demandItemId) continue
+    if (!ALLOC_STATUSES.has(item.status)) continue
+    for (const phase of item.phases) {
+      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
+      for (const req of phase.requirements) {
+        for (const alloc of req.allocations) {
+          if (alloc.person_id !== personId) continue
+          persistedOther += phase.end_month === null
+            ? (alloc.steady_state_hours ?? 0)
+            : (alloc.hours_by_month[month] ?? 0)
+        }
+      }
+    }
+  }
+
+  // Sum in-session (draft) allocations from every OTHER row on this page
+  let pendingOther = 0
+  for (const phase of draft.phases) {
+    if (!monthInRange(month, phase.start_month, phase.end_month)) continue
+    for (const req of phase.requirements) {
+      for (const alloc of req.allocations) {
+        if (alloc.id === excludeAllocId) continue  // exclude this row
+        if (alloc.person_id !== personId) continue
+        pendingOther += phase.end_month === null
+          ? (alloc.steady_state_hours ?? 0)
+          : (alloc.hours_by_month[month] ?? 0)
+      }
+    }
+  }
+
+  return {
+    contracted,
+    persistedOther,
+    pendingOther,
+    headroom: contracted - persistedOther - pendingOther,
+  }
+}
 
 // ─── Coverage helpers ─────────────────────────────────────────────────────────
 
@@ -45,7 +115,6 @@ export function computeAutoStatus(draft: Omit<DemandItem, 'id'>): DemandStatus {
 
   for (const phase of draft.phases) {
     if (phase.end_month === null) {
-      // Indefinite phase
       for (const req of phase.requirements) {
         const target = req.steady_state_hours ?? 0
         if (target === 0) continue
@@ -78,7 +147,6 @@ export function computeAutoStatus(draft: Omit<DemandItem, 'id'>): DemandStatus {
 function CoverageStrip({ coverage, months }: { coverage: MonthCoverage[]; months: string[] }) {
   return (
     <div>
-      {/* Month labels above */}
       <div className="flex gap-0.5 mb-1">
         {months.map(m => (
           <div key={m} className="flex-1 min-w-[20px] text-center">
@@ -86,7 +154,6 @@ function CoverageStrip({ coverage, months }: { coverage: MonthCoverage[]; months
           </div>
         ))}
       </div>
-      {/* Coverage cells */}
       <div className="flex gap-0.5">
         {coverage.map(({ month, target, allocated, status }) => (
           <div
@@ -122,17 +189,34 @@ function IndefiniteCoverageCell({ status, target, allocated }: { status: Coverag
 
 // ─── Capacity preview cell ────────────────────────────────────────────────────
 
-function CapacityCell({ available, contracted, allocHours }: { available: number; contracted: number; allocHours: number }) {
-  const afterAlloc = available - allocHours
+function CapacityCell({
+  headroomResult,
+  allocHours,
+  month,
+  personName,
+}: {
+  headroomResult: HeadroomResult
+  allocHours: number
+  month: string
+  personName: string
+}) {
+  const { contracted, persistedOther, pendingOther, headroom } = headroomResult
+  const afterAlloc = headroom - allocHours
   const usagePct = contracted > 0 ? (contracted - afterAlloc) / contracted : 0
   const color = afterAlloc < 0
     ? 'bg-red-100 text-red-700 border-red-200'
     : usagePct > 0.8
     ? 'bg-amber-50 text-amber-700 border-amber-200'
     : 'bg-green-50 text-green-700 border-green-200'
+
+  const parts = [`${contracted}h contracted`, `−${Math.round(persistedOther)}h other commitments`]
+  if (pendingOther > 0) parts.push(`−${Math.round(pendingOther)}h pending this session`)
+  parts.push(`= ${Math.round(headroom)}h available before this row`)
+  const tooltip = `${personName}, ${formatMonthLabel(month)}: ${parts.join(' ')}`
+
   return (
     <div
-      title={`Available: ${available}h headroom → ${afterAlloc}h after this alloc`}
+      title={tooltip}
       className={clsx('w-14 text-[9px] font-medium text-center rounded border px-0.5 py-0.5', color)}
     >
       {afterAlloc}h
@@ -147,11 +231,13 @@ interface AllocationRowProps {
   req: SkillRequirement
   phase: Phase
   months: string[]
+  draft: Omit<DemandItem, 'id'>
+  demandItemId: string | undefined
   onChange: (a: NamedAllocation) => void
   onDelete: () => void
 }
 
-function AllocationRow({ alloc, req, phase, months, onChange, onDelete }: AllocationRowProps) {
+function AllocationRow({ alloc, req, phase, months, draft, demandItemId, onChange, onDelete }: AllocationRowProps) {
   const store = useAppStore()
   const [showAll, setShowAll] = useState(false)
   const isIndefinite = phase.end_month === null
@@ -162,7 +248,7 @@ function AllocationRow({ alloc, req, phase, months, onChange, onDelete }: Alloca
   const visiblePeople = showAll ? store.people.filter(p => p.active) : store.people.filter(p => p.active && (eligibleIds.has(p.id) || p.id === alloc.person_id))
   const warnSkillMatch = alloc.person_id && !eligibleIds.has(alloc.person_id)
 
-  // Per-person capacity summary for picker
+  // Per-person capacity summary for picker (persisted + draft, but no single-row exclusion needed here)
   const personCapacitySummary = useMemo(() => {
     const map = new Map<string, number>()
     visiblePeople.forEach(p => {
@@ -171,17 +257,18 @@ function AllocationRow({ alloc, req, phase, months, onChange, onDelete }: Alloca
     return map
   }, [visiblePeople, phase.start_month, phase.end_month, store])
 
-  // Available capacity per month (excluding this allocation)
-  const availableByMonth = useMemo(() => {
-    if (!alloc.person_id) return new Map<string, number>()
-    const m = new Map<string, number>()
+  const person = alloc.person_id ? store.people.find(p => p.id === alloc.person_id) : null
+  const contracted = person?.contracted_hours_per_month ?? 0
+
+  // Per-month headroom using the cross-row formula (excludes this allocation row)
+  const headroomByMonth = useMemo(() => {
+    if (!alloc.person_id) return new Map<string, HeadroomResult>()
+    const m = new Map<string, HeadroomResult>()
     months.forEach(month => {
-      m.set(month, getPersonAvailableHoursExcluding(alloc.person_id, month, store, alloc.id))
+      m.set(month, computeHeadroom(alloc.person_id, month, alloc.id, draft, demandItemId, store))
     })
     return m
-  }, [alloc.person_id, alloc.id, months, store])
-
-  const contracted = alloc.person_id ? (store.people.find(p => p.id === alloc.person_id)?.contracted_hours_per_month ?? 0) : 0
+  }, [alloc.person_id, alloc.id, months, draft, demandItemId, store])
 
   const setMonth = (m: string, rawVal: number) => {
     const target = req.hours_by_month[m] ?? 0
@@ -262,9 +349,9 @@ function AllocationRow({ alloc, req, phase, months, onChange, onDelete }: Alloca
             min={0}
           />
           {alloc.person_id && (() => {
-            const available = getPersonAvailableHoursExcluding(alloc.person_id, phase.start_month, store, alloc.id)
+            const h = computeHeadroom(alloc.person_id, phase.start_month, alloc.id, draft, demandItemId, store)
             const hrs = alloc.steady_state_hours ?? 0
-            const afterAlloc = available - hrs
+            const afterAlloc = h.headroom - hrs
             const usagePct = contracted > 0 ? (contracted - afterAlloc) / contracted : 0
             const color = afterAlloc < 0 ? 'text-red-600' : usagePct > 0.8 ? 'text-amber-600' : 'text-green-600'
             return <span className={clsx('text-[10px] font-medium', color)}>{afterAlloc}h remaining</span>
@@ -282,9 +369,10 @@ function AllocationRow({ alloc, req, phase, months, onChange, onDelete }: Alloca
                   {months.map(m => (
                     <CapacityCell
                       key={m}
-                      available={availableByMonth.get(m) ?? 0}
-                      contracted={contracted}
+                      headroomResult={headroomByMonth.get(m) ?? { contracted: 0, persistedOther: 0, pendingOther: 0, headroom: 0 }}
                       allocHours={alloc.hours_by_month[m] ?? 0}
+                      month={m}
+                      personName={person?.name ?? ''}
                     />
                   ))}
                 </div>
@@ -336,10 +424,12 @@ interface ReqBlockProps {
   req: SkillRequirement
   phase: Phase
   months: string[]
+  draft: Omit<DemandItem, 'id'>
+  demandItemId: string | undefined
   onChange: (r: SkillRequirement) => void
 }
 
-function RequirementAllocationBlock({ req, phase, months, onChange }: ReqBlockProps) {
+function RequirementAllocationBlock({ req, phase, months, draft, demandItemId, onChange }: ReqBlockProps) {
   const { skills, themes } = useAppStore()
   const isIndefinite = phase.end_month === null
 
@@ -408,6 +498,8 @@ function RequirementAllocationBlock({ req, phase, months, onChange }: ReqBlockPr
             req={req}
             phase={phase}
             months={months}
+            draft={draft}
+            demandItemId={demandItemId}
             onChange={a => updateAlloc(alloc.id, a)}
             onDelete={() => deleteAlloc(alloc.id)}
           />
@@ -428,12 +520,13 @@ function RequirementAllocationBlock({ req, phase, months, onChange }: ReqBlockPr
 
 interface Props {
   draft: Omit<DemandItem, 'id'>
+  demandItemId?: string
   onChange: (d: Omit<DemandItem, 'id'>) => void
   onParkToRevise: () => void
   onRevise?: () => void
 }
 
-export function AllocationWorkspace({ draft, onChange, onParkToRevise, onRevise }: Props) {
+export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRevise, onRevise }: Props) {
   const { themes } = useAppStore()
   const theme = themes.find(t => t.id === draft.primary_theme_id)
 
@@ -510,7 +603,7 @@ export function AllocationWorkspace({ draft, onChange, onParkToRevise, onRevise 
         )}
       </div>
 
-      {/* Lock banner — action differs by status */}
+      {/* Lock banner */}
       <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded p-2.5 text-xs text-amber-700">
         <Lock size={12} className="shrink-0" />
         <span className="flex-1">Demand definition is locked.
@@ -536,7 +629,6 @@ export function AllocationWorkspace({ draft, onChange, onParkToRevise, onRevise 
 
         return (
           <div key={phase.id} className="border-2 border-border rounded-lg overflow-hidden bg-white">
-            {/* Phase card header */}
             <div className="px-4 py-3 bg-gray-100 border-b border-border">
               <h3 className="text-sm font-semibold text-near-black">
                 Phase {phaseIdx + 1}{phase.name ? ` · ${phase.name}` : ''} · <span className="font-normal text-gray-500">{dateLabel}</span>
@@ -552,6 +644,8 @@ export function AllocationWorkspace({ draft, onChange, onParkToRevise, onRevise 
                   req={req}
                   phase={phase}
                   months={months}
+                  draft={draft}
+                  demandItemId={demandItemId}
                   onChange={r => updateReq(phase.id, req.id, r)}
                 />
               ))}

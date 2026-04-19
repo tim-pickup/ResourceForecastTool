@@ -93,3 +93,15 @@ Webflow's website is a visually rich, tool-forward platform that communicates "d
 - Background: White (`#ffffff`)
 - Border: `#d8d8d8`
 - Secondary: Purple `#7a3dff`, Pink `#ed52cb`, Green `#00d722`
+
+## 10. Funding Source Palette
+
+Used on the Phase Gantt in Mode A (demand edit page) to colour phase bars by funding source. Chosen to be distinct from the universal demand-type palette (BAU slate, Plant blue, NPD emerald, Group Strategy violet).
+
+| Funding Source | Hex | Tailwind reference |
+|---|---|---|
+| Investment Scheme | `#0891b2` | cyan-600 |
+| Plant/Sector Allocation | `#d97706` | amber-600 |
+| Mixed | `#7c3aed` | violet-600 |
+
+These colours must not be used for demand-type coding elsewhere in the tool.

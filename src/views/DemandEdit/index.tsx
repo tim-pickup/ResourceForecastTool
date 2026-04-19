@@ -264,6 +264,7 @@ export default function DemandEdit() {
           {mode === 'B' && (
             <AllocationWorkspace
               draft={draft}
+              demandItemId={id}
               onChange={d => { setDraft(d); setIsDirty(true) }}
               onParkToRevise={handleParkToRevise}
               onRevise={handleRevise}

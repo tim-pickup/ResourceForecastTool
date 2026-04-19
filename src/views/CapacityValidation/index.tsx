@@ -346,7 +346,6 @@ export default function CapacityValidation() {
   const [horizon, setHorizon] = useState<6 | 12 | 24 | 60>(12)
   const [sectionBMode, setSectionBMode] = useState<'theme' | 'skill'>('theme')
   const [drillThemeId, setDrillThemeId] = useState<string | null>(null)
-  const [drillSkillId, setDrillSkillId] = useState<string | null>(null)
   const [overlayId, setOverlayId] = useState<string | null>(null)
   const [editorId, setEditorId] = useState<string | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
@@ -540,17 +539,15 @@ export default function CapacityValidation() {
   function handleThemeClick(themeId: string) {
     setDrillThemeId(themeId)
     setSectionBMode('skill')
-    setDrillSkillId(null)
   }
 
   function handleSkillClick(skillId: string) {
-    setDrillSkillId(skillId)
+    navigate(`/capacity/skill/${skillId}?horizon=${horizon}`)
   }
 
   function handleBackToTheme() {
     setSectionBMode('theme')
     setDrillThemeId(null)
-    setDrillSkillId(null)
   }
 
   function scrollToChart(id: string) {
@@ -644,7 +641,7 @@ export default function CapacityValidation() {
               {(['theme', 'skill'] as const).map(m => (
                 <button
                   key={m}
-                  onClick={() => { setSectionBMode(m); if (m === 'theme') { setDrillThemeId(null); setDrillSkillId(null) } }}
+                  onClick={() => { setSectionBMode(m); if (m === 'theme') { setDrillThemeId(null) } }}
                   className={clsx('px-3 py-1 text-xs rounded capitalize font-medium transition-colors',
                     sectionBMode === m ? 'bg-white text-near-black shadow-sm' : 'text-gray-500 hover:text-gray-700'
                   )}
@@ -681,38 +678,29 @@ export default function CapacityValidation() {
               )}
             </div>
           ) : (
-            drillSkillId ? (
-              <PersonPanel
-                skillId={drillSkillId}
-                months={months}
-                onClose={() => setDrillSkillId(null)}
-                onOpenEditor={openEditor}
-              />
-            ) : (
-              <div className="space-y-6">
-                {skillsByTheme.map(({ theme, skills }) => (
-                  <div key={theme.id}>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">{theme.name}</p>
-                    <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))' }}>
-                      {skills.map(({ skill, data }) => (
-                        <div key={skill.id} id={`chart-${skill.id}`}>
-                          <CapacityChart
-                            title={skill.name}
-                            subtitle="Click to see people"
-                            data={data}
-                            compact
-                            onClick={() => handleSkillClick(skill.id)}
-                          />
-                        </div>
-                      ))}
-                    </div>
+            <div className="space-y-6">
+              {skillsByTheme.map(({ theme, skills }) => (
+                <div key={theme.id}>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">{theme.name}</p>
+                  <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))' }}>
+                    {skills.map(({ skill, data }) => (
+                      <div key={skill.id} id={`chart-${skill.id}`}>
+                        <CapacityChart
+                          title={skill.name}
+                          subtitle="Click for skill detail"
+                          data={data}
+                          compact
+                          onClick={() => handleSkillClick(skill.id)}
+                        />
+                      </div>
+                    ))}
                   </div>
-                ))}
-                {skillsByTheme.length === 0 && (
-                  <p className="text-sm text-gray-400 py-8">No skills found. Add skills in Admin.</p>
-                )}
-              </div>
-            )
+                </div>
+              ))}
+              {skillsByTheme.length === 0 && (
+                <p className="text-sm text-gray-400 py-8">No skills found. Add skills in Admin.</p>
+              )}
+            </div>
           )}
         </div>
 
