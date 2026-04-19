@@ -1,6 +1,6 @@
 # Digital Manufacturing Resource Load & Capacity Tool
 
-## Requirements Specification — v1.7
+## Requirements Specification — v1.10
 
 ---
 
@@ -131,31 +131,132 @@ This turns BAU into a first-class tracked part of the pipeline — it shows on C
 
 Statuses for BAU items follow the same state machine as projects (section 3). In practice BAU items move through Draft → Submitted → Approved → Allocated quickly since there's usually no real review gate for known support engagements.
 
-### 2.4 Derived capacity
+### 2.4 Capacity model
 
-A person's **available project capacity** in a given month is:
+This section specifies how capacity and demand numbers are computed across the tool. Several parts of the spec (Capacity Validation charts, Team Activity cells, allocation headroom, over-capacity signals) all depend on these definitions. **The calculations below are the single source of truth**; every view reads from the same aggregation layer.
+
+#### 2.4.1 Person-level capacity
+
+A person's **available project capacity** in a given month is their contracted hours, less their real named allocations, bounded by their employment window:
 
 ```
-if month < available_from OR month > (available_to OR +∞):
-    capacity = 0
+if month < available_from OR (available_to is set AND month > available_to):
+    capacity(person, month) = 0
 else:
-    capacity = contracted_hours − sum(named allocations from demand items in that month, all types including BAU)
+    capacity(person, month) =
+        contracted_hours(person)
+        − sum of named allocation hours on that person for that month
+          across every demand item in the store with status in
+          { Approved, PartiallyAllocated, Allocated }
 ```
 
-Named allocations come from demand items in status `Approved`, `PartiallyAllocated`, or `Allocated` (not Submitted, Draft, Parked, or Closed). For each allocation:
-- In a **finite phase** — hours consumed in a month are taken from `hours_by_month[month]` directly.
-- In an **indefinite phase** — hours consumed are `steady_state_hours` for every month from `start_month` onwards.
+Named allocation hours are read from the allocation's `hours_by_month[month]` (finite phase) or `steady_state_hours` (indefinite phase), identically to how they're read anywhere else.
 
-Skill-shaped requirements that have not yet been fully covered by named allocations contribute to the demand side of the capacity charts at theme and skill level, but do not consume any specific individual's capacity.
+**Submitted, Draft, Parked and Closed demand items do not consume person-level capacity**, because those statuses have no real commitment of people — either because no allocations exist yet (Draft, Submitted) or because the work has been set aside (Parked, Closed).
 
-**Demand item status and capacity**:
-- `Draft` — excluded from all capacity calculations.
-- `Submitted` — counted only when explicitly overlaid on Capacity Validation.
-- `Approved` — counted as committed at theme/skill level. No individual capacity consumed until the first allocation is added.
-- `PartiallyAllocated` / `Allocated` — committed at theme/skill level; named allocations consume individual capacity; unfilled requirement-months show as skill-shaped demand.
-- `Parked` / `Closed` — excluded from all capacity calculations.
+#### 2.4.2 Theme-level and skill-level capacity
 
-**Over-allocation is permitted.** A person can be allocated more than their capacity. The tool warns the user at save time and requires confirmation, but imposes no upper limit. No audit trail of acknowledgements is kept in v1.
+Theme and skill capacity lines on the Capacity Validation charts represent **the skill pool's real availability** — the sum of hours available from people who hold the relevant skills, net of what those people are actually committed to elsewhere.
+
+```
+theme_capacity(theme T, month M) =
+    sum over every person P who holds any skill in T:
+        max(0, contracted_hours(P, M) − P's_real_committed_hours(M))
+
+skill_capacity(skill S, month M) =
+    sum over every person P who holds S (at any level):
+        max(0, contracted_hours(P, M) − P's_real_committed_hours(M))
+```
+
+Where `P's_real_committed_hours(M)` is the sum of P's named allocation hours in M across every demand item with status `Approved`, `PartiallyAllocated`, or `Allocated` — **regardless of which theme or skill those allocations are serving**. A person's 152 hours is a single pool; every real commitment draws from the same pool.
+
+**Critical**: the work that a person is *doing* for skill S shows up on S's *demand* side, not subtracted from S's capacity. Only the work they're doing *on other skills* reduces S's capacity line. This prevents double-counting: Alex doing 100 hrs of MOM work appears as 100 hrs of demand on MOM charts, and reduces MI&V capacity by 100 hrs on MI&V charts — exactly once in each.
+
+#### 2.4.3 Demand aggregation — what goes on the demand stacks
+
+The demand stacks on the charts are composed of *real demand* for the relevant theme or skill:
+
+- **Committed demand** (displayed as the solid stack): the skill-shaped requirement hours from demand items in status `Approved`, `PartiallyAllocated`, or `Allocated`. Per skill-shaped requirement, take the `hours_by_month` or `steady_state_hours` target — this is what the team has committed to deliver.
+- **Overlay demand** (displayed as hatched on top): the skill-shaped requirement hours from the **currently-selected Submitted overlay**, if any. This is what the team would additionally be committing to if the overlay were Approved.
+
+Demand aggregation takes the requirement's **target** hours, not the allocation hours. The requirement's target is what's been committed to at the skill level; whether or not the allocations are yet in place doesn't change the demand number. This keeps demand stable across the Approved → PartiallyAllocated → Allocated transitions: the work committed doesn't change, only the allocation of it to specific people.
+
+#### 2.4.4 Unallocated-demand projection — the grey band
+
+Real allocations reduce a skill's capacity line (section 2.4.2). But some committed demand has **no allocations yet** — and that unallocated work still represents hours that will *likely* be consumed by the skill pool once it's allocated. For a theme or skill chart to give an honest "can we take on more?" picture, this pending consumption must be surfaced.
+
+This is done via a **grey hatched band** rendered on each chart, between the demand stack and the capacity line. The grey band represents **projected consumption of the skill pool by unallocated demand elsewhere** — demand not on this chart's skill, but that *would* consume people who contribute to this chart's skill pool.
+
+**What counts as "unallocated" demand for projection**:
+
+For every skill-shaped requirement across the store, compute its *unallocated portion* for each month — the gap between the requirement's target hours and the sum of its current named allocations. This unallocated portion is then projected as described below. Specifically, unallocated hours come from:
+
+- Every `Approved` demand item's requirements (no allocations yet).
+- The unfilled portion of every `PartiallyAllocated` demand item's requirements.
+- If an overlay is selected, the target hours of the selected `Submitted` demand item's requirements.
+
+Fully-`Allocated` demand has zero unallocated portion — its consumption is already reflected in real capacity (section 2.4.1), so it contributes zero to the grey band.
+
+**The projection algorithm** — see section 2.4.5 for the full detail. In short: each unit of unallocated-requirement-hours is distributed proportionally across the real headroom of people who are eligible for that requirement (hold the required skill at the required level or higher). The result is a per-person, per-month projected consumption figure.
+
+The grey band on a theme/skill chart is then:
+
+```
+grey_band(theme T, month M) =
+    sum over every person P contributing to T's capacity:
+        sum of P's projected consumption(M) from unallocated demand
+        whose target skill is NOT in T
+```
+
+The exclusion at the end is deliberate: unallocated demand that is *for this chart's theme/skill* shows up on this chart's demand stack — it doesn't also show as a grey band here (which would double-count). Demand for any *other* theme/skill that would consume the same people reduces the usable headroom here — that's what the grey band represents.
+
+#### 2.4.5 The projection algorithm
+
+The projection is a single-pass proportional distribution, applied to every unallocated-requirement-month across the whole store. No iteration, no ordering, no sequential assignment.
+
+For each unallocated-requirement-month (a specific requirement R, in a specific month M, with some unallocated hours H):
+
+1. **Find eligible people** for R: every active person P who holds R's skill at R's required level or higher, and whose `available_from` / `available_to` include M.
+2. **Compute each eligible person's real headroom** in M: their contracted hours minus their real named allocations in M (from section 2.4.1).
+3. **If total eligible headroom ≥ H**, distribute H across eligible people proportionally to their headroom. Each person P gets `H × (P's headroom / total eligible headroom)` projected hours onto R.
+4. **If total eligible headroom < H**, each eligible person is projected at 100% of their headroom; the excess (`H − total eligible headroom`) is recorded as a **projection shortfall** against R in M. The shortfall is surfaced separately as a signal (see section 2.4.6) — it's not hidden in the grey band.
+
+Key properties:
+
+- **Single pass, no ordering.** Each requirement-month is projected independently and in one step. No requirement's projection depends on what another requirement was projected to first. This makes the algorithm deterministic and trivially re-runnable.
+- **Proportional to real headroom.** A person with 100 hrs free gets twice the share of a person with 50 hrs free — which mirrors how a real allocator would tend to spread work based on availability.
+- **Sum of projections onto any one person across all requirements ≤ that person's contracted hours**, by construction — each requirement's distribution is bounded by people's headroom, and if collective demand exceeds supply, the excess becomes a shortfall rather than over-projecting onto individuals.
+
+#### 2.4.6 Projection shortfall — surfacing excess demand
+
+When unallocated demand collectively exceeds the skill pool's real headroom (step 4 of the algorithm), the excess is recorded as a **projection shortfall** against the specific requirement-month. These shortfalls are the signal that the team is committed to (or being asked to consider) more work than it can supply — even optimally.
+
+Shortfalls must be surfaced in the over-capacity summary strip on the Capacity Validation view (see View 1 spec). Example format:
+
+> ⚠ **Projection shortfall**: MOM Specialist demand in Jun–Aug 2026 exceeds available headroom by 40 hrs/mo. Driven by: Project A (Approved, 30 hrs short), Project B (PartiallyAllocated, 10 hrs short).
+
+Shortfalls are surfaced per skill and per month. They are not hidden inside the grey band — a greyed chart alone doesn't tell the PMO *which* demand can't be served, and by how much.
+
+#### 2.4.7 Over-allocation (person-level)
+
+**Over-allocation is permitted** — a person can be allocated more hours than their contracted capacity via real named allocations. The tool warns the user at save time and requires confirmation but imposes no upper limit. No audit trail of acknowledgements is kept in v1.
+
+When a person is over-allocated in the store, their capacity contribution to theme/skill lines is floored at zero (see the `max(0, …)` in section 2.4.2) — an over-allocated person contributes nothing more to the available skill pool; they're already working beyond 100%. The over-allocation itself is visible separately on the Team Activity chart for that person-month.
+
+#### 2.4.8 Demand aggregation consistency — one function, many callers
+
+All demand and capacity numbers across the tool are computed by a single shared aggregation module. Every view reads from the same underlying selectors:
+
+- Capacity Validation chart demand stacks
+- Capacity Validation capacity lines and grey bands
+- Over-capacity summary strip entries (including projection shortfalls)
+- Team Activity cell segments and headroom
+- Demand drawer summaries
+- Allocation workspace headroom/coverage computations
+
+There must be exactly one implementation of each of: `person_capacity`, `real_committed_hours(person, month)`, `theme_capacity`, `skill_capacity`, `demand_hours_for(theme|skill, status_filter, month)`, `projected_consumption(person, month)`, and `grey_band(theme|skill, month)`. All consumers call these functions; no view computes its own totals by iterating over the store independently.
+
+**Testable invariant**: take any Submitted demand item; compute what it contributes to every chart (demand stacks on its own theme/skill; grey band on other theme/skill charts) under the overlay. Now hypothetically toggle the item's status to Approved and re-read the same numbers from the aggregation layer. The numbers must be identical, because the projection rules treat Submitted-overlay and Approved-unallocated demand identically. This is the core correctness test for the aggregation layer.
 
 ### 2.5 Worked examples of requirement composition
 
@@ -259,9 +360,10 @@ User-driven transitions (the user clicks a button):
 | Submitted | Draft | **Revert to Draft** | For when a submission needs further shaping. |
 | Submitted | Approved | **Approve** | Confirms the team will do this work. |
 | Submitted | Parked | **Park** | With optional reason note. |
+| Approved | Submitted | **Revise** | Low-friction path back to Submitted to correct demand definition issues discovered after approval but before allocation work is underway. Existing named allocations are preserved but ignored from capacity calculations while in Submitted. On re-Approval, they're re-validated against the (possibly edited) requirements and flagged if they no longer fit. |
 | Approved | Parked | **Park** | Rare — used if the work is pulled post-approval. |
-| PartiallyAllocated | Parked | **Park** | Rare — pulls work mid-allocation. Named allocations are preserved but not counted. |
-| Allocated | Parked | **Park** | Rare — pulls fully-allocated work. Named allocations are preserved but not counted. |
+| PartiallyAllocated | Parked | **Park** | Pulls work mid-allocation. Named allocations are preserved but not counted. |
+| Allocated | Parked | **Park** | Pulls fully-allocated work. Named allocations are preserved but not counted. |
 | Parked | Submitted | **Revive** | Always revives to Submitted. From there the normal flow applies. |
 | Approved / PartiallyAllocated / Allocated | Closed | **Close** | Explicit, manual. Archives the demand; excludes it from the main list and from all charts. |
 | Closed (in Archive view) | previous status | **Restore** | Restores to whatever status the item held immediately before it was closed. |
@@ -278,8 +380,8 @@ Transitions that are **not** permitted:
 
 - Draft → anywhere except Submitted.
 - Submitted → anywhere except Draft / Approved / Parked.
-- Approved → back to Submitted. (Once approved, the commitment is made; if work needs to be re-assessed, use Park then Revive.)
-- PartiallyAllocated / Allocated → back to Approved. (Editing allocations is permitted in these states without changing status; see 4.5.2.)
+- PartiallyAllocated / Allocated → Submitted directly. (Must go via Park → Revive. These statuses have active allocations consuming capacity; direct-to-Submitted would be ambiguous.)
+- PartiallyAllocated / Allocated → Approved. (Editing allocations is permitted in these states without changing status; see 4.5.2. A direct downgrade is not needed.)
 - Closed → any state except via Restore from the Archive view.
 - Any state → Closed except from Approved / PartiallyAllocated / Allocated. (You can't close a Draft or a Submitted — Park them instead.)
 
@@ -346,10 +448,10 @@ This is a **team-level, strategic view** — not an individual-level grid. It is
 
 A person is a pool of hours that can flex across any theme/skill they hold. This means:
 
-- **Total team capacity** is additive — sum of everyone's contracted hours net of BAU.
+- **Total team capacity** is additive — sum of everyone's contracted hours (respecting available_from/to).
 - **Theme-level capacity** and **skill-level capacity** are *not* additive across themes/skills, because the same person contributes to multiple lines. Displaying them stacked in one chart would double-count.
-- Therefore each theme (and each skill when drilled in) gets **its own chart** with its own capacity line.
-- The capacity line for a theme/skill is the sum of hours held by people who have any skill in that theme (or that specific skill), net of BAU and net of their named commitments to *other* themes/skills. This makes cross-theme contention visible without double-counting.
+- Therefore each theme (and each skill when drilled in) gets **its own chart** with its own capacity line and its own grey-band projection.
+- See section 2.4 for the complete capacity and projection model. Every chart reads its numbers from the shared aggregation layer described there.
 
 **Page structure**
 
@@ -369,40 +471,63 @@ The page is a scrollable, vertically composed set of chart sections:
 
 **Chart specification (applies to every chart on the page)**
 
-- **Visualisation**: stacked area chart for demand (by work type) with a capacity line overlaid.
-  - Work type stack order (bottom to top): BAU, Plant Project, NPD Demand, Group Strategy Project. Consistent across all charts for easy scanning.
-  - Capacity line is a thick, contrasting colour (e.g. dark line on coloured stack).
-  - When demand crosses the capacity line, the area above the line is rendered in a warning treatment (e.g. red-tinted overlay).
+Every theme/skill chart shows four distinct horizontal layers from bottom to top:
+
+1. **Committed demand stack** — work in status `Approved`, `PartiallyAllocated`, or `Allocated` that targets this chart's theme/skill. Stacked by work type (BAU → Plant Project → NPD Demand → Group Strategy Project, bottom to top), solid fill, using the colour palette consistent across all views.
+2. **Overlay demand stack** (when an overlay is selected) — the hatched representation of the selected Submitted demand's contribution to this chart's theme/skill. Sits directly above the committed stack.
+3. **Projection grey band** — the hatched grey area above the combined demand stack, representing projected consumption of this chart's skill pool by *unallocated demand elsewhere* (i.e. demand for other themes/skills whose projected allocations would consume the same people). See section 2.4.4 for the precise calculation.
+4. **Available headroom** — the remaining space between the top of the grey band and the chart's capacity line. This is the genuine "usable" capacity for this chart's theme/skill right now.
+
+**Capacity line**: a single thick line at the top representing the **total theoretical capacity** of the skill pool (sum of contracted hours of everyone holding the relevant skills, respecting `available_from`/`available_to`). The capacity line is **static relative to real allocations** — it does not move when allocations happen; instead the grey band grows and the headroom shrinks. This is intentional: the line represents "what this pool could theoretically do in a month," and the bands below it tell the consumption story.
+
 - **Time axis**: horizontal, monthly. Default horizon is 6–12 months, with preset switches for 6 / 12 / 24 / 60 months. The horizon selector is global — applies to all charts simultaneously.
-- **Demand status composition**:
-  - Default shows `Approved + Partially Allocated + Allocated` stacked together as *committed demand*.
-  - `Submitted` items are overlaid with a distinct visual treatment (hatched or lighter-tinted areas on top of committed) — and only when the user has added them via the overlay mechanism (see below).
-  - `Draft`, `Parked`, and `Closed` are excluded entirely.
-- **Skill-level capacity sub-line** (skill mode only): each skill chart shows both a total capacity line (anyone with the skill at any level) and a thinner sub-line for the highest level (e.g. "of which Specialist"). This surfaces level-based shortfalls that the headline capacity would hide.
+- **Over-capacity signal**: whenever the combined demand stack (committed + overlay) pushes above the capacity line, the overflow area is rendered in a red warning treatment. If demand stack + grey band pushes above the capacity line but demand stack alone is below, the chart is not over-capacity per se — but the grey band area extends above the capacity line and is rendered with a warning treatment to indicate "the pool is oversubscribed even before this chart's own demand."
+- **Per-chart over-capacity badge**: any chart currently showing demand (or demand + grey band) above its capacity line renders a prominent badge in the chart card header (e.g. a red "Over capacity" pill with the month range or peak overflow). The badge is visible at chart-card scale regardless of how large the over-capacity area inside the chart is — so a small spike in one month is just as noticeable as a sustained overflow across multiple months.
 
-**Overlay mechanism — Submitted demand only**
+**Grey band interaction**:
 
-The overlay is the answer to a specific question: *"Of the demand in our Submitted queue, what can we absorb?"* It is an intake-assessment tool, most useful when the Prioritisation Board is reviewing a batch of Submitted items together.
+- **Hover** on the grey band in any month shows a breakdown tooltip: "Projected consumption of {skill} pool this month: X hrs. Driven by: *Project A* (Approved, N hrs projected onto shared skill-holders), *Project B* (PartiallyAllocated unfilled, N hrs), *Project C* (Submitted overlay, N hrs)." Ordered by contribution.
+- The grey band is purely informational — clicking it doesn't navigate anywhere (the underlying demand items are reachable through the demand stack segment clicks on their own chart, or through the over-capacity summary strip's shortfall entries).
 
-- A toolbar at the top of the page lets the user select one or more **Submitted** demand items to overlay on all charts simultaneously. Only items in status Submitted can be overlaid — items in other statuses are not selectable.
-- Overlays are shown as a distinct, hatched area on top of the committed demand stack. They are clearly labelled as "proposed".
-- Multiple overlays stack on top of each other so a batch of Submitted items can be assessed together.
-- Adding or removing overlays updates all charts live.
+**Over-capacity summary strip (top of Section B)**
 
-**Overlay bulk actions**:
-- **"Select all Submitted"** button — adds every current Submitted demand item to the overlay in one click. Primary use: visualising the full pending pipeline in aggregate.
-- **"Clear all"** button — removes every overlay in one click. Fast reset.
-- Individual chips for each overlaid item remain, so the user can still selectively add or remove one at a time.
+Immediately above the breakdown charts, a summary strip lists every signal that deserves attention within the visible time horizon. Three distinct signal types, visually distinguished:
+
+- **Over capacity**: a theme/skill chart where committed demand alone exceeds the capacity line. Format: "**MOM** · Jun–Aug 2026 · peak +40 hrs over capacity". This is the most serious signal — real committed work exceeding real capacity.
+- **Over capacity with overlay**: a chart that becomes over-capacity only because of the current Submitted overlay. Format: "**MOM** · Jun 2026 · +15 hrs with overlay (*Site X MES Upgrade*)". Distinguishes structural from overlay-induced problems.
+- **Projection shortfall**: a skill whose unallocated demand (Approved, PartiallyAllocated, or overlay) exceeds the real headroom of eligible people — i.e. the skill pool cannot absorb the pending work even optimally. Format: "⚠ **Projection shortfall**: MOM Specialist demand in Jun–Aug 2026 exceeds available headroom by 40 hrs/mo. Driven by: *Project A* (30 hrs), *Project B* (10 hrs)". See section 2.4.6 for how these are computed.
+
+Entries are sorted with over-capacity and projection shortfalls first, then overlay-induced. Clicking an entry scrolls to and briefly highlights the corresponding chart card below. When nothing is over-capacity or short, the strip shows a concise all-clear message ("All themes within capacity across the next 12 months; no projection shortfalls") rather than disappearing — so the absence of problems is as visible as their presence.
+
+**Overlay mechanism — single Submitted demand**
+
+The overlay answers: *"If we approved this specific Submitted item, what would change?"* It is a decision tool for a single demand item at a time.
+
+- A toolbar at the top of the page lets the user select **one** Submitted demand item to overlay — not multiple. Only items in status `Submitted` are eligible; items in other statuses are not selectable.
+- The currently-overlaid item is shown as a chip in the toolbar. A search-and-add combobox lets the user change the overlay to a different Submitted item. Adding a new overlay replaces the current one; it does not stack.
+- When an overlay is active:
+  - The chart for the overlay's target theme/skill shows the hatched overlay demand on its demand stack.
+  - Charts for *other* theme/skill pools that share people with the overlay's target show the overlay's projected consumption in their grey band.
+- Removing the overlay returns all charts to showing only committed demand and the baseline grey band from Approved / PartiallyAllocated unallocated work.
+
+**Aggregate Submitted visibility** (separate from the overlay):
+
+Because overlays are single-item, the "overall Submitted pipeline" question is answered elsewhere:
+
+- The **Demand page** (section 4.6) in Board mode shows the full Submitted column at a glance.
+- The **over-capacity summary strip** shows skill-level projection shortfalls that include all unallocated demand — Approved, PartiallyAllocated unfilled, and the current overlay. To see "if *everything* Submitted were approved," the user can mentally substitute or actually promote items; the strip will re-evaluate as they go.
+
+For v1, there is no "select all Submitted" bulk overlay. Stacking overlays makes the projection interpretation confusing (which overlay caused what shortfall?) and adds little insight over the single-item modelling already provided. Revisit in v2 if users genuinely need cumulative overlay projection.
 
 **"Model Impact" — arriving with a pre-selected overlay**:
 
 The Capacity Validation view can be deep-linked from a Submitted demand's drawer via a "Model Impact" action (see section 4.5.1). When arriving this way:
-- The view opens with the originating demand item pre-selected as the only overlay.
+- The view opens with the originating demand item pre-selected as the single overlay.
 - A dismissable banner at the top of the page confirms context: "Modelling impact of *Site X MES Upgrade*. **Back to demand** · Dismiss".
 - Clicking **Back to demand** returns the user to wherever they came from (typically the Demand list with the drawer re-opened on the originating item).
 - Dismissing the banner doesn't change the overlay — it just removes the banner. The user can then use the view normally.
 
-- The overlay is **purely additive and view-only**. It does not mutate the underlying demand data. Changing an item's status (Submitted → Approved) is still done through the Demand Item Editor, not through the overlay.
+The overlay is **purely additive and view-only**. It does not mutate the underlying demand data. Changing an item's status (Submitted → Approved) is still done through the Demand Item Editor, not through the overlay.
 
 The overlay is explicitly *not* a scenario modeller. It cannot move committed demand, change dates on existing work, or reassign people. Those capabilities are v2 — see section 8.1.
 
@@ -416,11 +541,12 @@ The overlay is explicitly *not* a scenario modeller. It cannot move committed de
 
 - Theme / Skill toggle (section B).
 - Time horizon preset (6 / 12 / 24 / 60 months).
-- Work type filter — show/hide specific work types across all charts.
-- Overlay selector for Submitted items (search-and-add chip pattern).
-- "Show Submitted in overlay" toggle (default on when overlays are selected).
+- Work type filter — show/hide specific work types across the demand stacks on all charts.
+- Single-item overlay selector for Submitted items (combobox pattern; one overlay at a time).
+- Grey band rendering and hover breakdown on every theme/skill chart.
+- Over-capacity summary strip with three signal types (over-capacity, over-capacity-with-overlay, projection shortfall).
 - Drill-down on chart click.
-- Live recalculation within ~200ms on edits to demand, phases, requirements, or BAU.
+- Live recalculation within ~200ms on edits to demand, phases, requirements, allocations, or status changes.
 
 **What this view deliberately does *not* do**
 
@@ -442,20 +568,50 @@ Skill-shaped (not-yet-named) demand contributes to the demand side of charts at 
 
 ### View 2 — Team Activity (MVP)
 
-The question this view answers: *What is each person actually working on right now and across the near term?*
+The question this view answers: *What is each person actually working on right now, how is their time split by work type, and where is their headroom?*
 
-**Primary interaction**: Per-person timeline showing their named commitments and BAU allocations.
+**Primary interaction**: Grid of people × months. Each cell is a stacked horizontal bar showing the breakdown of that person's time that month by work type.
 
 **Layout**:
-- One row per person, grouped by Theme.
-- Horizontal time axis, monthly, default 6 months (with the same preset switches as View 1).
-- Blocks show: BAU allocations (one colour treatment), named project commitments (another treatment), with demand item / stream name visible on the block.
-- Utilisation % shown per person-month, with over-capacity months flagged.
+- One row per person, grouped by their primary Theme.
+- Horizontal time axis, monthly, default 6 months (with the same preset switches as View 1: 6 / 12 / 24 / 60).
+- Each **cell** is a horizontal stacked bar whose full width represents the person's contracted hours for that month.
+
+**Cell composition — stacked horizontal bar**:
+
+Each cell shows segments in a fixed left-to-right order, with widths proportional to committed hours:
+
+1. **BAU** (leftmost)
+2. **NPD Demand**
+3. **Plant Project**
+4. **Group Strategy Project**
+5. **Available Capacity** (rightmost — the remainder of contracted hours not yet committed)
+
+**Colours are consistent with the Capacity Validation charts** (section View 1) for the four work-type segments. Available Capacity uses a neutral/muted tone to visually step back — it's not a work type, it's the headroom.
+
+- The segments sum to the person's contracted hours for that month.
+- **Over-allocated cells** must be visually unmissable. When a person's committed hours exceed their contracted hours for the month:
+  - The **entire cell background** is tinted a light red (not just the overflow portion), so it's visible at a glance from across the whole grid.
+  - Within the cell, the committed stack extends past the 100% marker into an overflow portion rendered in a stronger red treatment (hatched or darker), matching the over-capacity visual logic on View 1.
+  - The numerical badge (e.g. "+24h") sits on top of the red background. Its red text is kept, but the background is what makes the cell catch the eye from distance.
+- If the person has `available_from` or `available_to` constraints excluding this month, the cell is shown as "unavailable" with a distinct treatment (e.g. diagonal stripes, muted background) and zero utilisation.
+
+**Click interaction — drill-down to contributing demand**:
+
+Clicking anywhere on a cell's stacked bar opens a **popover or side panel** listing the specific demand items contributing to that person-month. Each entry shows:
+- Demand item name (clickable — opens the demand drawer for further detail)
+- Work type badge
+- Hours contributed this month
+- Parent phase name
+
+Clicking a specific segment (e.g. the BAU segment) can filter the drill-down list to that work type. Clicking the Available Capacity segment shows a simple message confirming available hours and (where relevant) lists demand items whose Submitted status means they *could* land there (useful when Team Activity is viewed in conjunction with the Submitted overlay workflow, though this is a secondary affordance).
 
 **Required features**:
-- Filter by Theme, by Person, by demand Type.
-- Click into a block to see the underlying demand item or BAU stream (via the same side-panel editor as View 1).
-- Toggle to include/exclude BAU in the utilisation calculation.
+- Filter by Theme, by Person, by work Type.
+- Time horizon preset (6 / 12 / 24 / 60 months).
+- Cell click → drill-down panel listing contributing demand items.
+- Segment click → drill-down filtered to that work type.
+- Tooltip on hover showing the exact hours breakdown for that person-month.
 
 ### View 3 — Forecast (post-MVP)
 
@@ -543,22 +699,29 @@ The edit page is reached via the drawer's "Edit" button, or directly via "+ New 
 This is where the demand is shaped: metadata, phases, and skill-shaped requirements. Allocation is not available in this mode because the demand hasn't been committed to yet.
 
 Content:
-- Top section: demand item fields (name, type, owner, primary theme, description, parked reason if Parked)
+- Top section: demand item fields (name, type, owner, primary theme, description, parked reason if Parked).
+- **Phase timeline (Gantt)**: a horizontal time-based overview at the top of the Phases section, above the phase cards. Shows every phase as a labelled bar on a shared month-resolution timeline, sorted ascending by start month. Each bar shows the phase name and indicates its duration; indefinite phases render with a trailing dashed extension or arrow marker to communicate "continues beyond the visible range." The timeline is read-only and navigational — clicking a bar scrolls the page to the corresponding phase card and expands it. Changes to phase dates in the cards below update the timeline immediately. When the demand has a single phase the timeline is still shown but kept compact.
 - Phases section: each phase is a collapsible card showing:
-  - Phase name, start month, end month
+  - Phase name, start month, end month (end month supports a "No end date (indefinite)" toggle — see 11.12)
   - Funding source (dropdown) and funding notes (free text)
-  - Requirements list — each requirement displays as a row with skill, level, notes, and a **per-month hours grid** showing one editable cell per month the phase spans
-- Actions: add phase, reorder phases, delete phase, add requirement within a phase, delete requirement
+  - Requirements list — each requirement displays as a row with skill, level, notes, and a **per-month hours grid** (finite) or **steady-state hours input** (indefinite)
+- Actions: add phase, reorder phases, delete phase, add requirement within a phase, delete requirement.
 
 Requirements entry in this mode is **always skill-shaped**:
-- The "Add Requirement" form offers only: **Skill** (using the THEME > SKILL selector — see 4.5.4), **Level** (Basic / Advanced / Specialist), **Starting hours per month** (pre-fills the per-month grid).
+- The "Add Requirement" form offers only: **Skill** (using the THEME > SKILL selector — see 4.5.3), **Level** (Basic / Advanced / Specialist), **Starting hours per month** (pre-fills the per-month grid, or sets the steady-state value for indefinite phases).
 - Named allocations are not entered in this mode — they're added in Mode B.
 
-Per-month hours UI:
+**Dropdown overflow — mandatory portalling**: the THEME > SKILL selector and any other dropdown that opens from inside a phase card must be rendered via a portal (e.g. Radix Popover or Headless UI Combobox patterns that mount to document.body). Phase cards have `overflow` constraints that clip non-portalled dropdowns, cutting off options — this must not happen. Any dropdown open event must yield a popover that can exceed its container bounds and remain fully visible regardless of where the phase card sits on the page.
+
+Per-month hours UI (finite phases):
 - Each requirement row shows a horizontal grid of month cells spanning the phase's date range.
 - Adjusting the phase start/end month adds or removes cells (as per section 2.2).
 - A "Fill all" action on each row flattens hours across the phase for the common flat-load case.
 - Row shows a monthly total and phase total for sanity-checking.
+
+Steady-state UI (indefinite phases):
+- Each requirement row shows a single "Hours per month (indefinite)" input instead of the per-month grid.
+- Capacity calculation applies this value from the phase's `start_month` onwards with no end bound.
 
 **Mode B — Allocation Workspace** (active when status is `Approved`, `Partially Allocated`, `Allocated`)
 
@@ -589,39 +752,78 @@ Each phase is rendered as a **distinctly bounded card** with strong visual separ
 This is a key functional gap in the current build and must be addressed. When a person is selected for an allocation, the tool must surface their **per-month available capacity** so the allocator can tell at a glance whether they can actually take the work.
 
 Specifically:
-- Each allocation row shows a **capacity-preview strip** immediately above or alongside its per-month hours grid — one cell per month, showing the person's remaining available capacity for that month (contracted hours minus all other committed allocations, but *excluding* this allocation so the user sees genuine headroom).
+- Each allocation row shows a **capacity-preview strip** immediately above or alongside its per-month hours grid — one cell per month, showing the person's remaining available capacity for that month.
 - As the user types an hours value into an allocation cell, the corresponding capacity-preview cell updates in real time to show the effect: green if within capacity, amber if approaching (e.g. >80%), red if pushing over capacity.
-- The capacity-preview values account for everything: this person's BAU-type demand items, this person's other project allocations, their contracted hours for that month, their `available_from` / `available_to` dates.
-- Hovering a capacity-preview cell shows the breakdown: "Alex Morgan, June 2026: 152 contracted − 20 BAU − 60 MES Upgrade = 72 hrs available".
+- Hovering a capacity-preview cell shows the breakdown (see the calculation detail below).
 
-This turns the allocation flow from blind to informed — the PMO can see in real time whether the person they're about to commit actually has the hours.
+**Headroom calculation — mandatory scope**
+
+The "remaining available capacity" for person P in month M must be computed from the **complete store**, not from the current demand alone:
+
+```
+headroom(P, M, allocation_being_edited) =
+    contracted_hours(P, M)
+  − SUM over every allocation A such that:
+        A.person_id == P
+        AND month M falls within A.parent_phase date range
+        AND A.parent_demand_item.status ∈ {Approved, PartiallyAllocated, Allocated}
+        AND A ≠ allocation_being_edited
+```
+
+Key points:
+- The sum includes allocations from **every demand item in the store**, not just the one currently being edited. This catches the "same person across multiple phases/projects" case — if Alex is allocated to Project X in June, her headroom on Project Y's June allocation must reflect that.
+- The allocation being edited is **excluded** from its own "other allocations" bucket. Otherwise headroom shrinks as the user types, producing confusing feedback.
+- BAU is included naturally because BAU is now demand of type BAU (v1.7 change) — its allocations are in the same pool.
+- `contracted_hours(P, M)` respects the person's `available_from` / `available_to` — if M is outside that range, contracted hours for that month is zero.
+- If the parent demand item of the allocation being edited is currently in Submitted status (e.g. during Revise flow), its existing allocations should be **excluded** from the headroom calculation, since Submitted items don't consume capacity.
+
+Hover text format: "Alex Morgan, June 2026: 152 contracted − 20 BAU (MES Super User) − 60 Project X Phase 2 = 72 hrs available".
+
+This turns the allocation flow from blind to informed — the PMO can see in real time whether the person they're about to commit actually has the hours, accounting for *every* other commitment across the whole plan.
 
 **Person picker**:
 - Filtered by default to people who hold the parent skill at the required level or higher.
-- Shows each candidate's **summary capacity for the phase period** next to their name (e.g. "Alex Morgan · MOM Specialist · avg 40 hrs/mo available across phase") — so the user can make an informed choice before clicking, not after.
+- Shows each candidate's **summary capacity for the phase period** next to their name (e.g. "Alex Morgan · MOM Specialist · avg 40 hrs/mo available across phase"). The summary uses the same full-store headroom calculation as above, averaged across the phase's months.
 - A "Show all" toggle lifts the skill filter (with a visible warning if a non-holder is chosen).
 
 **Quick-fill actions on each allocation row**:
-- **"Full coverage"** — allocates this person to the entire per-month target for this requirement. Warns if it pushes them over capacity in any month but does not block.
-- **"Fill remaining"** — allocates this person to whatever hours are currently unfilled, month by month. Respects their capacity first: if the remaining demand exceeds their capacity, fills up to their capacity and leaves the rest unfilled.
-- **"Match pattern"** — copies the shape of the requirement's target into this row, scaled to a user-chosen percentage (e.g. "this person covers 60% of each month").
+- **"Fill remaining"** — allocates this person to whatever hours are currently unfilled on the requirement, month by month. Respects both the requirement's remaining headroom *and* the person's remaining capacity: fills up to `min(requirement_remaining, person_headroom)` for each month, leaving any gap unfilled. This is the single primary quick-fill action.
+- **"Match pattern"** — copies the shape of the requirement's target into this row, scaled to a user-chosen percentage (e.g. "this person covers 60% of each month"). Will never exceed the requirement's remaining headroom even at 100%. Person-capacity warnings still apply and require confirm-on-save.
 
-Over-allocation warnings: surface inline on the allocation row when a person is being loaded beyond their capacity, but do not block save.
+**Previously specified "Full coverage" action is removed.** After the v1.8 hard-block on requirement over-allocation, Full Coverage and Fill Remaining behaved identically in almost all cases (both capped at requirement headroom). Users who deliberately want to over-commit a person can do so by typing the value directly — that's a conscious override, not a button.
+
+**Two distinct over-allocation checks — different enforcement**:
+
+The tool distinguishes between two kinds of over-allocation, and treats them differently:
+
+1. **Requirement-level over-allocation** — the sum of all named allocations for a requirement-month exceeds the requirement's target hours for that month. This is treated as a **hard block**:
+   - The per-month hours input for an allocation is **capped at input time**: the user cannot type a value greater than the requirement's remaining headroom for that month (target − sum of other allocations). If they try, the input clamps to the maximum permitted value and a brief inline hint explains why.
+   - On **Save**, a final validation confirms no requirement-month is over-allocated. If any is (e.g. due to an edit sequence that worked around the input cap), the Save is blocked and the offending rows are highlighted with an error message.
+   - This belt-and-braces approach keeps the allocation maths trustworthy: the sum of allocations for a requirement-month will always be ≤ the target.
+
+2. **Person-level over-allocation** — a person's total committed hours across all their allocations (plus BAU) exceeds their contracted hours for that month. This is treated as a **soft warning**:
+   - Inline warning on the allocation row with a visual signal.
+   - On Save, if any person is over-capacity in any month, the user is shown a confirm dialog listing the affected person-months; they can proceed anyway (legitimate strategic over-commitment) or cancel to reduce.
+   - No block — this is often a deliberate decision.
 
 Saving in Mode B:
 - Same explicit Save/Cancel pattern as Mode A. All allocation edits are held in form state until Save.
+- Save flow: requirement-level over-allocation blocks the save entirely; person-level over-allocation prompts a confirm.
 - After Save, the auto-transition rule evaluates the full coverage state and the status updates if warranted (Approved → Partially Allocated, or Partially Allocated → Allocated, or the reverse).
 
 **Switching between modes**
 
-The mode is determined by status and is not directly toggleable. To move from Mode B back to Mode A (i.e. to edit the underlying demand), the user must Park the demand and Revive it to Submitted — a deliberate two-step action with a confirmation that warns "this will remove the demand from capacity calculations and clear named allocations."
+The mode is determined by status and is not directly toggleable. Two paths exist for returning a demand to Mode A:
 
-Named allocations are **preserved** through Park/Revive so they reappear when the demand is re-approved — but they're re-validated against the new requirements and flagged if they no longer fit (e.g. the requirement's skill changed).
+- From `Approved`: the **Revise** action — moves the demand directly back to `Submitted` without the Park detour. Existing allocations are preserved but ignored from capacity calculations while in Submitted. On re-Approval, they're re-validated against the (possibly edited) requirements and flagged if they no longer fit (e.g. the requirement's skill changed). This is the low-friction path for correcting demand definition issues that are discovered after approval but before allocation work has started in earnest.
+- From `Partially Allocated` or `Allocated`: only the **Park → Revive** path. Because these statuses represent active allocation work against real capacity, direct-to-Submitted is not permitted — the Park step is deliberate friction that ensures the user consciously acknowledges they're pulling committed resource-naming.
+
+Named allocations are **preserved** through both Revise and Park/Revive, so they reappear when the demand is re-approved.
 
 **Validation (both modes)**:
-- Warn on over-allocation of a person against their capacity with confirm-to-proceed.
+- Block save on requirement-level over-allocation (see above).
+- Warn (with confirm) on person-level over-allocation.
 - Warn when an allocation is made to someone who doesn't hold the required skill at the required level.
-- No validation blocks save — warnings only.
 
 **Save model — explicit save, applies to both modes**:
 - All edits on this page are held in local form state.
@@ -648,11 +850,13 @@ Implementation note: this is one component. Build it once and reuse everywhere a
 
 ### 4.6 Demand discovery
 
-Finding a specific demand item among many. Three switchable modes, default is Table. Active statuses only (Draft, Submitted, Approved, Partially Allocated, Allocated, Parked). Closed items appear in the Archive view, not here.
+Finding a specific demand item among many. Three switchable modes, default is **Board (Kanban)** — the state-machine flow is the primary mental model for the page. Active statuses only (Draft, Submitted, Approved, Partially Allocated, Allocated, Parked). Closed items appear in the Archive view, not here.
 
-- **Table mode (default)**: spreadsheet-style, sortable columns (name, type, status, primary theme, owner, phase count, total committed hours). Filterable.
-- **Board mode**: cards grouped by status across six columns (Draft / Submitted / Approved / Partially Allocated / Allocated / Parked). Drag between columns triggers the valid status transition. If a drag would be invalid (e.g. Approved → Draft) the drop is rejected with a tooltip explaining the constraint.
-- **Search mode**: full-text search across name, description, owner, and phase names.
+- **Board mode (default)**: kanban-style cards grouped by status across six columns in state-machine order: Draft / Submitted / Approved / Partially Allocated / Allocated / Parked. Drag between columns triggers the valid status transition. If a drag would be invalid (e.g. Approved → Draft) the drop is rejected with a tooltip explaining the constraint. Invalid drops should visually animate back to the source column.
+- **Table mode**: spreadsheet-style, sortable columns (name, type, status, primary theme, owner, phase count, total committed hours). Filterable. Best for bulk scanning.
+- **Search mode**: full-text search across name, description, owner, and phase names. Best for "find one specific thing."
+
+Mode selection persists per-session. User preference is not stored long-term in v1.
 
 ### 4.7 Archive view
 
@@ -808,11 +1012,13 @@ The Capacity Validation view is chart-based, not grid-based. Click behaviour is 
 - Clicking a **theme chart** opens the skill breakdown for that theme (switches section B into Skill mode filtered to that theme).
 - Clicking a **skill chart** opens a person-level drill-down panel showing who holds that skill and their individual load — this is where the grid-style individual view now lives.
 - Clicking a **stacked demand segment** (any work type layer in any chart) opens a side panel listing the demand items contributing to that segment, each deep-linking into the **Demand Item drawer** (section 4.5.1 — read-only preview). From the drawer, the user can click "Edit" to open the full edit page.
-- Clicking anywhere else on a chart opens a tooltip showing exact numbers (capacity, committed demand by work type, overlay demand) for that month.
+- Clicking anywhere else on a chart opens a tooltip showing exact numbers for that month: capacity line, committed demand by work type, overlay demand if active, and grey band total (with breakdown available via hover on the band itself).
 
-### 11.2 Adding an overlay
+### 11.2 Selecting an overlay
 
-The overlay selector in the toolbar is a search-and-add pattern. The user clicks an "+ Add demand" button which opens a small combobox listing all demand items in `Draft`, `Submitted`, `Accepted`, or `Allocated` status, searchable by name. Selecting one adds it as a chip to the overlay area. Multiple overlays can be stacked. Clicking the × on a chip removes it. No drag-drop, no modal picker.
+The overlay selector in the toolbar is a **single-selection** pattern. The user clicks a "Set overlay" combobox which lists all demand items in `Submitted` status, searchable by name. Selecting one sets it as the single active overlay, replacing any previously-selected item. A "Clear overlay" button (or the × on the chip) removes the overlay. Only Submitted items are eligible — items in other statuses are not offered.
+
+If the user arrives via "Model Impact" from a demand drawer, the overlay is pre-populated with that item; the user can clear it or change it using the same combobox.
 
 ### 11.3 Status transitions
 
@@ -828,7 +1034,7 @@ User-driven transitions exposed in the UI:
 
 - From Draft: `Submit`, `Delete`
 - From Submitted: `Approve`, `Revert to Draft`, `Park`, `Delete`
-- From Approved: `Park`, `Close`, `Delete`
+- From Approved: `Revise` (back to Submitted), `Park`, `Close`, `Delete`
 - From Partially Allocated: `Park`, `Close` (with confirm), `Delete`
 - From Allocated: `Park`, `Close`, `Delete`
 - From Parked: `Revive` (always to Submitted), `Delete`
@@ -866,6 +1072,17 @@ Use `HashRouter` from `react-router-dom` (not `BrowserRouter`). GitHub Pages doe
 ### 11.8 Seed data source
 
 A curated seed dataset is provided alongside this spec as `seed.json`. **Use this dataset verbatim** — do not generate placeholder names or invent skill taxonomies. The seed dataset reflects the real shape of the team and the demand pipeline and is essential to making the demo credible.
+
+**The seed is intentionally mixed — realistic in most places, deliberately constrained in specific places** — so v1.10's new visual signals have exemplars to render. Specifically, by selecting the right overlays and viewing the right months, a tester can produce every one of the following states:
+
+- **Person-level over-allocation** — at least one person-month in the seed has committed allocations exceeding the person's contracted hours. The Team Activity view's light red cell-background tint should be visible on this cell on first load. (Check Priya Kumar, Jun–Aug 2026.)
+- **Overlay-induced theme over-capacity** — selecting certain Submitted items as the overlay tips a theme chart over capacity. (Check any of the Submitted MOM items in Jun–Aug 2026.)
+- **Projection shortfall** — overlaying one Submitted item combined with existing Approved-unallocated work produces a skill whose unallocated demand exceeds eligible real headroom. (Check MI&V Specialist with the "Corporate Data Lake" Submitted overlay.)
+- **Meaningful grey band from baseline unallocated work** — the Approved-unallocated "Plant C MES Platform Migration" projects onto MOM Specialist-holders even before any overlay is selected, producing a visible grey band on MOM charts in Jun–Aug 2026.
+- **Cross-project same-person allocation overlap** — Fatima Al-Rashid is allocated to two separate MI&V demand items with overlapping months (dmd_004 and stress_005). Opening either one's allocation workspace must show a capacity-preview strip reflecting the other's consumption. This directly tests the store-wide headroom formula.
+- **Comfortable capacity** — MBM theme has light demand across the whole horizon, demonstrating the charts' behaviour when nothing is constrained.
+
+If any of these states fails to render visibly after wiring up the v1.10 features, something in the aggregation layer is wrong — the seed is designed specifically to trigger them.
 
 ### 11.9 Colour and visual styling
 
@@ -915,30 +1132,113 @@ The allocation workspace (Mode B) mirrors this:
 - Finite phase → per-month coverage strip and per-month allocation grid, as before.
 - Indefinite phase → a single "Hours per month" target; allocation rows show a single hours value per person; the coverage indicator shows a single cell (green / amber / red).
 
+### 11.13 Capacity model refactor — building the shared aggregation layer
+
+Section 2.4 specifies a substantial rework of how capacity and demand are computed across the tool. This is a cross-cutting refactor with strong correctness implications — it must be done carefully and in the right order.
+
+**Build the aggregation layer first, views second**
+
+Before any view is updated to use the new model:
+
+1. **Identify every place in the current codebase that reads capacity or demand numbers** — chart data generators, overlay renderers, drawer summary computations, Team Activity cell builders, over-capacity summary strip, allocation workspace's capacity-preview strip, the person picker's summary capacity, validation checks. Any place that loops over phases/requirements/allocations or that computes "how much demand is there" or "how much capacity is free."
+
+2. **Create a single aggregation module** (e.g. `src/lib/capacity.ts` or `src/selectors/capacity.ts`) that implements the eight named functions required by section 2.4.8:
+   - `person_capacity(person_id, month)` → number
+   - `real_committed_hours(person_id, month)` → number
+   - `theme_capacity(theme_id, month)` → number
+   - `skill_capacity(skill_id, month)` → number
+   - `demand_hours_for(target, status_filter, month)` → number, where `target` is a theme, skill, or "overall"
+   - `projected_consumption(person_id, month)` → number — the sum of projected hours onto this person from all unallocated demand
+   - `grey_band(target, month)` → number — the chart's grey band height for a given theme/skill in a given month
+   - `projection_shortfalls()` → a list of shortfall records keyed by (skill, month)
+
+   All of these must be **pure functions of the full store**. No hidden state, no memoisation-across-store-changes that risks staleness.
+
+3. **Replace every inline summation in the views** with a call to the appropriate aggregation function. No view should do its own reduce-over-requirements or sum-over-allocations.
+
+**Then wire up views in this order**:
+
+4. Capacity Validation charts — capacity lines, demand stacks, grey bands, over-capacity signals.
+5. Over-capacity summary strip — over-capacity, over-capacity-with-overlay, projection shortfalls (three distinct signal types).
+6. Team Activity — cell segments read from the aggregation layer, including per-person BAU/NPD/Plant/Strategy/Available segmentation.
+7. Allocation workspace — capacity-preview strip, person picker summary.
+8. Demand drawer summary — total hours rollups.
+
+**Testable invariants — verify these work before moving on**
+
+These are not optional — they're the difference between a tool the PMO can trust and one they can't:
+
+- **Invariant A (Submitted == Approved-unallocated)**: take any Submitted demand item; hypothetically toggle its status to Approved (in memory, without saving); compare the contribution to every chart's demand stack, grey band, and capacity line. The numbers must be identical. Because the projection algorithm (section 2.4.5) treats Submitted overlay and Approved-unallocated demand the same way, a status change with no allocations must produce identical visuals.
+
+- **Invariant B (allocation conservation)**: for any person in any month, `real_committed_hours(P, M) + projected_consumption(P, M) + remaining_headroom(P, M) ≤ contracted_hours(P, M)`, with equality when the projection exhausts available capacity. Projected consumption must never exceed the headroom the projection had to work with.
+
+- **Invariant C (shortfall surfacing)**: if a skill's unallocated demand collectively exceeds eligible headroom in some month, a projection shortfall must be surfaced on the over-capacity summary strip. There must be no "silent" shortfalls — every case where the projection algorithm couldn't place all the hours must be visible.
+
+- **Invariant D (no double-counting)**: the demand that is *for* a chart's theme/skill shows on the demand stack only, never in the grey band. The demand *against other* themes/skills that would consume the same people shows in the grey band only, never on the demand stack.
+
+These invariants should be checkable at runtime during development — ideally with a debug overlay or an assertion function that can be turned on. In production they should hold by construction.
+
+**Specific scenarios to verify**
+
+Beyond the invariants, manually check these:
+
+- Indefinite phases — the `steady_state_hours` path must be read correctly by both capacity and projection logic.
+- BAU-type demand items — BAU was a separate entity pre-v1.7; ensure no legacy code paths handle BAU allocations differently from project allocations.
+- Items just after a status transition — stale memoisation could make an item briefly appear in both overlay and committed buckets. Recompute from the store state, don't cache across transitions.
+- Multi-phase demand — a demand item with phases across different themes should correctly contribute demand to multiple charts.
+- Cross-phase person allocation — a person allocated to multiple phases (potentially overlapping months) must have their real_committed_hours correctly aggregated across all phases.
+
+**Do not skip the audit step**. The value of this refactor comes from single-source aggregation. If two call sites keep their own summation logic, the bug comes back in a different form.
+
 ---
 
 ## Changelog
 
-**v1.7** (this revision):
-- **Indefinite phases supported**. `Phase.end_month` is now nullable. Finite phases use per-month `hours_by_month`; indefinite phases use a single `steady_state_hours` value applying from `start_month` onwards forever (or until the demand is Closed/Parked). Capacity calculation updated to handle both. A phase can be toggled between finite and indefinite via a "No end date" checkbox.
-- **BAU is no longer a separate data entity**. Removed `bau_streams` and `bau_allocations` as standalone records. BAU is represented as demand items of type `BAU` in the main Demand list, using the same phase/requirement/allocation structure as projects. Admin panel BAU section removed (section 5). Section 2.3 rewritten.
-- **Allocation Workspace (Mode B) UI improved** (section 4.5.2):
-  - Each phase now rendered as a distinctly bordered card with numbered heading ("Phase 1 · Design · May–Aug 2026") to make multi-phase demand visually clear.
-  - Explicit **month labels above the coverage indicator strip** — previously unlabelled.
-  - New **capacity-preview strip** on each allocation row: shows the allocated person's remaining available hours per month in real time, updating as the user types. Green/amber/red signalling for within/approaching/over capacity. Addresses the key functional gap where allocators couldn't see whether the person had headroom.
-  - Person picker now shows each candidate's summary capacity for the phase period alongside their name.
-- **Drawer button placement reorganised** (section 4.5.1) into four zones:
-  - Header zone: overflow menu (kebab) in top-right with Duplicate, Delete.
-  - Status zone: status pill with transition buttons inline.
-  - Body zone: scrollable read-only content.
-  - Footer zone: primary actions only — Edit always, Model Impact on Submitted items.
-- **"Model Impact" action** added to Submitted demand drawers (section 4.5.1, 11.11). Deep-links to Capacity Validation with the demand pre-selected as overlay; banner provides "Back to demand" return path.
-- **Select All / Clear All overlay bulk actions** added to the Capacity Validation toolbar for visualising the full Submitted pipeline quickly.
-- **"Partially Allocated" display label** — enum value remains `PartiallyAllocated` but all UI display strings now use "Partially Allocated" with a space. Label convention made explicit in interpretation guidance 11.3.
-- Interpretation guidance 11.11 (Model Impact flow) and 11.12 (indefinite phase UI) added.
+**v1.10** (this revision): **Major capacity model rework, plus allocation and Team Activity improvements.**
+
+Capacity model (section 2.4 rewritten, new section structure 2.4.1–2.4.8):
+- **Theme and skill capacity lines are now dynamic** — computed as the skill pool's real availability, net of each person's real named allocations across *all* themes and skills. A person doing MOM work has their MI&V contribution correspondingly reduced; the MI&V capacity line drops accordingly. The capacity formula explicitly excludes commitments to the chart's own skill (those show on the demand side), preventing double-counting.
+- **New "grey band" projection layer on every theme/skill chart.** Between the demand stack and the capacity line, a hatched grey band represents projected consumption of this chart's skill pool by *unallocated demand elsewhere* (demand targeting other themes/skills whose projected allocations would consume the same people). Unallocated demand includes Approved items with no allocations, the unfilled portion of Partially Allocated items, and the currently-selected Submitted overlay.
+- **Projection algorithm formally specified** (section 2.4.5). Single-pass proportional distribution: each unallocated-requirement-hour is distributed across eligible skill-holders proportionally to their remaining real headroom. No ordering, no iteration, no arbitration between demand items. If collective demand exceeds supply, the excess becomes an explicit projection shortfall.
+- **Projection shortfalls surfaced as explicit signals** (section 2.4.6) in the over-capacity summary strip, not hidden in the grey band. Three distinct signal types now exist: Over capacity (committed demand exceeds capacity), Over capacity with overlay (overlay induces it), Projection shortfall (unallocated demand exceeds eligible headroom).
+- **Overlay mechanism changed from multi-select to single-item.** Only one Submitted item can be overlaid at a time. Aggregate Submitted visibility is handled via the Demand page Board view and the projection-shortfall signals in the summary strip, not by stacking overlays on the chart. "Select all Submitted" and "Clear all" removed.
+- **Testable invariants specified** (section 2.4.8, interpretation guidance 11.13). Submitted-as-overlay must produce identical numbers to the same item Approved-without-allocations. Allocation conservation must hold per-person per-month. No silent shortfalls. No double-counting of demand in both stack and grey band.
+
+Allocation workspace (section 4.5.2 Mode B):
+- **Headroom calculation is now explicitly store-wide.** The capacity-preview strip computes remaining hours by summing every real allocation on that person across every demand item in the store for the target month, excluding only the allocation currently being edited. Formula specified in section 4.5.2.
+- **"Full coverage" quick-fill action removed.** After v1.8's requirement-level hard-block, Full Coverage and Fill Remaining were behaviourally identical — both capped at the requirement's remaining headroom. Fill Remaining is kept (now explicitly capped by both requirement headroom and person capacity). Users who want to deliberately over-commit a person can type the value directly and confirm on save.
+
+Team Activity (section 4 View 2):
+- **Over-capacity cells now tinted at cell-background level.** Previously the indicator was confined to the overflow bar segment and a small "+24h" badge. The whole cell now gets a light red background tint so over-capacity months are visible at a glance across the whole grid.
+
+Capacity Validation charts (section 4 View 1):
+- **Skill-level capacity sub-line removed.** The dotted/thinner secondary line showing "of which Specialist" capacity on skill-mode charts has been removed. It added visual noise without clear value — users who want to understand level-specific capacity can reach for level-filtered drill-down instead. Charts in skill mode now show a single capacity line per chart.
+
+Aggregation layer (section 2.4.8, interpretation guidance 11.13):
+- **Eight named aggregation functions required**, implemented once and called from every view. No inline summing by individual callers. Build sequence prescribed: aggregation layer first, then views in specified order. Explicit invariants checked throughout.
+
+Seed data (section 11.8):
+- **Seed updated to include deliberate stress-test scenarios.** Five stress items added (dmd_stress_001 through 005) plus an intentional overlap so that, between them, every new v1.10 visual signal has at least one exemplar: person-level over-allocation (Priya, Jun/Aug 2026), overlay-induced theme over-capacity (select any Submitted MOM item), projection shortfall (MI&V Specialist with Corporate Data Lake overlay), baseline grey band from Approved-unallocated (Plant C MES Migration), cross-project same-person overlap (Fatima on dmd_004 + stress_005). MBM theme left comfortably under-loaded so uncongested chart behaviour is also visible. Existing 18 items retained unchanged as realistic baseline.
+
+**v1.8**:
+- Phase Gantt overview added to the demand edit page (Mode A).
+- Portalled dropdowns mandated for phase cards.
+- Allocation caps: requirement-level hard-blocks, person-level soft-warns.
+- "Revise" action: Approved → Submitted direct transition.
+- Team Activity rewritten with stacked horizontal bars.
+- Kanban is now the default for Demand page.
+- Over-capacity summary strip on Capacity Validation + per-chart badge.
+- NPD Demand examples added to seed.
+
+**v1.7**:
+- Indefinite phases supported (`end_month` nullable; `steady_state_hours` for indefinite phases).
+- BAU removed from admin and represented as demand of type BAU.
+- Allocation Workspace UI improved (phase separation, month labels on coverage strip, capacity-preview strip).
+- Drawer button zones restructured; Model Impact action added; overlay Select-all / Clear bulk actions.
+- "Partially Allocated" display label (enum value unchanged).
 
 **v1.6**:
-- Demand workflow as a gated state machine with seven statuses; transitions explicitly permitted or not.
+- Demand workflow as a gated state machine with seven statuses.
 - `Accepted` renamed to `Approved`; `PartiallyAllocated` and `Closed` added.
 - Edit page Mode A / Mode B split based on status.
 - Shared THEME > SKILL selector component.

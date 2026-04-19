@@ -244,7 +244,10 @@ export default function TeamActivity() {
                       return (
                         <td
                           key={month}
-                          className="px-1.5 py-1.5 border-r border-border/50 cursor-pointer hover:bg-gray-50/60"
+                          className={clsx(
+                            'px-1.5 py-1.5 border-r border-border/50 cursor-pointer',
+                            isOver ? 'bg-red-50' : 'hover:bg-gray-50/60'
+                          )}
                           onClick={() => setDrillCell({ personId: person.id, personName: person.name, month })}
                         >
                           {/* Tooltip on the bar container */}

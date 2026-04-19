@@ -195,16 +195,6 @@ function AllocationRow({ alloc, req, phase, months, onChange, onDelete }: Alloca
 
   const rowTotal = months.reduce((s, m) => s + (alloc.hours_by_month[m] ?? 0), 0)
 
-  const handleFullCoverage = () => {
-    if (isIndefinite) {
-      onChange({ ...alloc, steady_state_hours: req.steady_state_hours ?? 0 })
-    } else {
-      const hbm: Record<string, number> = {}
-      months.forEach(m => { hbm[m] = req.hours_by_month[m] ?? 0 })
-      onChange({ ...alloc, hours_by_month: hbm })
-    }
-  }
-
   const handleFillRemaining = () => {
     if (isIndefinite) {
       const target = req.steady_state_hours ?? 0
@@ -325,10 +315,6 @@ function AllocationRow({ alloc, req, phase, months, onChange, onDelete }: Alloca
       )}
 
       <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={handleFullCoverage} className="text-[10px] text-brand hover:text-brand-hover font-medium">
-          Full coverage
-        </button>
-        <span className="text-gray-200">·</span>
         <button onClick={handleFillRemaining} className="text-[10px] text-brand hover:text-brand-hover font-medium">
           Fill remaining
         </button>

@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "version": "1.3",
-    "description": "Seed dataset for the Digital Manufacturing Resource Load & Capacity Tool, v1.7 data model. BAU is represented as demand items of type BAU (no separate bau_streams/bau_allocations). Phases can be finite (hours_by_month) or indefinite (steady_state_hours, end_month null). Requirements are skill-shaped with allocations attached. Statuses follow the v1.6 state machine.",
+    "version": "1.5",
+    "description": "Seed for v1.10 data model. Mix of realistic and stress-test data: some themes/skills are comfortably within capacity while others deliberately push into over-capacity, projection shortfall, and over-allocated states so v1.10 visual features (grey bands, over-capacity signals, projection shortfalls, cell-background tints) have exemplars to render. BAU = demand of type BAU. Phases can be finite (hours_by_month) or indefinite (steady_state_hours). Requirements are skill-shaped with allocations.",
     "today": "2026-05-01"
   },
   "themes": [
@@ -1720,6 +1720,437 @@
                   "id": "alloc_bau9013",
                   "person_id": "per_011",
                   "steady_state_hours": 10,
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_npd_002",
+      "name": "NPD Trial Line A \u2014 MES Integration",
+      "type": "NPD Demand",
+      "status": "Submitted",
+      "owner": "Daniel Okafor",
+      "primary_theme_id": "thm_mom",
+      "description": "Integration of MES genealogy and workflow coverage for the new NPD trial line in Plant A. Needed to unlock scaled production trials in Q4 2026.",
+      "parked_reason": null,
+      "phases": [
+        {
+          "id": "phs_npd002_1",
+          "name": "Specification",
+          "start_month": "2026-09",
+          "end_month": "2026-10",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "NPD Trial A sector budget",
+          "requirements": [
+            {
+              "id": "req_npd002_1",
+              "shape": "skill",
+              "skill_id": "skl_mom_workflow",
+              "level": "Advanced",
+              "notes": "Workflow specification for NPD trial line",
+              "hours_by_month": {
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "allocations": []
+            },
+            {
+              "id": "req_npd002_2",
+              "shape": "skill",
+              "skill_id": "skl_mom_genealogy",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-09": 20,
+                "2026-10": 20
+              },
+              "allocations": []
+            }
+          ]
+        },
+        {
+          "id": "phs_npd002_2",
+          "name": "Build",
+          "start_month": "2026-11",
+          "end_month": "2027-01",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "NPD Trial A sector budget",
+          "requirements": [
+            {
+              "id": "req_npd002_3",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Specialist",
+              "notes": "MES config for trial line",
+              "hours_by_month": {
+                "2026-11": 50,
+                "2026-12": 50,
+                "2027-01": 50
+              },
+              "allocations": []
+            },
+            {
+              "id": "req_npd002_4",
+              "shape": "skill",
+              "skill_id": "skl_miv_integration",
+              "level": "Advanced",
+              "notes": "Historian data pipeline",
+              "hours_by_month": {
+                "2026-11": 30,
+                "2026-12": 30,
+                "2027-01": 30
+              },
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_npd_003",
+      "name": "NPD Line C \u2014 Quality Reporting",
+      "type": "NPD Demand",
+      "status": "Allocated",
+      "owner": "Naomi Chen",
+      "primary_theme_id": "thm_miv",
+      "description": "Quality reporting build-out for the NPD Line C rollout \u2014 dashboards and yield tracking for early-phase trials.",
+      "parked_reason": null,
+      "phases": [
+        {
+          "id": "phs_npd003_1",
+          "name": "Build",
+          "start_month": "2026-07",
+          "end_month": "2026-10",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "NPD Line C sector budget",
+          "requirements": [
+            {
+              "id": "req_npd003_1",
+              "shape": "skill",
+              "skill_id": "skl_miv_reporting",
+              "level": "Advanced",
+              "notes": "Dashboard build",
+              "hours_by_month": {
+                "2026-07": 40,
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "allocations": [
+                {
+                  "id": "alloc_npd003_1",
+                  "person_id": "per_007",
+                  "hours_by_month": {
+                    "2026-07": 40,
+                    "2026-08": 40,
+                    "2026-09": 40,
+                    "2026-10": 40
+                  },
+                  "notes": null
+                }
+              ]
+            },
+            {
+              "id": "req_npd003_2",
+              "shape": "skill",
+              "skill_id": "skl_miv_analytics",
+              "level": "Advanced",
+              "notes": "Yield tracking analytics",
+              "hours_by_month": {
+                "2026-07": 20,
+                "2026-08": 20,
+                "2026-09": 20,
+                "2026-10": 20
+              },
+              "allocations": [
+                {
+                  "id": "alloc_npd003_2",
+                  "person_id": "per_006",
+                  "hours_by_month": {
+                    "2026-07": 20,
+                    "2026-08": 20,
+                    "2026-09": 20,
+                    "2026-10": 20
+                  },
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_npd_004",
+      "name": "NPD Product Family Z \u2014 Process Model",
+      "type": "NPD Demand",
+      "status": "Draft",
+      "owner": "Marcus Vogel",
+      "primary_theme_id": "thm_mbm",
+      "description": "Process simulation model for the Product Family Z NPD programme. Still being scoped with R&D.",
+      "parked_reason": null,
+      "phases": [
+        {
+          "id": "phs_npd004_1",
+          "name": "Model Setup",
+          "start_month": "2026-11",
+          "end_month": "2027-02",
+          "funding_source": "Investment Scheme",
+          "funding_notes": "NPD-Z model scheme (pending)",
+          "requirements": [
+            {
+              "id": "req_npd004_1",
+              "shape": "skill",
+              "skill_id": "skl_mbm_simulation",
+              "level": "Specialist",
+              "notes": null,
+              "hours_by_month": {
+                "2026-11": 60,
+                "2026-12": 60,
+                "2027-01": 60,
+                "2027-02": 60
+              },
+              "allocations": []
+            },
+            {
+              "id": "req_npd004_2",
+              "shape": "skill",
+              "skill_id": "skl_mbm_modelling",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-11": 40,
+                "2026-12": 40,
+                "2027-01": 40,
+                "2027-02": 40
+              },
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_stress_001",
+      "name": "Plant C MES Platform Migration",
+      "type": "Plant Project",
+      "status": "Approved",
+      "owner": "David Lin",
+      "primary_theme_id": "thm_mom",
+      "description": "Full MES platform migration at Plant C. Approved but awaiting resource planning - heavy MOM Specialist requirement creates downstream capacity tension.",
+      "parked_reason": null,
+      "phases": [
+        {
+          "id": "phs_stress001_1",
+          "name": "Design & Build",
+          "start_month": "2026-06",
+          "end_month": "2026-08",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant C capital budget",
+          "requirements": [
+            {
+              "id": "req_stress001_1",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Specialist",
+              "notes": "Lead platform architect required",
+              "hours_by_month": {
+                "2026-06": 80,
+                "2026-07": 80,
+                "2026-08": 80
+              },
+              "allocations": []
+            },
+            {
+              "id": "req_stress001_2",
+              "shape": "skill",
+              "skill_id": "skl_mom_workflow",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-06": 40,
+                "2026-07": 40,
+                "2026-08": 40
+              },
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_stress_002",
+      "name": "Corporate Data Lake \u2014 MI&V Integration",
+      "type": "Group Strategy Project",
+      "status": "Submitted",
+      "owner": "Elena Richter",
+      "primary_theme_id": "thm_miv",
+      "description": "Strategic integration of plant data into group-level analytics lake. Pending Prioritisation Board review. Heavy MI&V Specialist requirement.",
+      "parked_reason": null,
+      "phases": [
+        {
+          "id": "phs_stress002_1",
+          "name": "Architecture & Integration",
+          "start_month": "2026-07",
+          "end_month": "2026-10",
+          "funding_source": "Investment Scheme",
+          "funding_notes": "Group Digital Strategy 2026",
+          "requirements": [
+            {
+              "id": "req_stress002_1",
+              "shape": "skill",
+              "skill_id": "skl_miv_integration",
+              "level": "Specialist",
+              "notes": "Specialist-level data pipeline design",
+              "hours_by_month": {
+                "2026-07": 80,
+                "2026-08": 80,
+                "2026-09": 80,
+                "2026-10": 80
+              },
+              "allocations": []
+            },
+            {
+              "id": "req_stress002_2",
+              "shape": "skill",
+              "skill_id": "skl_miv_historian",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-07": 40,
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_stress_003",
+      "name": "Plant A OEE Enhancement",
+      "type": "Plant Project",
+      "status": "Submitted",
+      "owner": "Martin Hughes",
+      "primary_theme_id": "thm_mom",
+      "description": "Enhancement to OEE tracking at Plant A. Submitted for prioritisation. Would directly increase MOM demand in already-congested months.",
+      "parked_reason": null,
+      "phases": [
+        {
+          "id": "phs_stress003_1",
+          "name": "Build",
+          "start_month": "2026-06",
+          "end_month": "2026-08",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant A operations improvement",
+          "requirements": [
+            {
+              "id": "req_stress003_1",
+              "shape": "skill",
+              "skill_id": "skl_mom_oee",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-06": 60,
+                "2026-07": 60,
+                "2026-08": 60
+              },
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_stress_004",
+      "name": "Genealogy Traceability Rollout",
+      "type": "Plant Project",
+      "status": "PartiallyAllocated",
+      "owner": "Priya Kumar",
+      "primary_theme_id": "thm_mom",
+      "description": "Rollout of genealogy & traceability tracking across plants. Priya partially allocated; further Advanced MOM capacity still needed.",
+      "parked_reason": null,
+      "phases": [
+        {
+          "id": "phs_stress004_1",
+          "name": "Rollout",
+          "start_month": "2026-06",
+          "end_month": "2026-08",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": null,
+          "requirements": [
+            {
+              "id": "req_stress004_1",
+              "shape": "skill",
+              "skill_id": "skl_mom_genealogy",
+              "level": "Advanced",
+              "notes": null,
+              "hours_by_month": {
+                "2026-06": 120,
+                "2026-07": 120,
+                "2026-08": 120
+              },
+              "allocations": [
+                {
+                  "id": "alloc_stress004_1",
+                  "person_id": "per_002",
+                  "hours_by_month": {
+                    "2026-06": 40,
+                    "2026-07": 40,
+                    "2026-08": 40
+                  },
+                  "notes": "Priya covers part; remainder needs Advanced-level MOM resource"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_stress_005",
+      "name": "Plant B Historian Upgrade",
+      "type": "Plant Project",
+      "status": "Allocated",
+      "owner": "Fatima Al-Rashid",
+      "primary_theme_id": "thm_miv",
+      "description": "Historian platform upgrade. Fatima leading; overlaps with her other MI&V commitments to test cross-project headroom tracking.",
+      "parked_reason": null,
+      "phases": [
+        {
+          "id": "phs_stress005_1",
+          "name": "Implementation",
+          "start_month": "2026-07",
+          "end_month": "2026-09",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant B capital",
+          "requirements": [
+            {
+              "id": "req_stress005_1",
+              "shape": "skill",
+              "skill_id": "skl_miv_historian",
+              "level": "Specialist",
+              "notes": null,
+              "hours_by_month": {
+                "2026-07": 40,
+                "2026-08": 40,
+                "2026-09": 40
+              },
+              "allocations": [
+                {
+                  "id": "alloc_stress005_1",
+                  "person_id": "per_006",
+                  "hours_by_month": {
+                    "2026-07": 40,
+                    "2026-08": 40,
+                    "2026-09": 40
+                  },
                   "notes": null
                 }
               ]
