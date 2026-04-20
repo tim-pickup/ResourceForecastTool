@@ -420,6 +420,208 @@ export function team_capacity(month: string, state: AppState): number {
     .reduce((s, p) => s + p.contracted_hours_per_month, 0)
 }
 
+// ─── §2.4.9 Programme / Project roll-up aggregation ─────────────────────────
+//
+// Consistency rule: no view iterates over Demands/Phases/Requirements to
+// compute roll-ups. Every roll-up must call one of these functions.
+// External requirements are never included in internal-hour totals.
+
+const ACTIVE_FOR_EXTERNAL_STATUSES = new Set<DemandStatus>([
+  'Draft', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated',
+])
+
+function extHoursForMonth(
+  ext: import('../types').ExternalResourceRequirement,
+  parentPhase: { end_month: string | null },
+  month: string
+): number {
+  if (parentPhase.end_month === null) return ext.steady_state_hours ?? 0
+  return ext.hours_by_month[month] ?? 0
+}
+
+function phaseContainsMonth(phase: Phase, month: string): boolean {
+  return monthInRange(month, phase.start_month, phase.end_month)
+}
+
+// 1. project_internal_hours — sum of internal skill-shaped requirement target
+//    hours across Demands aligned to project_id in Approved/PA/Allocated.
+export function project_internal_hours(
+  project_id: string,
+  month: string,
+  state: AppState
+): number {
+  let total = 0
+  for (const item of state.demandItems) {
+    if (item.project_id !== project_id) continue
+    if (!REAL_STATUSES.has(item.status)) continue
+    for (const phase of item.phases) {
+      if (!phaseContainsMonth(phase, month)) continue
+      for (const req of phase.requirements) {
+        total += reqHoursForMonth(req, phase, month)
+      }
+    }
+  }
+  return total
+}
+
+// 2. project_external_hours — sum of external requirement hours across
+//    Demands aligned to project_id in any status except Parked and Closed.
+export function project_external_hours(
+  project_id: string,
+  month: string,
+  state: AppState
+): number {
+  // Build a phase-to-parentItem lookup so we can check item status
+  const phaseToItem = new Map<string, DemandItem>()
+  for (const item of state.demandItems) {
+    for (const phase of item.phases) {
+      phaseToItem.set(phase.id, item)
+    }
+  }
+
+  let total = 0
+  for (const ext of state.externalResourceRequirements) {
+    const item = phaseToItem.get(ext.phase_id)
+    if (!item) continue
+    if (item.project_id !== project_id) continue
+    if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
+    const phase = item.phases.find(p => p.id === ext.phase_id)
+    if (!phase || !phaseContainsMonth(phase, month)) continue
+    total += extHoursForMonth(ext, phase, month)
+  }
+  return total
+}
+
+// 3. project_external_hours_by_provider — same as above, broken down by
+//    {provider_id: number}.
+export function project_external_hours_by_provider(
+  project_id: string,
+  month: string,
+  state: AppState
+): Record<string, number> {
+  const phaseToItem = new Map<string, DemandItem>()
+  for (const item of state.demandItems) {
+    for (const phase of item.phases) {
+      phaseToItem.set(phase.id, item)
+    }
+  }
+
+  const result: Record<string, number> = {}
+  for (const ext of state.externalResourceRequirements) {
+    const item = phaseToItem.get(ext.phase_id)
+    if (!item) continue
+    if (item.project_id !== project_id) continue
+    if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
+    const phase = item.phases.find(p => p.id === ext.phase_id)
+    if (!phase || !phaseContainsMonth(phase, month)) continue
+    const h = extHoursForMonth(ext, phase, month)
+    result[ext.provider_id] = (result[ext.provider_id] ?? 0) + h
+  }
+  return result
+}
+
+// 4. project_demand_count — count of child Demands, optionally filtered.
+export function project_demand_count(
+  project_id: string,
+  state: AppState,
+  status_filter?: ReadonlySet<DemandStatus>
+): number {
+  return state.demandItems.filter(
+    d => d.project_id === project_id &&
+         (!status_filter || status_filter.has(d.status))
+  ).length
+}
+
+// 5. programme_internal_hours — sum of project_internal_hours across the
+//    Programme's active Projects.
+export function programme_internal_hours(
+  programme_id: string,
+  month: string,
+  state: AppState
+): number {
+  return state.projects
+    .filter(p => p.programme_id === programme_id && p.active)
+    .reduce((s, p) => s + project_internal_hours(p.id, month, state), 0)
+}
+
+// 6. programme_external_hours — sum across Projects.
+export function programme_external_hours(
+  programme_id: string,
+  month: string,
+  state: AppState
+): number {
+  return state.projects
+    .filter(p => p.programme_id === programme_id && p.active)
+    .reduce((s, p) => s + project_external_hours(p.id, month, state), 0)
+}
+
+// 7. programme_external_hours_by_provider — sum across Projects as
+//    {provider_id: number}.
+export function programme_external_hours_by_provider(
+  programme_id: string,
+  month: string,
+  state: AppState
+): Record<string, number> {
+  const result: Record<string, number> = {}
+  for (const project of state.projects.filter(p => p.programme_id === programme_id && p.active)) {
+    const byProvider = project_external_hours_by_provider(project.id, month, state)
+    for (const [pid, h] of Object.entries(byProvider)) {
+      result[pid] = (result[pid] ?? 0) + h
+    }
+  }
+  return result
+}
+
+// 8. programme_project_count — count of active Projects.
+export function programme_project_count(
+  programme_id: string,
+  state: AppState
+): number {
+  return state.projects.filter(p => p.programme_id === programme_id && p.active).length
+}
+
+// 9. unaligned_demand_hours — hours for the virtual "No Project" grouping.
+export function unaligned_demand_hours(
+  month: string,
+  kind: 'internal' | 'external',
+  state: AppState
+): number {
+  if (kind === 'internal') {
+    let total = 0
+    for (const item of state.demandItems) {
+      if (item.project_id !== null) continue
+      if (!REAL_STATUSES.has(item.status)) continue
+      for (const phase of item.phases) {
+        if (!phaseContainsMonth(phase, month)) continue
+        for (const req of phase.requirements) {
+          total += reqHoursForMonth(req, phase, month)
+        }
+      }
+    }
+    return total
+  }
+
+  // external kind
+  const phaseToItem = new Map<string, DemandItem>()
+  for (const item of state.demandItems) {
+    for (const phase of item.phases) {
+      phaseToItem.set(phase.id, item)
+    }
+  }
+
+  let total = 0
+  for (const ext of state.externalResourceRequirements) {
+    const item = phaseToItem.get(ext.phase_id)
+    if (!item) continue
+    if (item.project_id !== null) continue
+    if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
+    const phase = item.phases.find(p => p.id === ext.phase_id)
+    if (!phase || !phaseContainsMonth(phase, month)) continue
+    total += extHoursForMonth(ext, phase, month)
+  }
+  return total
+}
+
 // ─── Runtime invariant checker (dev mode) ────────────────────────────────────
 // Call from a debug panel or the browser console to verify correctness.
 

@@ -17,6 +17,9 @@ import {
   grey_band,
   projection_shortfalls,
   demand_hours_for,
+  project_internal_hours,
+  project_external_hours,
+  project_external_hours_by_provider,
   type DemandTarget,
 } from './capacity'
 import { generateMonths, getCurrentMonth } from '../utils/capacity'
@@ -176,13 +179,37 @@ export function runSeedAssertions(): void {
     }
   }
 
+  // ── §2.4.9 Programme/Project roll-up assertions ─────────────────────────
+  // prj_002 (Plant C MES Platform) contains dmd_stress_001 which is Approved
+  // and has internal requirements + external requirements (ext_001 OEM 40h/mo,
+  // ext_002 Managed Services 120h/mo) on phase phs_stress001_1 (Jun–Aug 2026).
+
+  const plantCProjectId = 'prj_002'
+
+  const projInternal = project_internal_hours(plantCProjectId, '2026-06', state)
+  assert('project_internal_hours(prj_002, 2026-06)', projInternal, '>', 0)
+
+  const projExternal = project_external_hours(plantCProjectId, '2026-06', state)
+  assert('project_external_hours(prj_002, 2026-06)', projExternal, '>', 0)
+
+  const providerBreakdown = project_external_hours_by_provider(plantCProjectId, '2026-06', state)
+  const providerCount = Object.keys(providerBreakdown).length
+  if (providerCount < 2) {
+    console.error(
+      `[SeedAssertion FAIL] project_external_hours_by_provider(prj_002, 2026-06) has ${providerCount} provider(s), expected >= 2`
+    )
+  }
+
   // All passed
   const allOk =
     bandMomMes > 0 &&
     alexProj > 0 &&
     bandMivWithOverlay > 0 &&
-    !!mivShortfall
+    !!mivShortfall &&
+    projInternal > 0 &&
+    projExternal > 0 &&
+    providerCount >= 2
   if (allOk) {
-    console.info('[SeedAssertions] All §2.4.8 renderability invariants passed ✓')
+    console.info('[SeedAssertions] All §2.4.8 + §2.4.9 renderability invariants passed ✓')
   }
 }
