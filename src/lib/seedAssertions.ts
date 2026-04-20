@@ -32,6 +32,15 @@ function buildSeedState(): AppState {
     themes: raw.themes || [],
     skills: raw.skills || [],
     people: raw.people || [],
+    programmes: raw.programmes || [],
+    projects: raw.projects || [],
+    providers: raw.providers || [],
+    externalResourceRequirements: (raw.external_resource_requirements || []).map((e: Record<string, unknown>) => ({
+      ...e,
+      notes: (e.notes ?? null) as string | null,
+      hours_by_month: (e.hours_by_month ?? {}) as Record<string, number>,
+      steady_state_hours: (e.steady_state_hours ?? null) as number | null,
+    })),
     demandItems: items.map((d): DemandItem => ({
       id: d.id as string,
       name: d.name as string,
@@ -43,6 +52,7 @@ function buildSeedState(): AppState {
       parked_reason: (d.parked_reason ?? null) as string | null,
       previous_status: (d.previous_status ?? null) as DemandStatus | null,
       closed_at: (d.closed_at ?? null) as string | null,
+      project_id: (d.project_id ?? null) as string | null,
       phases: ((d.phases || []) as Record<string, unknown>[]).map(p => ({
         id: p.id as string,
         name: p.name as string,

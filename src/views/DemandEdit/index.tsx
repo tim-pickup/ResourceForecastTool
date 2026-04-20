@@ -33,7 +33,7 @@ function blankDemand(themeId: string): Omit<DemandItem, 'id'> {
   return {
     name: '', type: 'Plant Project', status: 'Draft', owner: '',
     primary_theme_id: themeId, description: '', parked_reason: null,
-    previous_status: null, closed_at: null, phases: [],
+    previous_status: null, closed_at: null, phases: [], project_id: null,
   }
 }
 

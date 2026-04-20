@@ -8,17 +8,17 @@
     {
       "id": "thm_mom",
       "name": "MOM",
-      "description": "Manufacturing Operations Management \u2014 MES, order execution, production tracking, OEE."
+      "description": "Manufacturing Operations Management — MES, order execution, production tracking, OEE."
     },
     {
       "id": "thm_miv",
       "name": "MI&V",
-      "description": "Manufacturing Intelligence & Visualisation \u2014 historians, analytics, dashboards, reporting."
+      "description": "Manufacturing Intelligence & Visualisation — historians, analytics, dashboards, reporting."
     },
     {
       "id": "thm_mbm",
       "name": "MBM",
-      "description": "Model-Based Manufacturing \u2014 simulation, digital twins, process modelling."
+      "description": "Model-Based Manufacturing — simulation, digital twins, process modelling."
     }
   ],
   "skills": [
@@ -363,7 +363,7 @@
       "status": "Allocated",
       "owner": "Priya Kumar",
       "primary_theme_id": "thm_mom",
-      "description": "Extension of MES Phase 1 deployment at Plant B covering Lines 3\u20135, with genealogy and SCADA integration.",
+      "description": "Extension of MES Phase 1 deployment at Plant B covering Lines 3–5, with genealogy and SCADA integration.",
       "parked_reason": null,
       "phases": [
         {
@@ -536,7 +536,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": "prj_001"
     },
     {
       "id": "dmd_002",
@@ -690,7 +691,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": "prj_006"
     },
     {
       "id": "dmd_003",
@@ -763,7 +765,7 @@
               "shape": "skill",
               "skill_id": "skl_miv_integration",
               "level": "Advanced",
-              "notes": "Historian \u2192 model data pipeline",
+              "notes": "Historian → model data pipeline",
               "hours_by_month": {
                 "2026-06": 20,
                 "2026-07": 20,
@@ -778,7 +780,7 @@
                     "2026-07": 10,
                     "2026-08": 10
                   },
-                  "notes": "Partial allocation \u2014 awaiting confirmation of remaining hours"
+                  "notes": "Partial allocation — awaiting confirmation of remaining hours"
                 }
               ]
             }
@@ -842,7 +844,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": "prj_004"
     },
     {
       "id": "dmd_004",
@@ -938,7 +941,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
     },
     {
       "id": "dmd_005",
@@ -963,7 +967,7 @@
               "shape": "skill",
               "skill_id": "skl_mom_mes",
               "level": "Specialist",
-              "notes": "Lead architect \u2014 must have done a full MES rollout",
+              "notes": "Lead architect — must have done a full MES rollout",
               "hours_by_month": {
                 "2026-05": 40,
                 "2026-06": 40,
@@ -1068,7 +1072,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": "prj_003"
     },
     {
       "id": "dmd_006",
@@ -1077,7 +1082,7 @@
       "status": "Submitted",
       "owner": "Ishani Bhatia",
       "primary_theme_id": "thm_mom",
-      "description": "New product introduction on Line Y \u2014 cross-theme demand spanning MOM workflow changes, MI&V instrumentation, and MBM model updates. Demonstrates the cross-theme composition.",
+      "description": "New product introduction on Line Y — cross-theme demand spanning MOM workflow changes, MI&V instrumentation, and MBM model updates. Demonstrates the cross-theme composition.",
       "parked_reason": null,
       "phases": [
         {
@@ -1197,7 +1202,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": "prj_004"
     },
     {
       "id": "dmd_007",
@@ -1206,7 +1212,7 @@
       "status": "Draft",
       "owner": "Alex Morgan",
       "primary_theme_id": "thm_mom",
-      "description": "Enhance genealogy capture at Plant A to support new regulatory traceability requirements. Being shaped \u2014 requirements still being gathered from Quality.",
+      "description": "Enhance genealogy capture at Plant A to support new regulatory traceability requirements. Being shaped — requirements still being gathered from Quality.",
       "parked_reason": null,
       "phases": [
         {
@@ -1231,7 +1237,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
     },
     {
       "id": "dmd_008",
@@ -1295,7 +1302,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
     },
     {
       "id": "dmd_009",
@@ -1362,7 +1370,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
     },
     {
       "id": "dmd_010",
@@ -1412,11 +1421,12 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
     },
     {
       "id": "dmd_bau_bau_001",
-      "name": "MES Super User \u2014 Plant A",
+      "name": "MES Super User — Plant A",
       "type": "BAU",
       "status": "Allocated",
       "owner": "Alex Morgan",
@@ -1462,11 +1472,12 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
     },
     {
       "id": "dmd_bau_bau_002",
-      "name": "MES Super User \u2014 Plant B",
+      "name": "MES Super User — Plant B",
       "type": "BAU",
       "status": "Allocated",
       "owner": "Priya Kumar",
@@ -1581,7 +1592,7 @@
               "shape": "skill",
               "skill_id": "skl_mom_mes",
               "level": "Basic",
-              "notes": "Super user support \u2014 steady residual",
+              "notes": "Super user support — steady residual",
               "steady_state_hours": 5,
               "allocations": [
                 {
@@ -1594,7 +1605,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
     },
     {
       "id": "dmd_bau_bau_003",
@@ -1638,7 +1650,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
     },
     {
       "id": "dmd_bau_bau_004",
@@ -1682,7 +1695,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
     },
     {
       "id": "dmd_bau_bau_005",
@@ -1726,11 +1740,12 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
     },
     {
       "id": "dmd_npd_002",
-      "name": "NPD Trial Line A \u2014 MES Integration",
+      "name": "NPD Trial Line A — MES Integration",
       "type": "NPD Demand",
       "status": "Submitted",
       "owner": "Daniel Okafor",
@@ -1808,16 +1823,17 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
     },
     {
       "id": "dmd_npd_003",
-      "name": "NPD Line C \u2014 Quality Reporting",
+      "name": "NPD Line C — Quality Reporting",
       "type": "NPD Demand",
       "status": "Allocated",
       "owner": "Naomi Chen",
       "primary_theme_id": "thm_miv",
-      "description": "Quality reporting build-out for the NPD Line C rollout \u2014 dashboards and yield tracking for early-phase trials.",
+      "description": "Quality reporting build-out for the NPD Line C rollout — dashboards and yield tracking for early-phase trials.",
       "parked_reason": null,
       "phases": [
         {
@@ -1882,11 +1898,12 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
     },
     {
       "id": "dmd_npd_004",
-      "name": "NPD Product Family Z \u2014 Process Model",
+      "name": "NPD Product Family Z — Process Model",
       "type": "NPD Demand",
       "status": "Draft",
       "owner": "Marcus Vogel",
@@ -1932,7 +1949,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": "prj_004"
     },
     {
       "id": "dmd_stress_001",
@@ -1980,11 +1998,12 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": "prj_002"
     },
     {
       "id": "dmd_stress_002",
-      "name": "Corporate Data Lake \u2014 MI&V Integration",
+      "name": "Corporate Data Lake — MI&V Integration",
       "type": "Group Strategy Project",
       "status": "Submitted",
       "owner": "Elena Richter",
@@ -2030,7 +2049,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": "prj_005"
     },
     {
       "id": "dmd_stress_003",
@@ -2065,7 +2085,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
     },
     {
       "id": "dmd_stress_004",
@@ -2111,7 +2132,8 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
     },
     {
       "id": "dmd_stress_005",
@@ -2157,7 +2179,149 @@
             }
           ]
         }
-      ]
+      ],
+      "project_id": null
+    }
+  ],
+  "programmes": [
+    {
+      "id": "prg_001",
+      "name": "MES Modernisation",
+      "description": "Plant-level MES platform upgrades and migrations across the manufacturing estate.",
+      "active": true
+    },
+    {
+      "id": "prg_002",
+      "name": "Digital Twin Rollout",
+      "description": "Group-wide digital twin capability development, starting with the Line Y pilot.",
+      "active": true
+    },
+    {
+      "id": "prg_003",
+      "name": "MI&V Uplift Programme",
+      "description": "Manufacturing intelligence and visualisation improvements including data lake integration and OEE standardisation.",
+      "active": true
+    }
+  ],
+  "projects": [
+    {
+      "id": "prj_001",
+      "name": "Plant B MES Phase 2",
+      "programme_id": "prg_001",
+      "description": "Extension of MES Phase 1 at Plant B covering Lines 3-5, with genealogy and SCADA integration.",
+      "active": true
+    },
+    {
+      "id": "prj_002",
+      "name": "Plant C MES Platform",
+      "programme_id": "prg_001",
+      "description": "Full MES platform migration at Plant C. Includes vendor-supported hardware commissioning.",
+      "active": true
+    },
+    {
+      "id": "prj_003",
+      "name": "Site X MES Upgrade",
+      "programme_id": "prg_001",
+      "description": "MES upgrade at Site X covering new line integration and workflow re-engineering.",
+      "active": true
+    },
+    {
+      "id": "prj_004",
+      "name": "Line Y Digital Twin",
+      "programme_id": "prg_002",
+      "description": "Pilot digital twin for Line Y covering thermal and throughput behaviour.",
+      "active": true
+    },
+    {
+      "id": "prj_005",
+      "name": "Corporate Data Lake",
+      "programme_id": "prg_003",
+      "description": "Strategic integration of plant data into the group-level analytics data lake.",
+      "active": true
+    },
+    {
+      "id": "prj_006",
+      "name": "Group OEE Standard",
+      "programme_id": "prg_003",
+      "description": "Group-wide OEE reporting standardisation covering five plants.",
+      "active": true
+    }
+  ],
+  "providers": [
+    {
+      "id": "prv_001",
+      "name": "Managed Services"
+    },
+    {
+      "id": "prv_002",
+      "name": "Contractor"
+    },
+    {
+      "id": "prv_003",
+      "name": "OEM"
+    },
+    {
+      "id": "prv_004",
+      "name": "Plant Team"
+    },
+    {
+      "id": "prv_005",
+      "name": "Other Internal Team"
+    },
+    {
+      "id": "prv_006",
+      "name": "Other"
+    }
+  ],
+  "external_resource_requirements": [
+    {
+      "id": "ext_001",
+      "phase_id": "phs_stress001_1",
+      "provider_id": "prv_003",
+      "role": "MES Platform Vendor Support",
+      "notes": "OEM provides specialist platform configuration support during build.",
+      "hours_by_month": {
+        "2026-06": 40,
+        "2026-07": 40,
+        "2026-08": 40
+      },
+      "steady_state_hours": null
+    },
+    {
+      "id": "ext_002",
+      "phase_id": "phs_stress001_1",
+      "provider_id": "prv_001",
+      "role": "SCADA Engineer",
+      "notes": "Managed Services SCADA resource required for integration work.",
+      "hours_by_month": {
+        "2026-06": 120,
+        "2026-07": 120,
+        "2026-08": 120
+      },
+      "steady_state_hours": null
+    },
+    {
+      "id": "ext_003",
+      "phase_id": "phs_stress002_1",
+      "provider_id": "prv_002",
+      "role": "Data Engineer",
+      "notes": "Contract data engineer for pipeline build and integration testing.",
+      "hours_by_month": {
+        "2026-07": 80,
+        "2026-08": 80,
+        "2026-09": 80,
+        "2026-10": 80
+      },
+      "steady_state_hours": null
+    },
+    {
+      "id": "ext_004",
+      "phase_id": "phs_bau_001_1",
+      "provider_id": "prv_005",
+      "role": "Plant Electrician Support",
+      "notes": "Plant A electricians provide hardware first-line support for MES-connected equipment.",
+      "hours_by_month": {},
+      "steady_state_hours": 10
     }
   ]
 }

@@ -74,13 +74,64 @@ export interface DemandItem {
   previous_status: DemandStatus | null
   closed_at: string | null
   phases: Phase[]
+  project_id: string | null  // null = unaligned
 }
+
+// ─── v1.14 entities ───────────────────────────────────────────────────────────
+
+export interface Programme {
+  id: string
+  name: string       // globally unique, case-insensitive
+  description: string
+  active: boolean
+}
+
+export interface Project {
+  id: string
+  name: string       // unique within parent Programme, case-insensitive
+  programme_id: string
+  description: string
+  active: boolean
+}
+
+export interface Provider {
+  id: string
+  name: string       // globally unique, case-insensitive
+}
+
+// Hours representation mirrors SkillRequirement: exactly one of
+// hours_by_month (finite phase) or steady_state_hours (indefinite phase)
+// is populated per requirement.
+export interface ExternalResourceRequirement {
+  id: string
+  phase_id: string
+  provider_id: string
+  role: string       // free text, required
+  notes: string | null
+  hours_by_month: Record<string, number>
+  steady_state_hours: number | null
+}
+
+// ─── App state ────────────────────────────────────────────────────────────────
 
 export interface AppState {
   themes: Theme[]
   skills: Skill[]
   people: Person[]
   demandItems: DemandItem[]
+  programmes: Programme[]
+  projects: Project[]
+  providers: Provider[]
+  externalResourceRequirements: ExternalResourceRequirement[]
+}
+
+// ─── Selector helpers ─────────────────────────────────────────────────────────
+
+export function getExternalRequirementsForPhase(
+  phase_id: string,
+  state: Pick<AppState, 'externalResourceRequirements'>
+): ExternalResourceRequirement[] {
+  return state.externalResourceRequirements.filter(r => r.phase_id === phase_id)
 }
 
 // State machine — valid user-driven transitions (not including system auto-transitions)
