@@ -351,6 +351,9 @@ export default function CapacityValidation() {
   const [editorOpen, setEditorOpen] = useState(false)
   const [modelImpactId, setModelImpactId] = useState<string | null>(null)
   const [bannerVisible, setBannerVisible] = useState(false)
+  // Programme/Project filter — affects demand stacks only, not capacity or grey band
+  const [filterProgramme, setFilterProgramme] = useState('')
+  const [filterProject, setFilterProject] = useState('')
 
   // Read URL query params for Model Impact deep-link
   useEffect(() => {
@@ -366,10 +369,35 @@ export default function CapacityValidation() {
 
   const months = useMemo(() => generateMonths(getCurrentMonth(), horizon), [horizon])
 
-  const submittedItems = useMemo(
-    () => store.demandItems.filter(d => d.status === 'Submitted').map(d => ({ id: d.id, name: d.name })),
-    [store.demandItems]
+  // Demand-stack filtered state: when Programme/Project active, restrict demand items
+  // for demand_hours_for only. Capacity lines and grey band use full store.
+  const demandFilteredState = useMemo(() => {
+    if (!filterProgramme && !filterProject) return store
+    let scopeProjectIds: Set<string>
+    if (filterProject) {
+      scopeProjectIds = new Set([filterProject])
+    } else {
+      scopeProjectIds = new Set(store.projects.filter(p => p.programme_id === filterProgramme).map(p => p.id))
+    }
+    return {
+      ...store,
+      demandItems: store.demandItems.filter(d => d.project_id && scopeProjectIds.has(d.project_id)),
+    }
+  }, [store, filterProgramme, filterProject])
+
+  // Available projects for the dependent dropdown
+  const availableProjectsForCV = useMemo(() =>
+    filterProgramme ? store.projects.filter(p => p.programme_id === filterProgramme) : store.projects,
+    [filterProgramme, store.projects]
   )
+
+  // Overlay picker: when filter active, only show Submitted items in scope
+  const submittedItems = useMemo(() => {
+    const base = store.demandItems.filter(d => d.status === 'Submitted')
+    if (!filterProgramme && !filterProject) return base.map(d => ({ id: d.id, name: d.name }))
+    const filtered = demandFilteredState.demandItems.filter(d => d.status === 'Submitted')
+    return filtered.map(d => ({ id: d.id, name: d.name }))
+  }, [store.demandItems, demandFilteredState, filterProgramme, filterProject])
 
   const modelImpactItem = modelImpactId ? store.demandItems.find(d => d.id === modelImpactId) : null
   const overlayItem = overlayId ? store.demandItems.find(d => d.id === overlayId) : null
@@ -387,14 +415,15 @@ export default function CapacityValidation() {
   // ── Section A: overall team chart ─────────────────────────────────────────
   const EMPTY_STATUSES = useMemo(() => new Set<DemandStatus>(), [])
   const teamData: ChartPoint[] = useMemo(() => months.map(month => {
-    const committed = demand_hours_for({ type: 'overall' }, COMMITTED_STATUSES, month, store)
+    // demand_hours_for uses demandFilteredState; capacity uses full store
+    const committed = demand_hours_for({ type: 'overall' }, COMMITTED_STATUSES, month, demandFilteredState)
     const overlayDemand = overlayId
-      ? demand_hours_for({ type: 'overall' }, EMPTY_STATUSES, month, store, overlayId)
+      ? demand_hours_for({ type: 'overall' }, EMPTY_STATUSES, month, demandFilteredState, overlayId)
       : { strategy: 0, plant: 0, npd: 0, bau: 0 }
     return {
       month,
       label: formatMonthLabel(month),
-      capacity: team_capacity(month, store),
+      capacity: team_capacity(month, store),  // full store
       bau: committed.bau,
       plant: committed.plant,
       npd: committed.npd,
@@ -402,7 +431,7 @@ export default function CapacityValidation() {
       overlay: overlayDemand.bau + overlayDemand.plant + overlayDemand.npd + overlayDemand.strategy,
       grey: 0,
     }
-  }), [months, store, overlayId, EMPTY_STATUSES])
+  }), [months, store, demandFilteredState, overlayId, EMPTY_STATUSES])
 
   const totalCapacity = teamData.reduce((s, d) => s + d.capacity, 0)
   const totalDemand = teamData.reduce((s, d) => s + d.bau + d.plant + d.npd + d.strategy, 0)
@@ -412,24 +441,25 @@ export default function CapacityValidation() {
   const themeCharts = useMemo(() => store.themes.map(theme => {
     const target: DemandTarget = { type: 'theme', id: theme.id }
     const data: ChartPoint[] = months.map(month => {
-      const committed = demand_hours_for(target, COMMITTED_STATUSES, month, store)
+      // demand stacks use filtered state; capacity and grey band use full store
+      const committed = demand_hours_for(target, COMMITTED_STATUSES, month, demandFilteredState)
       const overlayDemand = overlayId
-        ? demand_hours_for(target, EMPTY_STATUSES, month, store, overlayId)
+        ? demand_hours_for(target, EMPTY_STATUSES, month, demandFilteredState, overlayId)
         : { strategy: 0, plant: 0, npd: 0, bau: 0 }
       return {
         month,
         label: formatMonthLabel(month),
-        capacity: theme_capacity(theme.id, month, store),
+        capacity: theme_capacity(theme.id, month, store),  // full store
         bau: committed.bau,
         plant: committed.plant,
         npd: committed.npd,
         strategy: committed.strategy,
         overlay: overlayDemand.bau + overlayDemand.plant + overlayDemand.npd + overlayDemand.strategy,
-        grey: grey_band(target, month, store, projResult),
+        grey: grey_band(target, month, store, projResult),  // full store
       }
     })
     return { theme, data }
-  }), [months, store, overlayId, EMPTY_STATUSES, projResult])
+  }), [months, store, demandFilteredState, overlayId, EMPTY_STATUSES, projResult])
 
   const skillsForSectionB = useMemo(() =>
     drillThemeId ? store.skills.filter(s => s.theme_id === drillThemeId) : store.skills,
@@ -439,24 +469,24 @@ export default function CapacityValidation() {
   const skillCharts = useMemo(() => skillsForSectionB.map(skill => {
     const target: DemandTarget = { type: 'skill', id: skill.id }
     const data: ChartPoint[] = months.map(month => {
-      const committed = demand_hours_for(target, COMMITTED_STATUSES, month, store)
+      const committed = demand_hours_for(target, COMMITTED_STATUSES, month, demandFilteredState)
       const overlayDemand = overlayId
-        ? demand_hours_for(target, EMPTY_STATUSES, month, store, overlayId)
+        ? demand_hours_for(target, EMPTY_STATUSES, month, demandFilteredState, overlayId)
         : { strategy: 0, plant: 0, npd: 0, bau: 0 }
       return {
         month,
         label: formatMonthLabel(month),
-        capacity: skill_capacity(skill.id, month, store),
+        capacity: skill_capacity(skill.id, month, store),  // full store
         bau: committed.bau,
         plant: committed.plant,
         npd: committed.npd,
         strategy: committed.strategy,
         overlay: overlayDemand.bau + overlayDemand.plant + overlayDemand.npd + overlayDemand.strategy,
-        grey: grey_band(target, month, store, projResult),
+        grey: grey_band(target, month, store, projResult),  // full store
       }
     })
     return { skill, theme: store.themes.find(t => t.id === skill.theme_id), data }
-  }), [months, store, skillsForSectionB, overlayId, EMPTY_STATUSES, projResult])
+  }), [months, store, demandFilteredState, skillsForSectionB, overlayId, EMPTY_STATUSES, projResult])
 
   const skillsByTheme = useMemo(() => {
     const groups = new Map<string, typeof skillCharts>()
@@ -600,6 +630,34 @@ export default function CapacityValidation() {
               {h}m
             </button>
           ))}
+        </div>
+
+        {/* Programme/Project filter — affects demand stacks only */}
+        <div className="flex items-center gap-2">
+          <select
+            value={filterProgramme}
+            onChange={e => { setFilterProgramme(e.target.value); setFilterProject('') }}
+            className="text-xs border border-border rounded px-2 py-1 bg-white"
+          >
+            <option value="">All Programmes</option>
+            {store.programmes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <select
+            value={filterProject}
+            onChange={e => setFilterProject(e.target.value)}
+            className="text-xs border border-border rounded px-2 py-1 bg-white"
+          >
+            <option value="">All Projects</option>
+            {availableProjectsForCV.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          {(filterProgramme || filterProject) && (
+            <span
+              className="text-[10px] text-gray-400 italic cursor-help border-b border-dotted border-gray-300"
+              title="Filters demand stacks only. Capacity lines and grey bands reflect the full team."
+            >
+              Demand stacks filtered
+            </span>
+          )}
         </div>
 
         <div className="flex-1" />
