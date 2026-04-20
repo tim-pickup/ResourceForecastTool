@@ -527,8 +527,11 @@ interface Props {
 }
 
 export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRevise, onRevise }: Props) {
-  const { themes } = useAppStore()
+  const store = useAppStore()
+  const { themes } = store
   const theme = themes.find(t => t.id === draft.primary_theme_id)
+  const project = draft.project_id ? store.projects.find(p => p.id === draft.project_id) : null
+  const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
 
   const { totalReqMonths, coveredMonths } = useMemo(() => {
     let total = 0; let covered = 0
@@ -578,6 +581,27 @@ export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRev
           <span className="text-gray-400">·</span>
           <span className="text-gray-500">{theme?.name}</span>
           {draft.owner && <><span className="text-gray-400">·</span><span className="text-gray-500">{draft.owner}</span></>}
+        </div>
+        {/* Project alignment — editable even in Mode B (§2.1.1 explicit exception) */}
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-gray-400">Project:</span>
+          <select
+            value={draft.project_id ?? ''}
+            onChange={e => onChange({ ...draft, project_id: e.target.value || null })}
+            className="text-xs border border-border rounded px-1.5 py-0.5 bg-white"
+          >
+            <option value="">Unaligned</option>
+            {store.programmes.filter(p => p.active).map(prog => (
+              <optgroup key={prog.id} label={prog.name}>
+                {store.projects.filter(p => p.programme_id === prog.id && p.active).map(proj => (
+                  <option key={proj.id} value={proj.id}>{proj.name}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          {programme && project && (
+            <span className="text-gray-400">{programme.name} › {project.name}</span>
+          )}
         </div>
         <div className="text-gray-400 text-[10px]">
           {draft.phases.length} phase{draft.phases.length !== 1 ? 's' : ''} · {draft.phases.map((p, i) => {
@@ -660,6 +684,38 @@ export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRev
                   onChange={r => updateReq(phase.id, req.id, r)}
                 />
               ))}
+              {/* External requirements — read-only in Mode B */}
+              {(() => {
+                const extReqs = store.externalResourceRequirements.filter(r => r.phase_id === phase.id)
+                if (extReqs.length === 0) return null
+                return (
+                  <div className="mt-1 border-t border-dashed border-amber-200 pt-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 block mb-1.5">
+                      External Resource Requirements (read-only)
+                    </span>
+                    {extReqs.map(ext => {
+                      const prov = store.providers.find(p => p.id === ext.provider_id)
+                      const hrsLabel = isIndefinite
+                        ? `${ext.steady_state_hours ?? 0}h/mo steady`
+                        : (() => {
+                          const entries = Object.entries(ext.hours_by_month)
+                          if (entries.length === 0) return '—'
+                          const total = entries.reduce((s, [, h]) => s + h, 0)
+                          const first = entries[0][0]; const last = entries[entries.length - 1][0]
+                          return `${total}h total (${first}–${last})`
+                        })()
+                      return (
+                        <div key={ext.id} className="flex items-center gap-2 text-xs py-0.5">
+                          <span className="text-[10px] bg-amber-100 text-amber-700 rounded px-1.5 py-0.5 font-medium shrink-0">{prov?.name ?? 'Unknown'}</span>
+                          <span className="text-gray-700 flex-1">{ext.role}</span>
+                          <span className="text-amber-600 text-[10px]">{hrsLabel}</span>
+                        </div>
+                      )
+                    })}
+                    <p className="text-[10px] text-amber-500 italic mt-1">To edit external requirements, use Park &amp; Revise or Revise (from Approved).</p>
+                  </div>
+                )
+              })()}
             </div>
           </div>
         )
