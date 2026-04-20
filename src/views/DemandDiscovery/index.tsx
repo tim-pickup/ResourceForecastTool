@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Plus, Search, LayoutGrid, List, GripVertical, ChevronUp, ChevronDown, X } from 'lucide-react'
+import { Plus, Search, LayoutGrid, List, GripVertical, ChevronUp, ChevronDown, X, GitMerge } from 'lucide-react'
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { useDroppable, useDraggable } from '@dnd-kit/core'
 import { useAppStore } from '../../store/useAppStore'
@@ -10,6 +10,8 @@ import { Button } from '../../components/ui/Button'
 import type { DemandItem, DemandStatus, DemandType } from '../../types'
 import { isValidTransition } from '../../types'
 import { clsx } from 'clsx'
+import { getCurrentMonth, generateMonths } from '../../utils/capacity'
+import { project_internal_hours, project_external_hours, project_external_hours_by_provider } from '../../lib/capacity'
 
 // Active statuses — Closed items live in Archive, not here
 const ACTIVE_STATUSES: DemandStatus[] = ['Draft', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated', 'Parked']
@@ -24,14 +26,18 @@ const COLUMN_COLORS: Record<DemandStatus, string> = {
   Closed: 'bg-gray-50',
 }
 
-type SortKey = 'name' | 'type' | 'status' | 'owner'
+type SortKey = 'name' | 'type' | 'status' | 'owner' | 'programme' | 'project'
 type SortDir = 'asc' | 'desc'
 type ViewMode = 'table' | 'board' | 'search'
+type GroupBy = 'none' | 'programme' | 'project'
 
 function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: item.id })
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
-  const theme = useAppStore(s => s.themes.find(t => t.id === item.primary_theme_id))
+  const store = useAppStore()
+  const theme = store.themes.find(t => t.id === item.primary_theme_id)
+  const project = item.project_id ? store.projects.find(p => p.id === item.project_id) : null
+  const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
 
   return (
     <div
@@ -51,8 +57,14 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
           <div className="text-sm font-medium text-near-black truncate">{item.name}</div>
           <div className="text-xs text-gray-500 mt-0.5">{item.type}</div>
           {theme && <div className="text-xs text-gray-400">{theme.name}</div>}
+          {programme && project ? (
+            <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5">
+              <GitMerge size={10} />{programme.name} › {project.name}
+            </div>
+          ) : (
+            <div className="text-[10px] text-gray-300 italic mt-0.5">Unaligned</div>
+          )}
           <div className="text-xs text-gray-400">Owner: {item.owner || '—'}</div>
-          <div className="text-xs text-gray-400">{item.phases.length} phase{item.phases.length !== 1 ? 's' : ''}</div>
         </div>
       </div>
     </div>
@@ -72,6 +84,43 @@ function DroppableColumn({ status, children }: { status: DemandStatus; children:
     >
       {children}
     </div>
+  )
+}
+
+function TableRow({ item, projectMap, programmeMap, phasesWithExt, onSelect }: {
+  item: DemandItem
+  projectMap: Map<string, { id: string; name: string; programme_id: string; active: boolean; description: string }>
+  programmeMap: Map<string, { id: string; name: string; description: string; active: boolean }>
+  phasesWithExt: Set<string>
+  onSelect: (id: string) => void
+}) {
+  const store = useAppStore()
+  const project = item.project_id ? projectMap.get(item.project_id) : null
+  const programme = project ? programmeMap.get(project.programme_id) : null
+  const themeMap = new Map(store.themes.map(t => [t.id, t.name]))
+  const extHrs = store.externalResourceRequirements
+    .filter(r => item.phases.some(p => p.id === r.phase_id))
+    .reduce((s, ext) => {
+      const phase = item.phases.find(p => p.id === ext.phase_id)
+      if (!phase) return s
+      if (phase.end_month === null) return s + (ext.steady_state_hours ?? 0)
+      return s + Object.values(ext.hours_by_month).reduce((ss, h) => ss + h, 0)
+    }, 0)
+  return (
+    <tr
+      key={item.id}
+      onClick={() => onSelect(item.id)}
+      className="border-b border-border/50 hover:bg-gray-50 cursor-pointer"
+    >
+      <td className="px-4 py-2.5 font-medium text-near-black">{item.name}</td>
+      <td className="px-4 py-2.5 text-gray-600 text-xs">{item.type}</td>
+      <td className="px-4 py-2.5"><StatusBadge status={item.status} /></td>
+      <td className="px-4 py-2.5 text-gray-600">{item.owner || '—'}</td>
+      <td className="px-4 py-2.5 text-gray-500 text-xs">{programme?.name ?? <span className="text-gray-300">—</span>}</td>
+      <td className="px-4 py-2.5 text-gray-500 text-xs">{project?.name ?? <span className="text-gray-300 italic">Unaligned</span>}</td>
+      <td className="px-4 py-2.5 text-gray-500 text-xs">{themeMap.get(item.primary_theme_id) ?? '—'}</td>
+      <td className="px-4 py-2.5 text-right text-xs text-amber-600">{extHrs > 0 ? `${Math.round(extHrs)}h` : <span className="text-gray-300">—</span>}</td>
+    </tr>
   )
 }
 
@@ -96,12 +145,22 @@ export default function DemandDiscovery() {
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterTheme, setFilterTheme] = useState('')
+  const [filterProgramme, setFilterProgramme] = useState('')
+  const [filterProject, setFilterProject] = useState('')
+  const [filterHasExternal, setFilterHasExternal] = useState(false)
+  const [groupBy, setGroupBy] = useState<GroupBy>('none')
   const [search, setSearch] = useState('')
   const [dragError, setDragError] = useState<string | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const themeMap = useMemo(() => new Map(store.themes.map(t => [t.id, t.name])), [store.themes])
+  const projectMap = useMemo(() => new Map(store.projects.map(p => [p.id, p])), [store.projects])
+  const programmeMap = useMemo(() => new Map(store.programmes.map(p => [p.id, p])), [store.programmes])
+
+  // Phase sets with external requirements
+  const phasesWithExt = useMemo(() => new Set(store.externalResourceRequirements.map(r => r.phase_id)), [store.externalResourceRequirements])
+  const demandHasExternal = (item: DemandItem) => item.phases.some(p => phasesWithExt.has(p.id))
 
   // Active items only (exclude Closed)
   const activeItems = useMemo(() =>
@@ -109,11 +168,25 @@ export default function DemandDiscovery() {
     [store.demandItems]
   )
 
+  // Projects in selected Programme (for dependent dropdown)
+  const availableProjects = useMemo(() =>
+    filterProgramme
+      ? store.projects.filter(p => p.programme_id === filterProgramme)
+      : store.projects,
+    [filterProgramme, store.projects]
+  )
+
   const filtered = useMemo(() => {
     let items = [...activeItems]
     if (filterStatus) items = items.filter(d => d.status === filterStatus)
     if (filterType) items = items.filter(d => d.type === filterType)
     if (filterTheme) items = items.filter(d => d.primary_theme_id === filterTheme)
+    if (filterProgramme) {
+      const projIds = new Set(store.projects.filter(p => p.programme_id === filterProgramme).map(p => p.id))
+      items = items.filter(d => d.project_id && projIds.has(d.project_id))
+    }
+    if (filterProject) items = items.filter(d => d.project_id === filterProject)
+    if (filterHasExternal) items = items.filter(d => demandHasExternal(d))
     if (search) {
       const q = search.toLowerCase()
       items = items.filter(d =>
@@ -129,10 +202,12 @@ export default function DemandDiscovery() {
       else if (sortKey === 'type') { av = a.type; bv = b.type }
       else if (sortKey === 'status') { av = a.status; bv = b.status }
       else if (sortKey === 'owner') { av = a.owner; bv = b.owner }
+      else if (sortKey === 'programme') { av = programmeMap.get(projectMap.get(a.project_id ?? '')?.programme_id ?? '')?.name ?? ''; bv = programmeMap.get(projectMap.get(b.project_id ?? '')?.programme_id ?? '')?.name ?? '' }
+      else if (sortKey === 'project') { av = projectMap.get(a.project_id ?? '')?.name ?? ''; bv = projectMap.get(b.project_id ?? '')?.name ?? '' }
       return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
     })
     return items
-  }, [activeItems, filterStatus, filterType, filterTheme, search, sortKey, sortDir])
+  }, [activeItems, filterStatus, filterType, filterTheme, filterProgramme, filterProject, filterHasExternal, search, sortKey, sortDir])
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -197,6 +272,25 @@ export default function DemandDiscovery() {
               <option value="">All Themes</option>
               {store.themes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
+            <select value={filterProgramme} onChange={e => { setFilterProgramme(e.target.value); setFilterProject('') }} className="text-xs border border-border rounded px-2 py-1 bg-white">
+              <option value="">All Programmes</option>
+              {store.programmes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <select value={filterProject} onChange={e => setFilterProject(e.target.value)} className="text-xs border border-border rounded px-2 py-1 bg-white">
+              <option value="">All Projects</option>
+              {availableProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+              <input type="checkbox" checked={filterHasExternal} onChange={e => setFilterHasExternal(e.target.checked)} className="accent-brand" />
+              Has external
+            </label>
+            {mode === 'table' && (
+              <select value={groupBy} onChange={e => setGroupBy(e.target.value as GroupBy)} className="text-xs border border-border rounded px-2 py-1 bg-white">
+                <option value="none">No grouping</option>
+                <option value="programme">Group by Programme</option>
+                <option value="project">Group by Project</option>
+              </select>
+            )}
           </>
         )}
 
@@ -234,7 +328,7 @@ export default function DemandDiscovery() {
           <table className="min-w-full border-collapse text-sm">
             <thead className="sticky top-0 z-10 bg-gray-50 border-b border-border">
               <tr>
-                {(['name', 'type', 'status', 'owner'] as SortKey[]).map(k => (
+                {(['name', 'type', 'status', 'owner', 'programme', 'project'] as SortKey[]).map(k => (
                   <th
                     key={k}
                     onClick={() => handleSort(k)}
@@ -244,31 +338,116 @@ export default function DemandDiscovery() {
                   </th>
                 ))}
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Theme</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Phases</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-amber-600 uppercase tracking-wide">Ext. hrs</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-gray-400">
+                  <td colSpan={9} className="text-center py-12 text-gray-400">
                     No demand items found. <button className="text-brand underline" onClick={() => navigate('/demand/new')}>Create one.</button>
                   </td>
                 </tr>
               )}
-              {filtered.map(item => (
-                <tr
-                  key={item.id}
-                  onClick={() => setDrawerId(item.id)}
-                  className="border-b border-border/50 hover:bg-gray-50 cursor-pointer"
-                >
-                  <td className="px-4 py-2.5 font-medium text-near-black">{item.name}</td>
-                  <td className="px-4 py-2.5 text-gray-600 text-xs">{item.type}</td>
-                  <td className="px-4 py-2.5"><StatusBadge status={item.status} /></td>
-                  <td className="px-4 py-2.5 text-gray-600">{item.owner || '—'}</td>
-                  <td className="px-4 py-2.5 text-gray-500 text-xs">{themeMap.get(item.primary_theme_id) ?? '—'}</td>
-                  <td className="px-4 py-2.5 text-gray-500 text-center">{item.phases.length}</td>
-                </tr>
-              ))}
+              {(() => {
+                // Compute group rows
+                const HORIZON = generateMonths(getCurrentMonth(), 12)
+                const appState = store
+                if (groupBy === 'none') {
+                  return filtered.map(item => (
+                    <TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} onSelect={setDrawerId} />
+                  ))
+                }
+                if (groupBy === 'project') {
+                  // Group by project_id (null = unaligned)
+                  const groups = new Map<string | null, DemandItem[]>()
+                  for (const item of filtered) {
+                    const key = item.project_id ?? null
+                    const arr = groups.get(key) ?? []
+                    arr.push(item)
+                    groups.set(key, arr)
+                  }
+                  const rows: React.ReactNode[] = []
+                  // Aligned projects first, then unaligned
+                  for (const [projId, items] of groups) {
+                    if (projId === null) continue
+                    const proj = projectMap.get(projId)
+                    const prog = proj ? programmeMap.get(proj.programme_id) : undefined
+                    const intHrs = HORIZON.reduce((s, m) => s + project_internal_hours(projId, m, appState), 0)
+                    const extHrs = HORIZON.reduce((s, m) => s + project_external_hours(projId, m, appState), 0)
+                    rows.push(
+                      <tr key={`grp-${projId}`} className="bg-blue-50/50 border-b border-border">
+                        <td colSpan={9} className="px-4 py-1.5">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-semibold text-near-black">
+                              {prog?.name && <span className="text-gray-400">{prog.name} › </span>}{proj?.name ?? projId}
+                            </span>
+                            <span className="text-[10px] text-gray-500">{items.length} demands</span>
+                            {intHrs > 0 && <span className="text-[10px] text-gray-500">{Math.round(intHrs)}h internal (12mo)</span>}
+                            {extHrs > 0 && <span className="text-[10px] text-amber-600">{Math.round(extHrs)}h external (12mo)</span>}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                    items.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} onSelect={setDrawerId} />))
+                  }
+                  const unaligned = groups.get(null) ?? []
+                  if (unaligned.length > 0) {
+                    rows.push(
+                      <tr key="grp-unaligned" className="bg-gray-50/70 border-b border-border">
+                        <td colSpan={9} className="px-4 py-1.5">
+                          <span className="text-xs font-semibold text-gray-400 italic">No Project ({unaligned.length} demands)</span>
+                        </td>
+                      </tr>
+                    )
+                    unaligned.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} onSelect={setDrawerId} />))
+                  }
+                  return rows
+                }
+                // groupBy === 'programme'
+                const groups = new Map<string | null, DemandItem[]>()
+                for (const item of filtered) {
+                  const proj = item.project_id ? projectMap.get(item.project_id) : null
+                  const key = proj?.programme_id ?? null
+                  const arr = groups.get(key) ?? []
+                  arr.push(item)
+                  groups.set(key, arr)
+                }
+                const rows: React.ReactNode[] = []
+                for (const [progId, items] of groups) {
+                  if (progId === null) continue
+                  const prog = programmeMap.get(progId)
+                  // Sum across all projects in this programme
+                  const projIds = store.projects.filter(p => p.programme_id === progId).map(p => p.id)
+                  const intHrs = HORIZON.reduce((s, m) => s + projIds.reduce((ss, pid) => ss + project_internal_hours(pid, m, appState), 0), 0)
+                  const extHrs = HORIZON.reduce((s, m) => s + projIds.reduce((ss, pid) => ss + project_external_hours(pid, m, appState), 0), 0)
+                  rows.push(
+                    <tr key={`grp-${progId}`} className="bg-indigo-50/50 border-b border-border">
+                      <td colSpan={9} className="px-4 py-1.5">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-semibold text-near-black">{prog?.name ?? progId}</span>
+                          <span className="text-[10px] text-gray-500">{items.length} demands</span>
+                          {intHrs > 0 && <span className="text-[10px] text-gray-500">{Math.round(intHrs)}h internal (12mo)</span>}
+                          {extHrs > 0 && <span className="text-[10px] text-amber-600">{Math.round(extHrs)}h external (12mo)</span>}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                  items.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} onSelect={setDrawerId} />))
+                }
+                const unaligned = groups.get(null) ?? []
+                if (unaligned.length > 0) {
+                  rows.push(
+                    <tr key="grp-unaligned" className="bg-gray-50/70 border-b border-border">
+                      <td colSpan={9} className="px-4 py-1.5">
+                        <span className="text-xs font-semibold text-gray-400 italic">No Programme ({unaligned.length} demands)</span>
+                      </td>
+                    </tr>
+                  )
+                  unaligned.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} onSelect={setDrawerId} />))
+                }
+                return rows
+              })()}
             </tbody>
           </table>
         </div>
