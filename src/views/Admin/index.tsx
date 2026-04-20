@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, Edit2, Check, X, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Plus, Trash2, Edit2, Check, X, AlertTriangle, RefreshCw, ToggleLeft, ToggleRight } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import type { Theme, Skill, Person, Level, PersonSkill } from '../../types'
 import { Button } from '../../components/ui/Button'
@@ -8,7 +8,7 @@ import { ThemeSkillSelector } from '../../components/ThemeSkillSelector'
 import { clsx } from 'clsx'
 
 const LEVELS: Level[] = ['Basic', 'Advanced', 'Specialist']
-const TABS = ['Themes & Skills', 'People', 'Reset'] as const
+const TABS = ['Themes & Skills', 'People', 'Programmes', 'Projects', 'Providers', 'Reset'] as const
 type Tab = typeof TABS[number]
 
 // ---- Themes & Skills ----
@@ -288,6 +288,335 @@ function ResetPanel() {
   )
 }
 
+// ─── Programmes ──────────────────────────────────────────────────────────────
+
+function ProgrammesPanel() {
+  const store = useAppStore()
+  const [editId, setEditId] = useState<string | null>(null)
+  const [showNew, setShowNew] = useState(false)
+  const [newForm, setNewForm] = useState({ name: '', description: '' })
+  const [editForm, setEditForm] = useState({ name: '', description: '' })
+
+  function projectCount(progId: string) { return store.projects.filter(p => p.programme_id === progId).length }
+  function demandCount(progId: string) {
+    const projectIds = new Set(store.projects.filter(p => p.programme_id === progId).map(p => p.id))
+    return store.demandItems.filter(d => d.project_id && projectIds.has(d.project_id)).length
+  }
+
+  function startEdit(prog: typeof store.programmes[0]) {
+    setEditId(prog.id)
+    setEditForm({ name: prog.name, description: prog.description })
+  }
+
+  function handleDelete(progId: string) {
+    const hasProjects = store.projects.some(p => p.programme_id === progId)
+    if (hasProjects) {
+      alert('Cannot delete: this Programme has Projects. Reassign or delete the Projects first.')
+      return
+    }
+    store.deleteProgramme(progId)
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-near-black">Programmes ({store.programmes.length})</h3>
+        <Button size="sm" variant="secondary" onClick={() => setShowNew(true)}><Plus size={12} /> Add Programme</Button>
+      </div>
+
+      {showNew && (
+        <div className="border border-brand rounded-md p-3 mb-3 bg-blue-50/30 flex flex-col gap-2">
+          <Input label="Name" value={newForm.name} onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))} />
+          <Input label="Description" value={newForm.description} onChange={e => setNewForm(f => ({ ...f, description: e.target.value }))} />
+          <div className="flex gap-2">
+            <Button size="sm" variant="primary" onClick={() => {
+              if (!newForm.name.trim()) return
+              const dupe = store.programmes.some(p => p.name.toLowerCase() === newForm.name.trim().toLowerCase())
+              if (dupe) { alert('A Programme with that name already exists.'); return }
+              store.addProgramme({ name: newForm.name.trim(), description: newForm.description, active: true })
+              setNewForm({ name: '', description: '' })
+              setShowNew(false)
+            }}>Save</Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowNew(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {store.programmes.map(prog => (
+          <div key={prog.id} className="border border-border rounded-md px-3 py-2.5">
+            {editId === prog.id ? (
+              <div className="flex flex-col gap-2">
+                <Input label="Name" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+                <Input label="Description" value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+                <div className="flex gap-2">
+                  <Button size="sm" variant="primary" onClick={() => {
+                    if (!editForm.name.trim()) return
+                    const dupe = store.programmes.some(p => p.id !== prog.id && p.name.toLowerCase() === editForm.name.trim().toLowerCase())
+                    if (dupe) { alert('A Programme with that name already exists.'); return }
+                    store.updateProgramme(prog.id, { name: editForm.name.trim(), description: editForm.description })
+                    setEditId(null)
+                  }}>Save</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>Cancel</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{prog.name}</span>
+                    {!prog.active && <span className="text-xs text-gray-400 bg-gray-100 rounded px-1">Inactive</span>}
+                  </div>
+                  {prog.description && <p className="text-xs text-gray-500 mt-0.5">{prog.description}</p>}
+                  <div className="text-xs text-gray-400 mt-1">{projectCount(prog.id)} projects · {demandCount(prog.id)} demands</div>
+                </div>
+                <div className="flex gap-1 items-center">
+                  <button onClick={() => store.updateProgramme(prog.id, { active: !prog.active })} className="text-gray-400 hover:text-brand p-1" title={prog.active ? 'Deactivate' : 'Activate'}>
+                    {prog.active ? <ToggleRight size={15} /> : <ToggleLeft size={15} />}
+                  </button>
+                  <button onClick={() => startEdit(prog)} className="text-gray-400 hover:text-near-black p-1"><Edit2 size={13} /></button>
+                  <button onClick={() => handleDelete(prog.id)} className="text-gray-300 hover:text-accent-red p-1"><Trash2 size={13} /></button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Projects ─────────────────────────────────────────────────────────────────
+
+function ProjectsPanel() {
+  const store = useAppStore()
+  const [editId, setEditId] = useState<string | null>(null)
+  const [showNew, setShowNew] = useState(false)
+  const [newForm, setNewForm] = useState({ name: '', programme_id: '', description: '' })
+  const [editForm, setEditForm] = useState({ name: '', programme_id: '', description: '' })
+
+  const progMap = new Map(store.programmes.map(p => [p.id, p.name]))
+  function demandCount(projId: string) { return store.demandItems.filter(d => d.project_id === projId).length }
+
+  function handleDelete(projId: string) {
+    const hasDemands = store.demandItems.some(d => d.project_id === projId)
+    if (hasDemands) {
+      alert('Cannot delete: this Project has aligned Demands. Reassign or unalign them first.')
+      return
+    }
+    store.deleteProject(projId)
+  }
+
+  function startEdit(proj: typeof store.projects[0]) {
+    setEditId(proj.id)
+    setEditForm({ name: proj.name, programme_id: proj.programme_id, description: proj.description })
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-near-black">Projects ({store.projects.length})</h3>
+        <Button size="sm" variant="secondary" onClick={() => {
+          setNewForm({ name: '', programme_id: store.programmes[0]?.id ?? '', description: '' })
+          setShowNew(true)
+        }}><Plus size={12} /> Add Project</Button>
+      </div>
+
+      {showNew && (
+        <div className="border border-brand rounded-md p-3 mb-3 bg-blue-50/30 flex flex-col gap-2">
+          <Input label="Name" value={newForm.name} onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))} />
+          <Select label="Programme" value={newForm.programme_id} onChange={e => setNewForm(f => ({ ...f, programme_id: e.target.value }))}>
+            {store.programmes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+          <Input label="Description" value={newForm.description} onChange={e => setNewForm(f => ({ ...f, description: e.target.value }))} />
+          <div className="flex gap-2">
+            <Button size="sm" variant="primary" onClick={() => {
+              if (!newForm.name.trim() || !newForm.programme_id) return
+              const dupe = store.projects.some(p => p.programme_id === newForm.programme_id && p.name.toLowerCase() === newForm.name.trim().toLowerCase())
+              if (dupe) { alert('A Project with that name already exists in this Programme.'); return }
+              store.addProject({ name: newForm.name.trim(), programme_id: newForm.programme_id, description: newForm.description, active: true })
+              setShowNew(false)
+            }}>Save</Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowNew(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {store.projects.map(proj => (
+          <div key={proj.id} className="border border-border rounded-md px-3 py-2.5">
+            {editId === proj.id ? (
+              <div className="flex flex-col gap-2">
+                <Input label="Name" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+                <Select label="Programme" value={editForm.programme_id} onChange={e => setEditForm(f => ({ ...f, programme_id: e.target.value }))}>
+                  {store.programmes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </Select>
+                <Input label="Description" value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+                <div className="flex gap-2">
+                  <Button size="sm" variant="primary" onClick={() => {
+                    if (!editForm.name.trim()) return
+                    const dupe = store.projects.some(p => p.id !== proj.id && p.programme_id === editForm.programme_id && p.name.toLowerCase() === editForm.name.trim().toLowerCase())
+                    if (dupe) { alert('A Project with that name already exists in this Programme.'); return }
+                    store.updateProject(proj.id, { name: editForm.name.trim(), programme_id: editForm.programme_id, description: editForm.description })
+                    setEditId(null)
+                  }}>Save</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>Cancel</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{proj.name}</span>
+                    {!proj.active && <span className="text-xs text-gray-400 bg-gray-100 rounded px-1">Inactive</span>}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    <span className="text-gray-400">{progMap.get(proj.programme_id) ?? proj.programme_id}</span>
+                  </div>
+                  {proj.description && <p className="text-xs text-gray-400 mt-0.5">{proj.description}</p>}
+                  <div className="text-xs text-gray-400 mt-1">{demandCount(proj.id)} aligned demands</div>
+                </div>
+                <div className="flex gap-1 items-center">
+                  <button onClick={() => store.updateProject(proj.id, { active: !proj.active })} className="text-gray-400 hover:text-brand p-1" title={proj.active ? 'Deactivate' : 'Activate'}>
+                    {proj.active ? <ToggleRight size={15} /> : <ToggleLeft size={15} />}
+                  </button>
+                  <button onClick={() => startEdit(proj)} className="text-gray-400 hover:text-near-black p-1"><Edit2 size={13} /></button>
+                  <button onClick={() => handleDelete(proj.id)} className="text-gray-300 hover:text-accent-red p-1"><Trash2 size={13} /></button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Providers ────────────────────────────────────────────────────────────────
+
+function ProvidersPanel() {
+  const store = useAppStore()
+  const [editId, setEditId] = useState<string | null>(null)
+  const [showNew, setShowNew] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [editName, setEditName] = useState('')
+  const [reassignFrom, setReassignFrom] = useState<string | null>(null)
+  const [reassignTo, setReassignTo] = useState('')
+
+  function inUseCount(providerId: string) {
+    return store.externalResourceRequirements.filter(r => r.provider_id === providerId).length
+  }
+
+  function handleDelete(providerId: string) {
+    const count = inUseCount(providerId)
+    if (count > 0) {
+      alert(`Cannot delete: ${count} external requirement(s) reference this Provider. Use "Reassign all" first.`)
+      return
+    }
+    store.deleteProvider(providerId)
+  }
+
+  function handleReassign(fromId: string, toId: string) {
+    if (!toId || toId === fromId) return
+    for (const req of store.externalResourceRequirements) {
+      if (req.provider_id === fromId) {
+        store.updateExternalRequirement(req.id, { provider_id: toId })
+      }
+    }
+    setReassignFrom(null)
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-near-black">Providers ({store.providers.length})</h3>
+        <Button size="sm" variant="secondary" onClick={() => setShowNew(true)}><Plus size={12} /> Add Provider</Button>
+      </div>
+
+      {showNew && (
+        <div className="border border-brand rounded-md p-3 mb-3 bg-blue-50/30 flex flex-col gap-2">
+          <Input label="Name" value={newName} onChange={e => setNewName(e.target.value)} />
+          <div className="flex gap-2">
+            <Button size="sm" variant="primary" onClick={() => {
+              if (!newName.trim()) return
+              const dupe = store.providers.some(p => p.name.toLowerCase() === newName.trim().toLowerCase())
+              if (dupe) { alert('A Provider with that name already exists.'); return }
+              store.addProvider({ name: newName.trim() })
+              setNewName('')
+              setShowNew(false)
+            }}>Save</Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowNew(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {store.providers.map(prov => {
+          const count = inUseCount(prov.id)
+          return (
+            <div key={prov.id} className="border border-border rounded-md px-3 py-2.5">
+              {editId === prov.id ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    className="flex-1 text-sm border border-brand rounded px-2 py-0.5"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        const dupe = store.providers.some(p => p.id !== prov.id && p.name.toLowerCase() === editName.trim().toLowerCase())
+                        if (dupe) { alert('Name collision.'); return }
+                        store.updateProvider(prov.id, { name: editName.trim() })
+                        setEditId(null)
+                      }
+                      if (e.key === 'Escape') setEditId(null)
+                    }}
+                  />
+                  <button onClick={() => {
+                    const dupe = store.providers.some(p => p.id !== prov.id && p.name.toLowerCase() === editName.trim().toLowerCase())
+                    if (dupe) { alert('Name collision.'); return }
+                    store.updateProvider(prov.id, { name: editName.trim() })
+                    setEditId(null)
+                  }} className="text-brand"><Check size={13} /></button>
+                  <button onClick={() => setEditId(null)} className="text-gray-400"><X size={13} /></button>
+                </div>
+              ) : reassignFrom === prov.id ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-gray-600">Reassign all {count} requirement(s) from <strong>{prov.name}</strong> to:</p>
+                  <Select label="" value={reassignTo} onChange={e => setReassignTo(e.target.value)}>
+                    <option value="">— select provider —</option>
+                    {store.providers.filter(p => p.id !== prov.id).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </Select>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="primary" onClick={() => handleReassign(prov.id, reassignTo)}>Reassign all</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setReassignFrom(null)}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <span className="text-sm font-medium">{prov.name}</span>
+                    <span className="text-xs text-gray-400 ml-2">{count} requirement{count !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    {count > 0 && (
+                      <button onClick={() => { setReassignFrom(prov.id); setReassignTo('') }} className="text-xs text-brand hover:text-brand-hover px-2 py-1 border border-brand rounded">
+                        Reassign all
+                      </button>
+                    )}
+                    <button onClick={() => { setEditId(prov.id); setEditName(prov.name) }} className="text-gray-400 hover:text-near-black p-1"><Edit2 size={13} /></button>
+                    <button onClick={() => handleDelete(prov.id)} className="text-gray-300 hover:text-accent-red p-1"><Trash2 size={13} /></button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function Admin() {
   const [tab, setTab] = useState<Tab>('Themes & Skills')
 
@@ -310,6 +639,9 @@ export default function Admin() {
       <div className="flex-1 overflow-y-auto p-6">
         {tab === 'Themes & Skills' && <ThemesSkillsPanel />}
         {tab === 'People' && <PeoplePanel />}
+        {tab === 'Programmes' && <ProgrammesPanel />}
+        {tab === 'Projects' && <ProjectsPanel />}
+        {tab === 'Providers' && <ProvidersPanel />}
         {tab === 'Reset' && <ResetPanel />}
       </div>
     </div>
