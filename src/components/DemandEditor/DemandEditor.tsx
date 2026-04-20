@@ -354,18 +354,40 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
         {/* ── Zone 3: Body ───────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-            <div><span className="text-gray-400">Phases: </span><span>{item.phases.length}</span></div>
-            <div><span className="text-gray-400">Dates: </span><span>{dateRange(item)}</span></div>
-            {totalFiniteHours > 0 && (
-              <div className="col-span-2"><span className="text-gray-400">Total hours (finite phases): </span><span>{Math.round(totalFiniteHours)}h</span></div>
-            )}
-            {indefiniteCount > 0 && (
-              <div className="col-span-2"><span className="text-gray-400">Indefinite phases: </span><span>{indefiniteCount}</span></div>
-            )}
-          </div>
+          {/* Summary stats */}
+          {(() => {
+            // Compute total external hours across all phases
+            const allExtReqs = store.externalResourceRequirements.filter(r => item.phases.some(p => p.id === r.phase_id))
+            const totalExtHours = allExtReqs.reduce((s, ext) => {
+              const phase = item.phases.find(p => p.id === ext.phase_id)
+              if (!phase) return s
+              if (phase.end_month === null) return s + (ext.steady_state_hours ?? 0)
+              return s + Object.values(ext.hours_by_month).reduce((ss, h) => ss + h, 0)
+            }, 0)
+            return (
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                <div><span className="text-gray-400">Phases: </span><span>{item.phases.length}</span></div>
+                <div><span className="text-gray-400">Dates: </span><span>{dateRange(item)}</span></div>
+                {totalFiniteHours > 0 && (
+                  <div className="col-span-2"><span className="text-gray-400">Internal hours (finite phases): </span><span>{Math.round(totalFiniteHours)}h</span></div>
+                )}
+                {totalExtHours > 0 && (
+                  <div className="col-span-2"><span className="text-amber-500">External hours (finite phases): </span><span className="text-amber-700">{Math.round(totalExtHours)}h</span></div>
+                )}
+                {indefiniteCount > 0 && (
+                  <div className="col-span-2"><span className="text-gray-400">Indefinite phases: </span><span>{indefiniteCount}</span></div>
+                )}
+              </div>
+            )
+          })()}
 
-          {!project && (
+          {/* Project alignment */}
+          {project ? (
+            <div className="flex items-center gap-2 text-xs">
+              <GitMerge size={12} className="text-gray-400" />
+              <span className="text-gray-400">{programme?.name} › {project.name}</span>
+            </div>
+          ) : (
             <div className="flex items-center gap-2 text-xs text-gray-400 italic">
               <GitMerge size={12} /> Unaligned — not associated with a Project
             </div>
