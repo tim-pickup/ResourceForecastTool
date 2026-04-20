@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { parseISO, isAfter, differenceInMonths, addMonths, format } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
-import type { Phase, Requirement, FundingSource, Level, SkillRequirement } from '../../types'
+import type { Phase, Requirement, FundingSource, Level, SkillRequirement, ExternalResourceRequirement } from '../../types'
 import { Input, Select } from '../../components/ui/FormFields'
 import { ThemeSkillSelector } from '../../components/ThemeSkillSelector'
 import { generateId } from '../../utils/ids'
@@ -345,6 +345,143 @@ function IndefiniteRequirementRow({ req, onChange, onDelete }: { req: SkillRequi
   )
 }
 
+// ─── External resource requirement helpers ────────────────────────────────────
+
+export function blankExtReq(phase_id: string): ExternalResourceRequirement {
+  return {
+    id: generateId('ext'),
+    phase_id,
+    provider_id: '',
+    role: '',
+    notes: null,
+    hours_by_month: {},
+    steady_state_hours: null,
+  }
+}
+
+// External requirement row — finite phase (per-month hours grid)
+interface ExtReqRowProps {
+  ext: ExternalResourceRequirement
+  months: string[]
+  onChange: (e: ExternalResourceRequirement) => void
+  onDelete: () => void
+}
+
+function ExtRequirementRow({ ext, months, onChange, onDelete }: ExtReqRowProps) {
+  const { providers } = useAppStore()
+  const totalHrs = months.reduce((s, m) => s + (ext.hours_by_month[m] ?? 0), 0)
+
+  return (
+    <div className="border border-amber-200 rounded p-2.5 bg-amber-50/40 flex flex-col gap-2">
+      <div className="flex items-center gap-1 mb-0.5">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">External</span>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <select
+          value={ext.provider_id}
+          onChange={e => onChange({ ...ext, provider_id: e.target.value })}
+          className="text-xs border border-amber-300 rounded px-1.5 py-1 bg-white min-w-[120px]"
+        >
+          <option value="">— Provider —</option>
+          {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <input
+          type="text"
+          value={ext.role}
+          onChange={e => onChange({ ...ext, role: e.target.value })}
+          placeholder="Role (required)"
+          className="text-xs border border-amber-300 rounded px-1.5 py-1 bg-white flex-1 min-w-[100px]"
+        />
+        <input
+          type="text"
+          value={ext.notes ?? ''}
+          onChange={e => onChange({ ...ext, notes: e.target.value || null })}
+          placeholder="Notes (optional)"
+          className="text-xs border border-border rounded px-1.5 py-1 bg-white w-32"
+        />
+        <button onClick={onDelete} className="text-amber-400 hover:text-accent-red transition-colors shrink-0">
+          <Trash2 size={13} />
+        </button>
+      </div>
+      {months.length > 0 ? (
+        <div className="overflow-x-auto">
+          <div className="flex items-end gap-1 min-w-max">
+            {months.map(m => (
+              <div key={m} className="flex flex-col items-center">
+                <span className="text-[10px] text-amber-500 mb-0.5 whitespace-nowrap">{formatMonthLabel(m)}</span>
+                <input
+                  type="number"
+                  value={ext.hours_by_month[m] ?? 0}
+                  onChange={e => onChange({ ...ext, hours_by_month: { ...ext.hours_by_month, [m]: Math.max(0, Number(e.target.value)) } })}
+                  className="w-14 text-xs border border-amber-300 rounded px-1 py-1 text-right bg-white"
+                  min={0}
+                />
+              </div>
+            ))}
+            <div className="flex flex-col items-center ml-1">
+              <span className="text-[10px] text-amber-400 mb-0.5">Total</span>
+              <span className="text-xs font-medium text-amber-700 px-1 py-1">{Math.round(totalHrs)}h</span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-amber-500 italic">Set phase start/end months to enter hours.</p>
+      )}
+    </div>
+  )
+}
+
+// External requirement row — indefinite phase (steady-state)
+function IndefiniteExtRequirementRow({ ext, onChange, onDelete }: { ext: ExternalResourceRequirement; onChange: (e: ExternalResourceRequirement) => void; onDelete: () => void }) {
+  const { providers } = useAppStore()
+
+  return (
+    <div className="border border-amber-200 rounded p-2.5 bg-amber-50/40 flex flex-col gap-2">
+      <div className="flex items-center gap-1 mb-0.5">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">External</span>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <select
+          value={ext.provider_id}
+          onChange={e => onChange({ ...ext, provider_id: e.target.value })}
+          className="text-xs border border-amber-300 rounded px-1.5 py-1 bg-white min-w-[120px]"
+        >
+          <option value="">— Provider —</option>
+          {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <input
+          type="text"
+          value={ext.role}
+          onChange={e => onChange({ ...ext, role: e.target.value })}
+          placeholder="Role (required)"
+          className="text-xs border border-amber-300 rounded px-1.5 py-1 bg-white flex-1 min-w-[100px]"
+        />
+        <input
+          type="text"
+          value={ext.notes ?? ''}
+          onChange={e => onChange({ ...ext, notes: e.target.value || null })}
+          placeholder="Notes (optional)"
+          className="text-xs border border-border rounded px-1.5 py-1 bg-white w-32"
+        />
+        <button onClick={onDelete} className="text-amber-400 hover:text-accent-red transition-colors shrink-0">
+          <Trash2 size={13} />
+        </button>
+      </div>
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-amber-600">Hours per month (steady):</label>
+        <input
+          type="number"
+          value={ext.steady_state_hours ?? 0}
+          onChange={e => onChange({ ...ext, steady_state_hours: Math.max(0, Number(e.target.value)) })}
+          className="w-20 text-xs border border-amber-300 rounded px-1.5 py-1 text-right bg-white"
+          min={0}
+        />
+        <span className="text-xs text-amber-500">h/mo</span>
+      </div>
+    </div>
+  )
+}
+
 // ─── Phase editor ─────────────────────────────────────────────────────────────
 
 interface PhaseEditorProps {
@@ -352,9 +489,11 @@ interface PhaseEditorProps {
   index: number
   onChange: (p: Phase) => void
   onDelete: () => void
+  extReqs: ExternalResourceRequirement[]
+  onExtReqsChange: (reqs: ExternalResourceRequirement[]) => void
 }
 
-export function PhaseEditor({ phase, index, onChange, onDelete }: PhaseEditorProps) {
+export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtReqsChange }: PhaseEditorProps) {
   const [open, setOpen] = useState(true)
   const store = useAppStore()
 
@@ -460,7 +599,7 @@ export function PhaseEditor({ phase, index, onChange, onDelete }: PhaseEditorPro
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">Requirements</span>
+              <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">Internal Requirements</span>
               <button onClick={addReq} className="flex items-center gap-1 text-xs text-brand hover:text-brand-hover">
                 <Plus size={12} /> Add
               </button>
@@ -488,6 +627,61 @@ export function PhaseEditor({ phase, index, onChange, onDelete }: PhaseEditorPro
                 )
               ))}
             </div>
+          </div>
+
+          {/* External Resource Requirements sub-section */}
+          <div className="border-t border-dashed border-amber-200 pt-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-medium text-amber-600 uppercase tracking-wide">External Resource Requirements</span>
+              <button
+                onClick={() => {
+                  if (store.providers.length === 0) {
+                    alert('No Providers configured. Add at least one Provider in Admin → Providers before adding external requirements.')
+                    return
+                  }
+                  const newExt = blankExtReq(phase.id)
+                  if (isIndefinite) {
+                    newExt.steady_state_hours = 0
+                  } else {
+                    months.forEach(m => { newExt.hours_by_month[m] = 0 })
+                  }
+                  onExtReqsChange([...extReqs, newExt])
+                }}
+                className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700"
+              >
+                <Plus size={12} /> Add external requirement
+              </button>
+            </div>
+            {extReqs.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                {extReqs.map(ext =>
+                  isIndefinite ? (
+                    <IndefiniteExtRequirementRow
+                      key={ext.id}
+                      ext={ext}
+                      onChange={updated => onExtReqsChange(extReqs.map(r => r.id === ext.id ? updated : r))}
+                      onDelete={() => {
+                        const totalHrs = isIndefinite ? (ext.steady_state_hours ?? 0) : Object.values(ext.hours_by_month).reduce((s, h) => s + h, 0)
+                        if (totalHrs > 0 && !window.confirm(`Delete external requirement for ${store.providers.find(p => p.id === ext.provider_id)?.name ?? ext.provider_id} — ${ext.role}? This will remove ${totalHrs}h total.`)) return
+                        onExtReqsChange(extReqs.filter(r => r.id !== ext.id))
+                      }}
+                    />
+                  ) : (
+                    <ExtRequirementRow
+                      key={ext.id}
+                      ext={ext}
+                      months={months}
+                      onChange={updated => onExtReqsChange(extReqs.map(r => r.id === ext.id ? updated : r))}
+                      onDelete={() => {
+                        const totalHrs = Object.values(ext.hours_by_month).reduce((s, h) => s + h, 0)
+                        if (totalHrs > 0 && !window.confirm(`Delete external requirement for ${store.providers.find(p => p.id === ext.provider_id)?.name ?? ext.provider_id} — ${ext.role}? This will remove ${totalHrs}h total.`)) return
+                        onExtReqsChange(extReqs.filter(r => r.id !== ext.id))
+                      }}
+                    />
+                  )
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

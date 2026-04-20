@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Copy } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
-import type { DemandItem, DemandStatus, DemandType } from '../../types'
+import type { DemandItem, DemandStatus, DemandType, ExternalResourceRequirement } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { Input, Select, Textarea } from '../../components/ui/FormFields'
 import { StatusBadge } from '../../components/ui/Badge'
@@ -50,6 +50,16 @@ export default function DemandEdit() {
   )
   const [isDirty, setIsDirty] = useState(false)
 
+  // External resource requirements — keyed by phase_id, tracked separately from draft
+  const [extReqsByPhase, setExtReqsByPhase] = useState<Record<string, ExternalResourceRequirement[]>>(() => {
+    if (!existing) return {}
+    const result: Record<string, ExternalResourceRequirement[]> = {}
+    for (const phase of existing.phases) {
+      result[phase.id] = store.externalResourceRequirements.filter(r => r.phase_id === phase.id)
+    }
+    return result
+  })
+
   const update = (fn: (d: Omit<DemandItem, 'id'>) => Omit<DemandItem, 'id'>) => {
     setDraft(fn)
     setIsDirty(true)
@@ -95,6 +105,21 @@ export default function DemandEdit() {
     } else if (id) {
       store.updateDemandItem(id, toSave)
     }
+
+    // Sync external requirements: delete all for this demand's phases, then re-add from draft
+    const phaseIds = new Set(toSave.phases.map(p => p.id))
+    for (const ext of store.externalResourceRequirements) {
+      if (phaseIds.has(ext.phase_id)) store.deleteExternalRequirement(ext.id)
+    }
+    for (const [, reqs] of Object.entries(extReqsByPhase)) {
+      for (const req of reqs) {
+        if (phaseIds.has(req.phase_id)) {
+          // Use addExternalRequirement (generates new ID) if needed, else preserve existing
+          store.addExternalRequirement({ ...req })
+        }
+      }
+    }
+
     setIsDirty(false)
     navigate('/demand')
   }
@@ -214,6 +239,24 @@ export default function DemandEdit() {
                   </Select>
                 </div>
                 <Input label="Owner" value={draft.owner} onChange={e => update(d => ({ ...d, owner: e.target.value }))} placeholder="Name or role" />
+                {/* Project alignment */}
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Project Alignment</label>
+                  <select
+                    value={draft.project_id ?? ''}
+                    onChange={e => update(d => ({ ...d, project_id: e.target.value || null }))}
+                    className="text-xs border border-border rounded px-2 py-1.5 bg-white w-full"
+                  >
+                    <option value="">Unaligned</option>
+                    {store.programmes.filter(p => p.active).map(prog => (
+                      <optgroup key={prog.id} label={prog.name}>
+                        {store.projects.filter(p => p.programme_id === prog.id && p.active).map(proj => (
+                          <option key={proj.id} value={proj.id}>{proj.name}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
                 <Textarea label="Description" value={draft.description} onChange={e => update(d => ({ ...d, description: e.target.value }))} placeholder="Brief description" />
                 {draft.status === 'Parked' && (
                   <Textarea
@@ -252,6 +295,8 @@ export default function DemandEdit() {
                         index={idx}
                         onChange={p => updatePhase(phase.id, p)}
                         onDelete={() => deletePhase(phase.id)}
+                        extReqs={extReqsByPhase[phase.id] ?? []}
+                        onExtReqsChange={reqs => { setExtReqsByPhase(prev => ({ ...prev, [phase.id]: reqs })); setIsDirty(true) }}
                       />
                     </div>
                   ))}
