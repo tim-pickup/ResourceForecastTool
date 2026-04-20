@@ -105,3 +105,32 @@ Used on the Phase Gantt in Mode A (demand edit page) to colour phase bars by fun
 | Mixed | `#7c3aed` | violet-600 |
 
 These colours must not be used for demand-type coding elsewhere in the tool.
+
+## 11. Projection grey band (v1.13)
+
+The grey band on Capacity Validation charts represents capacity consumed by unallocated demand elsewhere in the pool. Visual treatment:
+
+| Token | Value | Notes |
+|---|---|---|
+| Fill pattern | Cross-hatch (±45°) | Two sets of diagonal lines forming a lattice — distinct from the old single-direction hatch |
+| Pattern tile | 8×8 px | `patternUnits="userSpaceOnUse"` |
+| Hatch stroke colour | `#9ca3af` (gray-400) | |
+| Hatch stroke width | 1 px | |
+| Hatch stroke opacity | 0.5 | |
+| Lower-bound line stroke | `#9ca3af` (gray-400) | Same colour as hatch strokes |
+| Lower-bound line style | Dotted — `strokeDasharray="2 3"` | Traces the band's bottom edge; invisible when band height is 0 |
+| Lower-bound line width | 1 px | |
+
+The cross-hatch is reserved exclusively for this band. No other chart element uses a cross-hatch pattern.
+
+## 12. Overlay (submitted) (v1.13)
+
+The overlay area represents a Submitted demand item evaluated against the chart's skill pool. Visual treatment:
+
+| Token | Value | Notes |
+|---|---|---|
+| Fill colour | `#f59e0b` (amber-400) | Matches `DEMAND_COLORS.overlay` |
+| Fill opacity | 0.65 | Moderate — committed demand underneath remains faintly visible |
+| Fill style | Solid | Cross-hatch is reserved for the grey band (§11) |
+
+The overlay Area is only mounted when at least one month carries `overlay > 0`. When no overlay is selected, the element is absent from the DOM entirely.

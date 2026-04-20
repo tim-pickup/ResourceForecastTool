@@ -107,10 +107,9 @@ interface Props {
 export function CapacityChart({ title, subtitle, data, compact = false, onClick }: Props) {
   const h = compact ? 180 : 260
 
-  // Unique pattern IDs — multiple charts on same page need distinct SVG ids
+  // Unique pattern ID — multiple charts on same page need distinct SVG ids
   const uid = useId().replace(/:/g, '')
   const greyHatchId = `greyHatch${uid}`
-  const overlayHatchId = `overlayHatch${uid}`
 
   // Derive internal points with grey-band base
   const chartData: InternalPoint[] = data.map(d => ({
@@ -177,13 +176,11 @@ export function CapacityChart({ title, subtitle, data, compact = false, onClick 
       <ResponsiveContainer width="100%" height={h}>
         <ComposedChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
 
-          {/* Hatch patterns for grey band and overlay — §2.4.4 DOM-layer mandate */}
+          {/* Cross-hatch pattern for grey band — §2.4.4 */}
           <defs>
-            <pattern id={greyHatchId} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-              <line x1="0" y1="0" x2="0" y2="6" stroke="#9ca3af" strokeWidth="2.5" strokeOpacity="0.45" />
-            </pattern>
-            <pattern id={overlayHatchId} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-              <line x1="0" y1="0" x2="0" y2="6" stroke="#f59e0b" strokeWidth="2.5" strokeOpacity="0.75" />
+            <pattern id={greyHatchId} width="8" height="8" patternUnits="userSpaceOnUse">
+              <line x1="0" y1="0" x2="8" y2="8" stroke="#9ca3af" strokeWidth="1" strokeOpacity="0.5" />
+              <line x1="8" y1="0" x2="0" y2="8" stroke="#9ca3af" strokeWidth="1" strokeOpacity="0.5" />
             </pattern>
           </defs>
 
@@ -209,7 +206,8 @@ export function CapacityChart({ title, subtitle, data, compact = false, onClick 
               Always mounted (even when grey=0 → zero-height band), never absent.
               Uses its own stackId so it sits independent of the demand stack.
               greyBase (transparent) raises the floor to capacity−grey;
-              grey (hatched) fills from that floor up to the capacity line. */}
+              grey (cross-hatched) fills from that floor up to the capacity line.
+              Dotted line traces the band's lower edge (greyBase). */}
           <Area
             type="monotone"
             dataKey="greyBase"
@@ -229,6 +227,18 @@ export function CapacityChart({ title, subtitle, data, compact = false, onClick 
             isAnimationActive={false}
             name="Proj. elsewhere"
           />
+          {/* Dotted lower-bound line — traces bottom edge of grey band */}
+          <Line
+            type="monotone"
+            dataKey="greyBase"
+            stroke="#9ca3af"
+            strokeWidth={1}
+            strokeDasharray="2 3"
+            dot={false}
+            legendType="none"
+            isAnimationActive={false}
+            name="_greyLowerBound"
+          />
 
           {/* Committed demand stack — from x-axis upward */}
           <Area type="monotone" dataKey="bau"      stackId="d" fill={C.bau}      stroke="none" fillOpacity={0.85} name="BAU" />
@@ -236,7 +246,7 @@ export function CapacityChart({ title, subtitle, data, compact = false, onClick 
           <Area type="monotone" dataKey="npd"      stackId="d" fill={C.npd}      stroke="none" fillOpacity={0.85} name="NPD Demand" />
           <Area type="monotone" dataKey="strategy" stackId="d" fill={C.strategy} stroke="none" fillOpacity={0.85} name="Group Strategy" />
 
-          {/* Overlay demand — hatched amber, stacked above committed.
+          {/* Overlay demand — solid amber, stacked above committed.
               Only mounted when overlay > 0 in at least one month; when overlay is
               universally 0 the stacked Area's d path duplicates the strategy layer.
               §4 View 1 overlay layer correctness. */}
@@ -245,7 +255,8 @@ export function CapacityChart({ title, subtitle, data, compact = false, onClick 
               type="monotone"
               dataKey="overlay"
               stackId="d"
-              fill={`url(#${overlayHatchId})`}
+              fill="#f59e0b"
+              fillOpacity={0.65}
               stroke="none"
               name="Overlay (Submitted)"
             />
@@ -263,19 +274,20 @@ export function CapacityChart({ title, subtitle, data, compact = false, onClick 
           { color: C.plant,    label: 'Plant' },
           { color: C.npd,      label: 'NPD' },
           { color: C.strategy, label: 'Group Strategy' },
-          { color: C.overlay,  label: 'Overlay', hatch: true },
-          { color: '#9ca3af',  label: 'Proj. elsewhere', hatch: true },
+          { color: C.overlay,  label: 'Overlay' },
+          { color: '#9ca3af',  label: 'Proj. elsewhere', crosshatch: true },
           { color: C.capacity, label: 'Capacity', line: true },
-        ].map(({ color, label, line, hatch }) => (
+        ].map(({ color, label, line, crosshatch }) => (
           <span key={label} className="flex items-center gap-1 text-[10px] text-gray-500">
             {line
               ? <span className="inline-block w-5 h-0.5 rounded" style={{ background: color }} />
-              : hatch
+              : crosshatch
               ? (
                 <svg width="10" height="10" className="inline-block">
                   <defs>
-                    <pattern id={`leg-${label.replace(/\s/g,'')}`} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                      <line x1="0" y1="0" x2="0" y2="4" stroke={color} strokeWidth="1.5" strokeOpacity="0.8" />
+                    <pattern id={`leg-${label.replace(/\s/g,'')}`} width="4" height="4" patternUnits="userSpaceOnUse">
+                      <line x1="0" y1="0" x2="4" y2="4" stroke={color} strokeWidth="1" strokeOpacity="0.8" />
+                      <line x1="4" y1="0" x2="0" y2="4" stroke={color} strokeWidth="1" strokeOpacity="0.8" />
                     </pattern>
                   </defs>
                   <rect width="10" height="10" rx="2" fill={`url(#leg-${label.replace(/\s/g,'')})`} />

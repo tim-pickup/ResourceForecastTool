@@ -1,6 +1,6 @@
 # Digital Manufacturing Resource Load & Capacity Tool
 
-## Requirements Specification — v1.10
+## Requirements Specification — v1.13
 
 ---
 
@@ -177,7 +177,7 @@ Where `P's_real_committed_hours(M)` is the sum of P's named allocation hours in 
 The demand stacks on the charts are composed of *real demand* for the relevant theme or skill:
 
 - **Committed demand** (displayed as the solid stack): the skill-shaped requirement hours from demand items in status `Approved`, `PartiallyAllocated`, or `Allocated`. Per skill-shaped requirement, take the `hours_by_month` or `steady_state_hours` target — this is what the team has committed to deliver.
-- **Overlay demand** (displayed as hatched on top): the skill-shaped requirement hours from the **currently-selected Submitted overlay**, if any. This is what the team would additionally be committing to if the overlay were Approved.
+- **Overlay demand** (displayed as a solid fill on top): the skill-shaped requirement hours from the **currently-selected Submitted overlay**, if any. This is what the team would additionally be committing to if the overlay were Approved. Rendered as a solid amber/yellow area stacked above the committed demand stack, at moderate opacity so the layer beneath remains faintly visible — see section 4 View 1 for the full rendering spec.
 
 Demand aggregation takes the requirement's **target** hours, not the allocation hours. The requirement's target is what's been committed to at the skill level; whether or not the allocations are yet in place doesn't change the demand number. This keeps demand stable across the Approved → PartiallyAllocated → Allocated transitions: the work committed doesn't change, only the allocation of it to specific people.
 
@@ -185,7 +185,11 @@ Demand aggregation takes the requirement's **target** hours, not the allocation 
 
 Real allocations reduce a skill's capacity line (section 2.4.2). But some committed demand has **no allocations yet** — and that unallocated work still represents hours that will *likely* be consumed by the skill pool once it's allocated. For a theme or skill chart to give an honest "can we take on more?" picture, this pending consumption must be surfaced.
 
-This is done via a **grey hatched band** rendered on each chart, between the demand stack and the capacity line. The grey band represents **projected consumption of the skill pool by unallocated demand elsewhere** — demand not on this chart's skill, but that *would* consume people who contribute to this chart's skill pool.
+This is done via a **grey hatched band** rendered on each chart, **anchored to the capacity line and hanging downward** — reducing the visible available-headroom zone rather than stacking on top of demand. The grey band represents **capacity effectively removed** from this chart's skill pool by unallocated demand elsewhere — demand not on this chart's skill, but that *would* consume people who contribute to this chart's skill pool.
+
+**Why hanging from the capacity line, not stacking on demand**: the grey band is a capacity-side concept, not a demand-side one. It does not represent demand on this chart's skill (that would be double-counting — see the exclusion rule below). It represents this chart's skill pool being provisionally claimed elsewhere, so the pool's *effective* ceiling is lower than the capacity line. Anchoring the band at the capacity line and hanging it downward communicates that directly: "the headline capacity is X, but this portion is already spoken for elsewhere, so what you can really count on is the space below." Stacking the band on top of demand reads as "phantom demand," which confuses the meaning.
+
+**Rendering**: on every theme/skill chart the capacity line is drawn at the top; the grey hatched band fills downward from the line; the committed demand stack is drawn from the x-axis upward; the overlay demand stack (when present) sits directly above the committed stack. The available headroom zone is the remaining white space between the top of the combined demand stack and the bottom edge of the grey band. If the grey band's bottom edge drops below the top of the demand stack, the overlap is rendered in a warning treatment (see section 4 View 1 for the specifics) — this is the "the skill pool is oversubscribed even before this chart's own demand" case.
 
 **What counts as "unallocated" demand for projection**:
 
@@ -209,6 +213,14 @@ grey_band(theme T, month M) =
 ```
 
 The exclusion at the end is deliberate: unallocated demand that is *for this chart's theme/skill* shows up on this chart's demand stack — it doesn't also show as a grey band here (which would double-count). Demand for any *other* theme/skill that would consume the same people reduces the usable headroom here — that's what the grey band represents.
+
+**Rendering requirement — the grey band must exist as its own DOM element.** The grey band is not a computed property of some other layer. It must be rendered as a dedicated hatched area (an `<Area>` in Recharts, with a `<pattern>` fill defined in `<defs>`), separate from every demand-stack layer and separate from the capacity line. On inspecting the rendered SVG of any theme/skill chart, a reviewer must be able to identify the grey-band element by its hatched fill and its position anchored to the capacity line. If the grey band is absent from the DOM — even when the calculation returns zero — the renderability invariant (section 2.4.8) has not been satisfied: a zero-height band is still a mounted element; an absent band is a wiring bug.
+
+**Visual treatment — cross-hatch fill and dotted lower bound.** The grey band uses a **two-way cross-hatch** fill pattern (diagonal lines in both directions, forming a lattice), not a single-direction 45° hatch. This is deliberately more prominent than a single-direction hatch and further distinguishes the band from other hatched elements on the chart (historically the overlay was also hatched; as of v1.13 the overlay is solid yellow, so cross-hatch uniquely identifies "projection elsewhere"). The cross-hatch pattern is defined once in `<defs>` as a reusable SVG `<pattern>` and referenced by every theme/skill chart.
+
+The band also has an **explicit dotted lower bound** — a dotted line in the same grey as the hatch, tracing the bottom edge of the band across the chart. This gives the band a defined, readable boundary instead of fading off into the chart area; without it the user can see "there's some hatched region" but can't easily read exactly where the available headroom starts. The dotted line's colour matches the hatch strokes and its dash pattern is a standard short-dash (2px on, 3px off or similar — DESIGNSYSTEM.md specifies the exact values).
+
+Colour tokens, pattern dimensions, and dash specifications live in `DESIGNSYSTEM.md` under "Projection grey band." The pattern and dotted line read together as a single visual signal: "this area is capacity spoken for elsewhere; the dotted line marks where your usable headroom begins."
 
 #### 2.4.5 The projection algorithm
 
@@ -257,6 +269,16 @@ All demand and capacity numbers across the tool are computed by a single shared 
 There must be exactly one implementation of each of: `person_capacity`, `real_committed_hours(person, month)`, `theme_capacity`, `skill_capacity`, `demand_hours_for(theme|skill, status_filter, month)`, `projected_consumption(person, month)`, and `grey_band(theme|skill, month)`. All consumers call these functions; no view computes its own totals by iterating over the store independently.
 
 **Testable invariant**: take any Submitted demand item; compute what it contributes to every chart (demand stacks on its own theme/skill; grey band on other theme/skill charts) under the overlay. Now hypothetically toggle the item's status to Approved and re-read the same numbers from the aggregation layer. The numbers must be identical, because the projection rules treat Submitted-overlay and Approved-unallocated demand identically. This is the core correctness test for the aggregation layer.
+
+**Renderability invariant — every named aggregation function must be verified end-to-end against the seed.** Specifying a function and shipping a stub that returns zero are the same thing to any downstream view: both produce a blank visual. To close this gap, after implementing or changing any aggregation function, the build must verify that the function actually produces non-zero output for the seed scenarios where section 11.8 promises non-zero output. Specifically, on a fresh seed load with no overlay selected:
+
+- `grey_band('mom', '2026-06')` must be > 0. The seed's "Plant C MES Platform Migration" is Approved-unallocated and its MOM Specialist requirements project onto people who also hold other MOM skills, producing a baseline MOM grey band in Jun–Aug 2026.
+- `projected_consumption(alex_morgan_id, '2026-06')` must be > 0 for the same reason (Alex holds MOM Specialist and will receive a share of the projection).
+- With "Corporate Data Lake" selected as the overlay: `grey_band('miv', '2026-07')` must be > 0, and a projection shortfall entry for MI&V Specialist must exist in the over-capacity summary strip for Jun–Aug 2026.
+
+These are not optional checks. If any of them returns zero when the seed is loaded fresh, the aggregation layer has a bug that must be fixed before any UI work built on top of it is trustworthy. They should be codified as runtime assertions (enabled in development builds) or as automated tests against the seed fixture — not as manual spot-checks.
+
+This is the v1.10 invariants' missing enforcement layer. An aggregation function that silently returns zero is indistinguishable from one that correctly returns zero; the seed was designed specifically so that "correctly zero" and "silently broken zero" produce observably different behaviour. This invariant was added in v1.12 after the v1.11 build shipped with a grey_band function that returned zero for every input and no rendered band anywhere.
 
 ### 2.5 Worked examples of requirement composition
 
@@ -471,22 +493,25 @@ The page is a scrollable, vertically composed set of chart sections:
 
 **Chart specification (applies to every chart on the page)**
 
-Every theme/skill chart shows four distinct horizontal layers from bottom to top:
+Every theme/skill chart is composed of the following elements:
 
-1. **Committed demand stack** — work in status `Approved`, `PartiallyAllocated`, or `Allocated` that targets this chart's theme/skill. Stacked by work type (BAU → Plant Project → NPD Demand → Group Strategy Project, bottom to top), solid fill, using the colour palette consistent across all views.
-2. **Overlay demand stack** (when an overlay is selected) — the hatched representation of the selected Submitted demand's contribution to this chart's theme/skill. Sits directly above the committed stack.
-3. **Projection grey band** — the hatched grey area above the combined demand stack, representing projected consumption of this chart's skill pool by *unallocated demand elsewhere* (i.e. demand for other themes/skills whose projected allocations would consume the same people). See section 2.4.4 for the precise calculation.
-4. **Available headroom** — the remaining space between the top of the grey band and the chart's capacity line. This is the genuine "usable" capacity for this chart's theme/skill right now.
+1. **Capacity line** — drawn at the top of the chart, representing the total theoretical capacity of the skill pool (see the Capacity line paragraph below).
+2. **Projection grey band** — anchored to the capacity line, hanging **downward**. Hatched grey fill, representing capacity effectively removed from this chart's skill pool by *unallocated demand elsewhere* (demand for other themes/skills whose projected allocations would consume the same people). See section 2.4.4 for the calculation.
+3. **Committed demand stack** — drawn from the x-axis upward. Work in status `Approved`, `PartiallyAllocated`, or `Allocated` that targets this chart's theme/skill. Stacked by work type (BAU → Plant Project → NPD Demand → Group Strategy Project, bottom to top), solid fill, using the colour palette consistent across all views.
+4. **Overlay demand stack** (when an overlay is selected) — the representation of the selected Submitted demand's contribution to this chart's theme/skill. Sits directly above the committed stack. The overlay's *height* in each month is the overlay's own contribution to this chart — not the cumulative top-of-stack coordinate. The overlay renders as a **solid amber/yellow fill** at moderate opacity (typically ~0.6–0.7 so the colour reads as overlay-yellow while the committed layer below remains faintly visible); exact token in `DESIGNSYSTEM.md`. As of v1.13, hatched fill is reserved for the projection grey band only — the overlay is solid to keep these two visual signals clearly distinct. The overlay's `d` path silhouette must still differ from the top committed-stack layer's silhouette (the v1.12 wiring fix). If the overlay path coordinates match the top committed area's coordinates exactly, the overlay is being rendered as a silent duplicate rather than as its own distinct `<Area>` with its own `dataKey`, and no visual change will be visible when an overlay is selected — this is a rendering bug that must be fixed.
+5. **Available headroom** — the remaining white space between the top of the combined demand stack and the bottom edge of the grey band. This is the genuine "usable" capacity for this chart's theme/skill right now.
 
-**Capacity line**: a single thick line at the top representing the **total theoretical capacity** of the skill pool (sum of contracted hours of everyone holding the relevant skills, respecting `available_from`/`available_to`). The capacity line is **static relative to real allocations** — it does not move when allocations happen; instead the grey band grows and the headroom shrinks. This is intentional: the line represents "what this pool could theoretically do in a month," and the bands below it tell the consumption story.
+**Capacity line**: a single thick line at the top representing the **total theoretical capacity** of the skill pool (sum of contracted hours of everyone holding the relevant skills, respecting `available_from`/`available_to`). The capacity line is **static relative to real allocations** — it does not move when allocations happen; instead the grey band grows (hangs further down from the line) and the available headroom shrinks. This is intentional: the line represents "what this pool could theoretically do in a month," and what sits underneath it tells the consumption story.
 
 - **Time axis**: horizontal, monthly. Default horizon is 6–12 months, with preset switches for 6 / 12 / 24 / 60 months. The horizon selector is global — applies to all charts simultaneously.
-- **Over-capacity signal**: whenever the combined demand stack (committed + overlay) pushes above the capacity line, the overflow area is rendered in a red warning treatment. If demand stack + grey band pushes above the capacity line but demand stack alone is below, the chart is not over-capacity per se — but the grey band area extends above the capacity line and is rendered with a warning treatment to indicate "the pool is oversubscribed even before this chart's own demand."
-- **Per-chart over-capacity badge**: any chart currently showing demand (or demand + grey band) above its capacity line renders a prominent badge in the chart card header (e.g. a red "Over capacity" pill with the month range or peak overflow). The badge is visible at chart-card scale regardless of how large the over-capacity area inside the chart is — so a small spike in one month is just as noticeable as a sustained overflow across multiple months.
+- **Over-capacity signal**: the combined demand stack (committed + overlay) and the grey band meet in the middle of the chart. When they overlap — i.e. the top of the demand stack crosses into the grey band, or beyond — that's the signal. Two distinct treatments:
+  - If the **demand stack alone** (committed + overlay, without any grey band) exceeds the capacity line, the overflow area above the capacity line is rendered in a strong red warning treatment. This is true over-capacity: real committed work above the pool's ceiling.
+  - If the demand stack is below the capacity line but crosses into the grey band (i.e. available headroom has gone to zero or negative), the overlap region — where demand stack and grey band intersect — is rendered in a softer red warning treatment. This is the "pool is oversubscribed once projected consumption elsewhere is accounted for, even though demand on this chart alone is within capacity" case.
+- **Per-chart over-capacity badge**: any chart currently showing demand above its capacity line, or demand crossing into the grey band, renders a prominent badge in the chart card header (e.g. a red "Over capacity" pill with the month range or peak overflow). The badge is visible at chart-card scale regardless of how large the over-capacity area inside the chart is — so a small spike in one month is just as noticeable as a sustained overflow across multiple months.
 
 **Grey band interaction**:
 
-- **Hover** on the grey band in any month shows a breakdown tooltip: "Projected consumption of {skill} pool this month: X hrs. Driven by: *Project A* (Approved, N hrs projected onto shared skill-holders), *Project B* (PartiallyAllocated unfilled, N hrs), *Project C* (Submitted overlay, N hrs)." Ordered by contribution.
+- **Hover** on the grey band in any month shows a breakdown tooltip: "Capacity consumed elsewhere this month: X hrs. Driven by: *Project A* (Approved, N hrs projected onto shared skill-holders), *Project B* (PartiallyAllocated unfilled, N hrs), *Project C* (Submitted overlay, N hrs)." Ordered by contribution.
 - The grey band is purely informational — clicking it doesn't navigate anywhere (the underlying demand items are reachable through the demand stack segment clicks on their own chart, or through the over-capacity summary strip's shortfall entries).
 
 **Over-capacity summary strip (top of Section B)**
@@ -506,7 +531,7 @@ The overlay answers: *"If we approved this specific Submitted item, what would c
 - A toolbar at the top of the page lets the user select **one** Submitted demand item to overlay — not multiple. Only items in status `Submitted` are eligible; items in other statuses are not selectable.
 - The currently-overlaid item is shown as a chip in the toolbar. A search-and-add combobox lets the user change the overlay to a different Submitted item. Adding a new overlay replaces the current one; it does not stack.
 - When an overlay is active:
-  - The chart for the overlay's target theme/skill shows the hatched overlay demand on its demand stack.
+  - The chart for the overlay's target theme/skill shows the overlay demand as a solid amber layer on top of the committed stack.
   - Charts for *other* theme/skill pools that share people with the overlay's target show the overlay's projected consumption in their grey band.
 - Removing the overlay returns all charts to showing only committed demand and the baseline grey band from Approved / PartiallyAllocated unallocated work.
 
@@ -534,7 +559,7 @@ The overlay is explicitly *not* a scenario modeller. It cannot move committed de
 **Drill-down**
 
 - Click a theme chart → opens the skill-level charts for that theme (in place, below or replacing the theme view).
-- Click a skill chart → opens a **person-level detail panel** (the existing grid view, now repositioned as a drill-down rather than a default). Shows the named and skill-shaped demand consuming that skill, and the people who hold it.
+- Click a skill chart → opens the **Skill detail view** (section 4.8). This is a dedicated page that shows the people who hold the skill and the demand that is consuming it, both along the same time axis as the parent chart.
 - Click a stacked area segment → opens a side panel listing the demand items contributing to that segment (with deep-link into the Demand Item Editor).
 
 **Required features**
@@ -701,6 +726,9 @@ This is where the demand is shaped: metadata, phases, and skill-shaped requireme
 Content:
 - Top section: demand item fields (name, type, owner, primary theme, description, parked reason if Parked).
 - **Phase timeline (Gantt)**: a horizontal time-based overview at the top of the Phases section, above the phase cards. Shows every phase as a labelled bar on a shared month-resolution timeline, sorted ascending by start month. Each bar shows the phase name and indicates its duration; indefinite phases render with a trailing dashed extension or arrow marker to communicate "continues beyond the visible range." The timeline is read-only and navigational — clicking a bar scrolls the page to the corresponding phase card and expands it. Changes to phase dates in the cards below update the timeline immediately. When the demand has a single phase the timeline is still shown but kept compact.
+  - **Bars are colour-coded by the phase's Funding Source** — one colour per value of the three-value enum (Investment Scheme, Plant/Sector Allocation, Mixed). The colour mapping is documented in `DESIGNSYSTEM.md` and is shared with any other view that colours by funding source. A compact legend is rendered inside the timeline container (top-right or inline with the header) so the colour-to-source mapping is readable without hovering. Changing a phase's funding source in the card below updates the bar colour immediately. This replaces any previous colour scheme on this chart (e.g. generic/phase-indexed colouring).
+  - **Vertical padding**: the timeline container must have breathing room above the topmost bar and below the bottommost bar — at least one bar-height worth of space at each end, so bars do not touch the container edge or overlap the horizontal scrollbar (where one is present). This is a specific regression seen in v1.10: the lowest bar overlaps the horizontal scroll rail and is hard to read. If the container scrolls horizontally because the phase range exceeds the visible width, the scrollbar must sit entirely below the bottom padding, not on top of the last bar.
+  - **Bar styling**: bars have rounded corners, sit on a horizontal grid of month lines, and show the phase name as a label inside the bar (truncating with ellipsis if the bar is narrow). Labels must have sufficient contrast against the funding-source fill colour — if necessary, the label is rendered on a semi-transparent backing to preserve legibility regardless of the bar colour.
 - Phases section: each phase is a collapsible card showing:
   - Phase name, start month, end month (end month supports a "No end date (indefinite)" toggle — see 11.12)
   - Funding source (dropdown) and funding notes (free text)
@@ -729,6 +757,8 @@ Once approved, the primary purpose of the edit page becomes allocation — namin
 
 Content:
 - Top section: read-only demand summary (name, type, owner, theme, total hours by phase).
+- **Phase timeline (Gantt)**: the same phase Gantt visual as Mode A (section 4.5.2 — "Phase timeline (Gantt)"), rendered **read-only** here. Same visual styling, same colour-by-funding-source, same legend, same vertical-padding rules — only the interactivity changes: clicking a bar still scrolls the page to the corresponding phase card below, but dragging, resizing, or otherwise editing bar geometry is not available. Changing the phase timeline requires Park-and-revise or (from Approved) the Revise action (section 3). This read-only Gantt sits **above the "Demand Definition is Locked" banner** so the user can orient themselves on the shape of the work before seeing the locked-banner and the allocation rows. Rationale: the Gantt is pure orientation — it tells the user at a glance "this demand has three phases, here's when each runs" — and that's just as useful in Mode B as in Mode A. Hiding it behind a mode split made Mode B feel like a different page than Mode A rather than a progression of the same page.
+- **"Demand Definition is Locked" banner**: a subtle yellow/amber banner immediately below the Gantt, stating that requirement definitions are locked in the current status and offering the appropriate return-to-Mode-A action (Revise from Approved; Park → Revive from Partially Allocated / Allocated).
 - **Allocation summary header**: overall coverage across the demand (e.g. "68% allocated, 4 unfilled requirement-months"), status pill showing current status.
 
 **Phase separation — visual priority**
@@ -758,26 +788,57 @@ Specifically:
 
 **Headroom calculation — mandatory scope**
 
-The "remaining available capacity" for person P in month M must be computed from the **complete store**, not from the current demand alone:
+The "remaining available capacity" for person P in month M must be computed from **two sources combined**: allocations already persisted in the store (from every demand item) *plus* pending in-session edits on the current allocation page (from every row except the one whose cell is being edited).
+
+The formal definition:
 
 ```
-headroom(P, M, allocation_being_edited) =
+headroom(P, M, row_being_edited) =
     contracted_hours(P, M)
-  − SUM over every allocation A such that:
+  − SUM over every PERSISTED allocation A such that:
         A.person_id == P
         AND month M falls within A.parent_phase date range
         AND A.parent_demand_item.status ∈ {Approved, PartiallyAllocated, Allocated}
-        AND A ≠ allocation_being_edited
+        AND A.parent_demand_item ≠ the demand item currently being edited
+  − SUM over every IN-SESSION pending allocation value V on the current edit page such that:
+        V.person_id == P
+        AND V is for month M
+        AND V belongs to an allocation row on this page
+        AND V's row ≠ row_being_edited
 ```
 
-Key points:
-- The sum includes allocations from **every demand item in the store**, not just the one currently being edited. This catches the "same person across multiple phases/projects" case — if Alex is allocated to Project X in June, her headroom on Project Y's June allocation must reflect that.
-- The allocation being edited is **excluded** from its own "other allocations" bucket. Otherwise headroom shrinks as the user types, producing confusing feedback.
-- BAU is included naturally because BAU is now demand of type BAU (v1.7 change) — its allocations are in the same pool.
-- `contracted_hours(P, M)` respects the person's `available_from` / `available_to` — if M is outside that range, contracted hours for that month is zero.
-- If the parent demand item of the allocation being edited is currently in Submitted status (e.g. during Revise flow), its existing allocations should be **excluded** from the headroom calculation, since Submitted items don't consume capacity.
+In plain English — the headroom preview on any row, for any person, for any month, must subtract:
 
-Hover text format: "Alex Morgan, June 2026: 152 contracted − 20 BAU (MES Super User) − 60 Project X Phase 2 = 72 hrs available".
+1. Everything that person is committed to *elsewhere in the store*, for demand items *other than the one open in this editor*, in statuses that consume capacity (Approved / PartiallyAllocated / Allocated); plus
+2. Every pending edit already entered on *any other row of the same edit page* for the same person in the same month — whether or not Save has been pressed yet.
+
+Key points:
+
+- **The store and the in-session map are the two inputs, and they are mutually exclusive.** Persisted allocations belonging to the demand item currently being edited must be ignored from the persisted-store sum, because those allocations are *represented* in the in-session map (as pre-populated values on the page) and would otherwise be double-counted. When the user opens the edit page, the in-session map is seeded from the persisted state of the current demand's allocations; from then on it diverges from the store until Save.
+- **Every keystroke on any row re-derives every other row's preview for the affected person-months.** This is a live derivation, not a snapshot. Typing "60" into Row A's Jun 2026 cell for Alex Morgan must immediately reduce the Jun 2026 preview on every other row on the page that is also allocating Alex Morgan. Same applies to all months in a row when a quick-fill action is used.
+- The allocation being edited is **excluded** from its own "other allocations" bucket. Otherwise headroom shrinks as the user types, producing confusing feedback. "Row being edited" means the specific `(phase, requirement, person)` row — not the specific month cell. All month cells on the same row share the same exclusion, so typing into one month doesn't change that row's preview for another month.
+- BAU is included naturally because BAU is now demand of type BAU — its allocations are in the same pool.
+- `contracted_hours(P, M)` respects the person's `available_from` / `available_to` — if M is outside that range, contracted hours for that month is zero.
+- If the parent demand item of the allocation being edited is currently in Submitted status (e.g. during Revise flow), its existing persisted allocations should be **excluded** from the headroom calculation, since Submitted items don't consume capacity.
+
+Hover text format: "Alex Morgan, June 2026: 152 contracted − 20 BAU (MES Super User) − 60 Project X Phase 2 − 40 pending this session (Phase 1 · MES Platform) = 32 hrs available". The pending-this-session line is only shown when non-zero.
+
+**Worked example — the Plant C MES Platform Migration case**
+
+Demand item has two skill lines in Phase 1 (Jun 2026) where Alex Morgan is eligible:
+- Row A — Skill line "MES Platform (core configuration)"
+- Row B — Skill line "Production Workflow Design"
+
+Alex's Jun 2026 contracted hours: 152. Alex is already allocated 60h elsewhere in the store (some other Approved demand item). So the *starting* headroom preview on both rows is `152 − 60 = 92h`.
+
+1. The user opens the edit page. Both rows show Jun 26 headroom = 92h. ✓
+2. The user types `60` into Row A's Jun 26 cell. Row A's preview stays at 92h (its own value is excluded from its own preview by design). **Row B's preview immediately updates to 32h** (`92 − 60` pending from Row A). ✓
+3. The user types `40` into Row B's Jun 26 cell. Row B's preview stays at 32h. Row A's preview updates to 52h (`92 − 40` pending from Row B). Both rows are within their respective previews — no warning fires.
+4. If the user instead entered `60` into Row B, Row A's preview would drop to 32h, and Row B itself would also show 32h remaining. Row B's *input value* of 60 exceeds that 32h preview, so the person-level soft-warning fires (consistent with the existing v1.8 rule: person-level over-allocation is soft-warned at input and confirm-required on save).
+
+This behaviour — live cross-row re-derivation — is the core fix for the v1.10 observed bug where both rows showed 92h regardless of what was typed on the other.
+
+**Implementation note** — the in-session pending allocation map should be the single source of truth for *every* value the user sees on the page, including the per-month hours grids themselves and the capacity-preview strips. The persisted store is read once when the page opens (and on explicit reload), after which everything derives from `(persisted store minus this demand) + in-session map`. On Save, the in-session map is written back atomically; on Cancel, it is discarded.
 
 This turns the allocation flow from blind to informed — the PMO can see in real time whether the person they're about to commit actually has the hours, accounting for *every* other commitment across the whole plan.
 
@@ -866,6 +927,71 @@ A dedicated page listing all demand items in status `Closed`. Reachable from the
 - Columns include the status the item was closed *from*, and the date closed.
 - Read-only per row, with a **Restore** action per item that returns it to the status it held before Close.
 - Archive items are excluded from all other views (Demand list, Capacity Validation, Team Activity, Forecast) so Closed demand never affects operational numbers.
+
+### 4.8 Skill detail view
+
+The question this view answers: *For a specific skill, who holds it, how loaded are those people over time, and what demand is consuming the skill?*
+
+Reached by clicking a skill chart on the Capacity Validation view (section 4 View 1). This is a dedicated page, not a modal or a drawer — the content is rich enough that a side panel would be cramped.
+
+**Time axis** — all time-phased content on this page uses the **same horizon and month alignment as the parent Capacity Validation chart** the user clicked through from. If the user had the 12-month preset active, the skill detail page opens with the same 12-month window. The horizon preset selector is mirrored on this page so the user can widen or narrow independently.
+
+**Page structure** — three sections, top to bottom:
+
+**Section 1 — Skill header**
+- Skill name and parent theme as a prominent header (e.g. "MI&V > Historian Configuration").
+- Key summary numbers, each time-aware across the visible horizon:
+  - Number of people who hold the skill (at any level), with a breakdown by level (e.g. "7 people: 2 Specialist · 3 Advanced · 2 Basic").
+  - Peak demand hours in any visible month, with the month.
+  - Peak utilisation of the skill pool in any visible month (demand / capacity as a percentage), with the month.
+  - Projection shortfall indicator if the skill has any shortfall entries in the visible horizon (links to the corresponding over-capacity summary strip entry on the parent view).
+- Back link to the parent Capacity Validation view.
+
+**Section 2 — People who hold this skill**
+
+One row per person who holds this skill (at any level), grouped by skill level (Specialist first, then Advanced, then Basic). Each row shows:
+
+- Name and the level at which they hold *this* skill.
+- Primary theme (as a small muted tag — useful context because a person may hold a skill outside their primary theme).
+- **A month-by-month utilisation mini-heatmap**, one cell per month across the visible horizon. Each cell reflects the person's **total utilisation across all their commitments** (not just commitments drawing on this skill), colour-coded:
+  - Green: ≤70% of contracted hours committed
+  - Amber: 71–90% committed
+  - Red: 91–100% committed
+  - Dark red: >100% (over-allocated)
+  - Grey diagonal stripes: outside the person's `available_from`/`available_to` window (cell is inactive).
+- **Month-column headers** above the heatmap use a two-line stacked format: month abbreviation (MMM — "Jan", "Feb", etc.) on the upper line, two-digit year (YY — "26", "27") on the lower line. This saves horizontal space versus a single-line "Jan 26" label and keeps columns narrow enough that 12+ months fit comfortably across the page. The year row can be omitted where consecutive columns share a year to reduce clutter, but the first column of each year must always show both lines so year boundaries are obvious.
+- Hovering a cell shows a tooltip with the full breakdown for that person-month: contracted hours, committed hours by work type (BAU / NPD Demand / Plant Project / Group Strategy Project), available hours remaining. This is the same breakdown as Team Activity (View 2) cell drill-down, because the underlying numbers are identical.
+- Clicking a cell navigates to Team Activity filtered to that person and scrolled to that month — the user's next question after "is this person loaded?" is usually "what is loading them?" and Team Activity answers that directly.
+- Summary numbers to the right of the heatmap, both computed across the visible horizon: **average headroom** (mean of `contracted − committed` across visible months, floored at zero per month) and **worst-month headroom** (minimum of the same across visible months), with the worst month labelled.
+
+**Why total utilisation rather than this-skill utilisation**: the value of this page is answering "who could I call on for this skill?" — and that is determined by the person's overall availability, not by whether they happen to be committed on this specific skill today. Someone fully booked on MOM work is unavailable for MI&V Specialist work even if their MI&V allocation is currently zero. Showing total utilisation makes that immediately visible.
+
+Sort controls on the people list: default sort is by skill level descending (Specialist first), then by average headroom across the horizon descending (most-available first within each level). The user can re-sort by name, worst-month headroom, or average headroom.
+
+**Section 3 — Demand consuming this skill**
+
+A **Gantt chart**, with the same visual styling as the phase timeline on the Demand edit page Mode A (section 4.5.2). One row per demand item with at least one requirement targeting this skill (at any level) within the visible horizon.
+
+- **X-axis**: months, aligned with the heatmaps above (same horizon and month boundaries). Month labels use the same **two-line stacked format** as the people-heatmap column headers — MMM on the upper line, YY on the lower — so both visuals align column-for-column and read consistently.
+- **Y-axis**: one row per demand item. Sorted by earliest requirement-start month ascending, then by status (Allocated > PartiallyAllocated > Approved > Submitted > Draft > Parked), then by name.
+- **Bar span**: from the earliest month where the demand has a requirement for this skill, through the latest such month. For multi-phase demand items where phases with this-skill requirements are non-contiguous, render one bar per contiguous run (same demand item, multiple bars on the same row).
+- **Bar colour**: by **demand type**, matching the universal demand-type colour coding used on the Capacity Validation stacks and Team Activity cells (Plant Project, Group Strategy Project, NPD Demand, BAU). This is consistent with Tim's direction that colour follows demand type on cross-demand views; funding-source colouring is only used on the within-one-demand phase Gantt in Mode A.
+- **Bar label**: demand name, truncated with ellipsis if the bar is narrow. Status shown as a small pill/icon at the left end of the bar. A count of hours-per-month for this skill shown at the right end of the bar (or in the tooltip if the bar is narrow).
+- **Hover a bar**: tooltip with demand name, type, status, phase(s) that touch this skill, total committed hours for this skill across the visible horizon.
+- **Click a bar**: opens the demand drawer (section 4.5.1) for that item, with the contextual back link pointing back to this skill detail view rather than to the Demand list.
+
+**Filter controls above the Gantt**:
+- Status filter (multi-select) — toggles are displayed **in state-machine flow order**: Draft → Submitted → Approved → Partially Allocated → Allocated → Parked. This matches the Demand-page Kanban column order (section 4.6) so users build one mental model for status sequence across the app. Default selection shows Approved, Partially Allocated, Allocated. Users can enable Draft, Submitted, and/or Parked to see pipeline pressure. Never sort status toggles alphabetically — that breaks the process-flow mental model.
+- Demand type filter (multi-select) — default all on.
+- Skill level filter — "show demand requiring Specialist", "show demand requiring Advanced or higher", etc. Default: all levels.
+
+**Vertical padding** on the Gantt — same rule as the Mode A phase Gantt: at least one bar-height of space above the topmost bar and below the bottommost bar, so rows do not collide with container edges or any horizontal scrollbar.
+
+**What this view deliberately does *not* do**
+- It does not show per-skill-level capacity as a separate chart. The earlier "specialist capacity sub-line" was removed in v1.10; level-based shortfalls are surfaced via the over-capacity summary strip on the parent Capacity Validation page. Level filtering on the Gantt (above) gives the user a way to narrow to level-specific demand without duplicating capacity lines.
+- It does not include demand items with no requirement touching this skill in the visible horizon — those are irrelevant to the page's purpose.
+
+All numbers on this page must be computed via the shared aggregation layer (section 2.4.8) — no inline summing. The people-heatmap cells read `real_committed_hours(person, month)` and `contracted_hours(person, month)`; the Gantt bars read requirement target hours for the specific skill; summary numbers in the header are derived from these.
 
 ---
 
@@ -1010,7 +1136,7 @@ Where the spec leaves room for interpretation, these are the resolutions to take
 The Capacity Validation view is chart-based, not grid-based. Click behaviour is hierarchical:
 
 - Clicking a **theme chart** opens the skill breakdown for that theme (switches section B into Skill mode filtered to that theme).
-- Clicking a **skill chart** opens a person-level drill-down panel showing who holds that skill and their individual load — this is where the grid-style individual view now lives.
+- Clicking a **skill chart** opens the Skill detail view (section 4.8) — a dedicated page showing the people who hold the skill with their time-phased utilisation, and a Gantt of the demand items consuming the skill.
 - Clicking a **stacked demand segment** (any work type layer in any chart) opens a side panel listing the demand items contributing to that segment, each deep-linking into the **Demand Item drawer** (section 4.5.1 — read-only preview). From the drawer, the user can click "Edit" to open the full edit page.
 - Clicking anywhere else on a chart opens a tooltip showing exact numbers for that month: capacity line, committed demand by work type, overlay demand if active, and grey band total (with breakdown available via hover on the band itself).
 
@@ -1194,7 +1320,50 @@ Beyond the invariants, manually check these:
 
 ## Changelog
 
-**v1.10** (this revision): **Major capacity model rework, plus allocation and Team Activity improvements.**
+**v1.13** (this revision): **Visual refinements and Mode B Gantt visibility. No data model or aggregation logic changes.**
+
+Five targeted improvements identified after v1.12 shipped:
+
+- **Grey projection band — cross-hatch fill and dotted lower bound** (section 2.4.4). Replaces the single-direction 45° hatch with a two-way lattice cross-hatch, and adds an explicit dotted line in the same grey tracing the band's bottom edge. This makes the band more prominent and gives the user a readable boundary between "capacity consumed elsewhere" and "usable headroom." Colour tokens, pattern dimensions, and dash pattern specified in `DESIGNSYSTEM.md` under "Projection grey band."
+- **Overlay fill reverted from hatched amber to solid amber/yellow** (section 4 View 1, section 2.4.3). The v1.12 move to hatched amber was intended to visually distinguish the overlay from the committed stack — but created a new collision with the hatched grey band. As of v1.13, hatched fill is reserved exclusively for the projection grey band; the overlay renders as a solid amber/yellow fill at moderate opacity. The v1.12 wiring fix (distinct `<Area>`, own `dataKey`, distinct `d` silhouette) remains — only the fill style changes.
+- **Skill detail view — stacked month-column headers** (section 4.8). Month labels on both the people heatmap and the demand Gantt change from single-line "Jan 26" to two-line stacked MMM / YY format. Saves horizontal space and lets 12+ month views read cleanly without column crowding.
+- **Skill detail view — status filter in state-machine order** (section 4.8). The Gantt's status filter toggles are now ordered Draft → Submitted → Approved → Partially Allocated → Allocated → Parked, matching the Kanban column order from the Demand page (section 4.6). Alphabetical ordering is explicitly called out as wrong — it breaks the process-flow mental model.
+- **Phase Gantt visible in Mode B (read-only)** (section 4.5.2). Previously the phase timeline visual only rendered on the demand edit page when the demand was in an editable status (Draft / Submitted / Parked). It now also renders in Mode B (Approved / Partially Allocated / Allocated) as a read-only version, positioned above the "Demand Definition is Locked" banner. Same visual styling, colour-by-funding-source, legend, and padding as Mode A — only the editing affordances are removed. Rationale: the Gantt is pure orientation, and orientation is as useful when allocating as when defining.
+
+No changes to the data model, the state machine, the aggregation functions, or the seed.
+
+**v1.12**: **Bug-fix release — restore grey band rendering and overlay layer correctness, add renderability invariant. No feature additions, no data model changes.**
+
+Two regressions observed in the shipped v1.11 build:
+
+- **Grey projection band was not rendering on any theme/skill chart.** Inspection of the rendered SVG showed no grey-band DOM element present — not clipped, not zero-height, simply never instantiated. Root cause is either the `grey_band()` aggregation returning zero for every input (stub or broken skill-exclusion logic), or the chart component never mounting the layer. Fix covered by strengthened section 2.4.4 (the band must exist as its own DOM element regardless of calculated value) and the new renderability invariant in section 2.4.8.
+- **Overlay area rendered as a silent duplicate of the committed stack top.** In the shipped build, the Recharts `<Area>` for the Submitted overlay has a `d` path identical to the top committed-stack layer, making it invisible as a distinct layer. Section 4 View 1 now explicitly requires the overlay to render with its own height data (the overlay's contribution per month) and visually distinct hatched fill — if the overlay path silhouette matches the top committed-stack silhouette, the wiring is wrong.
+
+New section content:
+
+- **Section 2.4.4 — DOM-layer mandate added** for the grey band. The band must be rendered as a dedicated hatched `<Area>` with a `<pattern>` fill, separate from every demand-stack layer and separate from the capacity line. A zero-height band is still a mounted element; an absent band is a wiring bug.
+- **Section 2.4.8 — renderability invariant added.** Named aggregation functions must be verified end-to-end against the seed. Specific fresh-seed assertions codified: `grey_band('mom', '2026-06') > 0`, `projected_consumption(alex_morgan_id, '2026-06') > 0`, and (with Corporate Data Lake overlay) `grey_band('miv', '2026-07') > 0` plus an MI&V Specialist projection shortfall entry. These must be codified as runtime dev-mode assertions or seed-fixture tests, not manual spot-checks.
+- **Section 4 View 1 — overlay layer correctness requirement added.** Explicit rule that the overlay path silhouette must differ from the top committed-stack silhouette.
+
+No changes to the data model, the state machine, or the seed.
+
+**v1.11**: **Targeted fixes and one new view — no data model changes.**
+
+Capacity charts (section 2.4.4, View 1):
+- **Grey projection band inverted** — now anchors to the capacity line and hangs downward, rather than stacking on top of the committed demand. The band represents capacity consumed elsewhere, which is a capacity-side concept, not a demand-side one; the new rendering direction matches the semantics. Available headroom is now the white space between the top of the demand stack and the bottom edge of the grey band. Two distinct over-capacity treatments specified: strong red when demand alone exceeds the capacity line, softer red where the demand stack meets or crosses into the grey band.
+
+Allocation workspace (section 4.5.2 Mode B):
+- **Headroom calculation extended to include in-session pending edits across rows.** The v1.9/v1.10 formula was store-only and missed the case where the same person is selected on multiple rows of the same Allocation Workspace page — each row's preview ignored the pending values on every other row. New formulation reads from `(persisted store minus the demand item being edited) + (in-session pending map minus the row being edited)`. Every keystroke on any row re-derives every other row's preview for the affected person-month. Worked example added using the observed Plant C MES Platform Migration / Alex Morgan case.
+
+Demand edit page Mode A (section 4.5.2):
+- **Phase Gantt colour-coded by Funding Source** (Investment Scheme / Plant/Sector Allocation / Mixed), replacing whatever scheme was previously in place. Colour mapping lives in `DESIGNSYSTEM.md`. A compact legend is rendered inside the timeline container.
+- **Phase Gantt vertical padding specified.** At least one bar-height of space above the topmost bar and below the bottommost bar, so bars do not overlap the horizontal scrollbar (v1.10 regression).
+
+New view — Skill detail (section 4.8):
+- Dedicated page reached by clicking a skill chart on Capacity Validation. Replaces the thin "person-level detail panel" drill-down referenced in v1.10. Three sections: a skill header with time-aware summary numbers; a people list showing each skill-holder with a month-by-month utilisation mini-heatmap (colour-coded green/amber/red/dark-red) reflecting **total** utilisation across all commitments; and a demand Gantt showing every demand item with requirements against this skill across the visible horizon, colour-coded by demand type (matching universal colour coding), styled consistently with the Mode A phase Gantt. Status / demand-type / skill-level filters above the Gantt. All numbers sourced from the shared aggregation layer (section 2.4.8).
+- Interpretation guidance 11.1 updated to reference section 4.8 for skill-chart click behaviour.
+
+**v1.10**: **Major capacity model rework, plus allocation and Team Activity improvements.**
 
 Capacity model (section 2.4 rewritten, new section structure 2.4.1–2.4.8):
 - **Theme and skill capacity lines are now dynamic** — computed as the skill pool's real availability, net of each person's real named allocations across *all* themes and skills. A person doing MOM work has their MI&V contribution correspondingly reduced; the MI&V capacity line drops accordingly. The capacity formula explicitly excludes commitments to the chart's own skill (those show on the demand side), preventing double-counting.

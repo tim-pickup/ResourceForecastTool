@@ -195,9 +195,10 @@ function PeopleList({
         <span className="w-24">Skill</span>
         <div className="flex gap-0.5">
           {months.map(m => (
-            <span key={m} className="w-7 text-center text-[8px] whitespace-nowrap overflow-hidden">
-              {formatMonthLabel(m).replace(' ', '')}
-            </span>
+            <div key={m} className="w-7 flex flex-col items-center leading-tight">
+              <span className="text-[8px]">{format(parseISO(m + '-01'), 'MMM')}</span>
+              <span className="text-[7px] text-gray-400">{format(parseISO(m + '-01'), 'yy')}</span>
+            </div>
           ))}
         </div>
         <button onClick={() => toggleSort('avg')} className="flex items-center gap-0.5 w-16 hover:text-near-black ml-2">
@@ -328,7 +329,7 @@ function DemandSkillGantt({
   )
   const [levelFilter, setLevelFilter] = useState<Level | null>(null)
 
-  const ALL_STATUSES: DemandStatus[] = ['Approved', 'PartiallyAllocated', 'Allocated', 'Submitted', 'Draft', 'Parked']
+  const ALL_STATUSES: DemandStatus[] = ['Draft', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated', 'Parked']
   const ALL_TYPES: DemandType[] = ['Group Strategy Project', 'Plant Project', 'NPD Demand', 'BAU']
   const ALL_LEVELS: Array<Level | null> = [null, 'Basic', 'Advanced', 'Specialist']
 
@@ -447,10 +448,11 @@ function DemandSkillGantt({
                 {months.map(m => (
                   <div
                     key={m}
-                    className="text-[9px] text-gray-400 text-center border-l border-gray-100"
+                    className="text-gray-400 text-center border-l border-gray-100 flex flex-col items-center leading-tight py-0.5"
                     style={{ width: cellW }}
                   >
-                    {formatMonthLabel(m).replace(' ', '')}
+                    <span className="text-[9px]">{format(parseISO(m + '-01'), 'MMM')}</span>
+                    <span className="text-[8px]">{format(parseISO(m + '-01'), 'yy')}</span>
                   </div>
                 ))}
               </div>

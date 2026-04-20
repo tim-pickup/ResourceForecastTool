@@ -23,9 +23,10 @@ export const FUNDING_SOURCE_COLORS: Record<FundingSource, string> = {
 interface GanttProps {
   phases: Phase[]
   onClickPhase: (phaseId: string) => void
+  readOnly?: boolean
 }
 
-export function PhaseGantt({ phases, onClickPhase }: GanttProps) {
+export function PhaseGantt({ phases, onClickPhase, readOnly = false }: GanttProps) {
   const validPhases = phases.filter(p => p.start_month)
   if (validPhases.length === 0) return null
 
@@ -65,7 +66,9 @@ export function PhaseGantt({ phases, onClickPhase }: GanttProps) {
     <div className="bg-gray-50 border border-border rounded p-3 mb-3">
       {/* Header with legend */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Phase Timeline</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+          Phase Timeline{readOnly && <span className="ml-1.5 font-normal normal-case tracking-normal text-gray-400">(read only)</span>}
+        </span>
         <div className="flex items-center gap-3">
           {(usedSources as FundingSource[]).map(src => (
             <span key={src} className="flex items-center gap-1 text-[9px] text-gray-500">
@@ -115,7 +118,7 @@ export function PhaseGantt({ phases, onClickPhase }: GanttProps) {
                     type="button"
                     onClick={() => onClickPhase(phase.id)}
                     title={`${label} · ${dateLabel} · ${phase.funding_source}`}
-                    className="absolute top-0 h-full rounded flex items-center px-2 overflow-hidden text-[10px] font-medium hover:opacity-80 transition-opacity"
+                    className={`absolute top-0 h-full rounded flex items-center px-2 overflow-hidden text-[10px] font-medium ${readOnly ? 'cursor-default' : 'hover:opacity-80 transition-opacity'}`}
                     style={{
                       left: `${leftPct}%`,
                       width: `${widthPct}%`,

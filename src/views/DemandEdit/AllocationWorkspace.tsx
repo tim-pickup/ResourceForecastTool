@@ -6,7 +6,7 @@ import type { AppState, DemandItem, SkillRequirement, NamedAllocation, Level, De
 import { Button } from '../../components/ui/Button'
 import { formatMonthLabel, getPersonAvgAvailableForPhase, monthInRange } from '../../utils/capacity'
 import { generateId } from '../../utils/ids'
-import { getMonths } from './ModeAEditor'
+import { getMonths, PhaseGantt } from './ModeAEditor'
 
 const LEVEL_ORDER: Record<Level, number> = { Basic: 0, Advanced: 1, Specialist: 2 }
 function meetsLevel(held: Level, req: Level) { return LEVEL_ORDER[held] >= LEVEL_ORDER[req] }
@@ -603,6 +603,17 @@ export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRev
         )}
       </div>
 
+      {/* Read-only phase Gantt — §4.5.2 Mode B, above the lock banner */}
+      {draft.phases.some(p => p.start_month) && (
+        <PhaseGantt
+          phases={draft.phases}
+          readOnly
+          onClickPhase={phaseId => {
+            document.getElementById(`phase-${phaseId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }}
+        />
+      )}
+
       {/* Lock banner */}
       <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded p-2.5 text-xs text-amber-700">
         <Lock size={12} className="shrink-0" />
@@ -628,7 +639,7 @@ export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRev
           : `${phase.start_month}–${phase.end_month}`
 
         return (
-          <div key={phase.id} className="border-2 border-border rounded-lg overflow-hidden bg-white">
+          <div key={phase.id} id={`phase-${phase.id}`} className="border-2 border-border rounded-lg overflow-hidden bg-white">
             <div className="px-4 py-3 bg-gray-100 border-b border-border">
               <h3 className="text-sm font-semibold text-near-black">
                 Phase {phaseIdx + 1}{phase.name ? ` · ${phase.name}` : ''} · <span className="font-normal text-gray-500">{dateLabel}</span>
