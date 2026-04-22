@@ -18,7 +18,7 @@ After completing each change: `git add -A && git commit -m "v1.15 Change N: <sho
 - [x] Change 5 — External Resource Demand chart
 - [x] Change 6 — Data model: Function, Team, DemandTeamAssignment
 - [x] Change 7 — Scoping status
-- [ ] Change 8 — Capacity Validation Team filter
+- [x] Change 8 — Capacity Validation Team filter
 - [ ] Change 9 — Team Activity Team grouping
 - [ ] Change 10 — Admin screens
 

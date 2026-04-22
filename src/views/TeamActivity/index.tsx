@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import { X } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import {
@@ -6,11 +6,12 @@ import {
 } from '../../utils/capacity'
 import { DemandEditor } from '../../components/DemandEditor/DemandEditor'
 import { clsx } from 'clsx'
-import type { DemandType } from '../../types'
+import type { DemandType, Person } from '../../types'
 
 const HORIZONS = [6, 12, 24, 60]
+// Secondary accent from DESIGN.md — distinct from all demand-type colours
+const CROSS_TEAM_BORDER = '#ff6b00'
 
-// Colours consistent with CapacityChart
 const SEG_COLORS = {
   bau:       '#94a3b8',
   npd:       '#34d399',
@@ -22,7 +23,6 @@ const SEG_COLORS = {
 
 type SegKey = 'bau' | 'npd' | 'plant' | 'strategy'
 
-// Fixed segment order: BAU → NPD Demand → Plant Project → Group Strategy → Available
 const SEGMENTS: { key: SegKey; label: string; type?: DemandType }[] = [
   { key: 'bau',      label: 'BAU',                    type: 'BAU' },
   { key: 'npd',      label: 'NPD Demand',              type: 'NPD Demand' },
@@ -31,6 +31,7 @@ const SEGMENTS: { key: SegKey; label: string; type?: DemandType }[] = [
 ]
 
 interface HoursByType { bau: number; npd: number; plant: number; strategy: number }
+interface CrossTeamItem { demandName: string; teamName: string }
 
 interface ContributingItem {
   demandId: string
@@ -52,6 +53,7 @@ export default function TeamActivity() {
   const [horizon, setHorizon] = useState(6)
   const [filterDomain, setFilterDomain] = useState('')
   const [filterPerson, setFilterPerson] = useState('')
+  const [groupBy, setGroupBy] = useState<'domain' | 'team'>('domain')
   const [editorId, setEditorId] = useState<string | null>(null)
   const [drillCell, setDrillCell] = useState<DrillCell | null>(null)
 
@@ -88,15 +90,60 @@ export default function TeamActivity() {
               ? (alloc.steady_state_hours ?? 0)
               : (alloc.hours_by_month[month] ?? 0)
             if (hours <= 0) continue
-            if (item.type === 'BAU')                      r.bau      += hours
-            else if (item.type === 'NPD Demand')          r.npd      += hours
-            else if (item.type === 'Plant Project')       r.plant    += hours
+            if (item.type === 'BAU')                         r.bau      += hours
+            else if (item.type === 'NPD Demand')             r.npd      += hours
+            else if (item.type === 'Plant Project')          r.plant    += hours
             else if (item.type === 'Group Strategy Project') r.strategy += hours
           }
         }
       }
     }
     return r
+  }
+
+  // Returns segment hours + cross-team markers for a single person cell
+  function getPersonCellData(personId: string, personTeamId: string, month: string): {
+    hrs: HoursByType
+    crossTeam: Partial<Record<SegKey, CrossTeamItem[]>>
+  } {
+    const hrs: HoursByType = { bau: 0, npd: 0, plant: 0, strategy: 0 }
+    const crossTeam: Partial<Record<SegKey, CrossTeamItem[]>> = {}
+    for (const item of activeDemand) {
+      const seg = SEGMENTS.find(s => s.type === item.type)
+      if (!seg) continue
+      for (const phase of item.phases) {
+        if (!monthInRange(month, phase.start_month, phase.end_month)) continue
+        for (const req of phase.requirements) {
+          for (const alloc of req.allocations) {
+            if (alloc.person_id !== personId) continue
+            const hours = phase.end_month === null
+              ? (alloc.steady_state_hours ?? 0)
+              : (alloc.hours_by_month[month] ?? 0)
+            if (hours <= 0) continue
+            hrs[seg.key] += hours
+            if (req.owningTeamId && req.owningTeamId !== personTeamId) {
+              const teamName = store.teams.find(t => t.id === req.owningTeamId)?.name ?? 'Unknown Team'
+              if (!crossTeam[seg.key]) crossTeam[seg.key] = []
+              crossTeam[seg.key]!.push({ demandName: item.name, teamName })
+            }
+          }
+        }
+      }
+    }
+    return { hrs, crossTeam }
+  }
+
+  // Aggregate hours across all visible people in a team for the team summary bar
+  function getTeamSummary(teamId: string, month: string): HoursByType & { contracted: number } {
+    const teamPeople = people.filter(p => p.teamId === teamId)
+    const contracted = teamPeople.reduce((sum, p) =>
+      sum + (monthInRange(month, p.available_from, p.available_to) ? p.contracted_hours_per_month : 0), 0)
+    const r: HoursByType = { bau: 0, npd: 0, plant: 0, strategy: 0 }
+    for (const p of teamPeople) {
+      const hrs = getHoursByType(p.id, month)
+      r.bau += hrs.bau; r.npd += hrs.npd; r.plant += hrs.plant; r.strategy += hrs.strategy
+    }
+    return { ...r, contracted }
   }
 
   function getContributing(personId: string, month: string, filterKey?: SegKey): ContributingItem[] {
@@ -112,9 +159,7 @@ export default function TeamActivity() {
             const hours = phase.end_month === null
               ? (alloc.steady_state_hours ?? 0)
               : (alloc.hours_by_month[month] ?? 0)
-            if (hours > 0) {
-              items.push({ demandId: item.id, name: item.name, type: item.type, hours, phase: phase.name || 'Phase' })
-            }
+            if (hours > 0) items.push({ demandId: item.id, name: item.name, type: item.type, hours, phase: phase.name || 'Phase' })
           }
         }
       }
@@ -123,18 +168,117 @@ export default function TeamActivity() {
   }
 
   const groupedPeople = useMemo(() =>
-    domains.map(t => ({
-      domain: t,
-      rows: people.filter(p => p.primary_domain_id === t.id),
-    })).filter(g => g.rows.length > 0),
+    domains.map(t => ({ domain: t, rows: people.filter(p => p.primary_domain_id === t.id) }))
+      .filter(g => g.rows.length > 0),
     [people, domains]
   )
 
-  // Drill-down panel data
+  const groupedByTeam = useMemo(() =>
+    store.teams
+      .filter(t => t.active)
+      .map(team => ({ team, rows: people.filter(p => p.teamId === team.id) }))
+      .filter(g => g.rows.length > 0),
+    [people, store.teams]
+  )
+
   const drillItems = useMemo(() => {
     if (!drillCell) return []
     return getContributing(drillCell.personId, drillCell.month, drillCell.filterKey)
   }, [drillCell, activeDemand])
+
+  function renderPersonRow(person: Person) {
+    return (
+      <tr key={person.id} className="border-b border-border/50 hover:bg-gray-50/20">
+        <td className="sticky left-0 bg-white border-r border-border px-4 py-2 z-10">
+          <div className="font-medium text-near-black">{person.name}</div>
+          <div className="text-gray-400">{person.contracted_hours_per_month}h/mo</div>
+          {person.available_from && person.available_from > now && (
+            <div className="text-[10px] text-yellow-600">Joins {person.available_from}</div>
+          )}
+          {person.available_to && person.available_to < months[months.length - 1] && (
+            <div className="text-[10px] text-orange-600">Leaves {person.available_to}</div>
+          )}
+        </td>
+        {months.map(month => {
+          const notAvailable = !monthInRange(month, person.available_from, person.available_to)
+          const contracted = person.contracted_hours_per_month
+
+          if (notAvailable) {
+            return (
+              <td key={month} className="px-2 py-2 border-r border-border/50">
+                <div className="h-7 rounded bg-gray-100" style={{ backgroundImage: 'repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,0.04) 4px, rgba(0,0,0,0.04) 8px)' }} />
+                <div className="text-[9px] text-gray-300 text-center mt-0.5">n/a</div>
+              </td>
+            )
+          }
+
+          const { hrs, crossTeam } = getPersonCellData(person.id, person.teamId, month)
+          const committed = hrs.bau + hrs.npd + hrs.plant + hrs.strategy
+          const available = Math.max(0, contracted - committed)
+          const isOver = committed > contracted
+          const toW = (h: number) => contracted > 0 ? (h / contracted) * 100 : 0
+
+          return (
+            <td
+              key={month}
+              className={clsx('px-1.5 py-1.5 border-r border-border/50 cursor-pointer', isOver ? 'bg-red-50' : 'hover:bg-gray-50/60')}
+              onClick={() => setDrillCell({ personId: person.id, personName: person.name, month })}
+            >
+              <div
+                className="relative h-7 bg-gray-100 rounded overflow-hidden"
+                title={`${person.name} · ${formatMonthLabel(month)}\nBAU ${hrs.bau}h · NPD ${hrs.npd}h · Plant ${hrs.plant}h · Strategy ${hrs.strategy}h · Available ${available}h / ${contracted}h`}
+              >
+                <div className="absolute inset-0 flex">
+                  {SEGMENTS.map(seg => {
+                    const h = hrs[seg.key]
+                    if (h <= 0) return null
+                    const ct = crossTeam[seg.key]
+                    const ctLabel = ct
+                      ? ct.map(c => `Cross-team: ${c.demandName} owned by ${c.teamName}`).join('\n')
+                      : `${seg.label}: ${h}h`
+                    return (
+                      <div
+                        key={seg.key}
+                        style={{
+                          width: `${Math.min(toW(h), 100)}%`,
+                          backgroundColor: SEG_COLORS[seg.key],
+                          flexShrink: 0,
+                          boxSizing: 'border-box',
+                          ...(ct ? { border: `2px solid ${CROSS_TEAM_BORDER}` } : {}),
+                        }}
+                        title={ctLabel}
+                        onClick={e => { e.stopPropagation(); setDrillCell({ personId: person.id, personName: person.name, month, filterKey: seg.key }) }}
+                      />
+                    )
+                  })}
+                  {!isOver && available > 0 && (
+                    <div
+                      style={{ backgroundColor: SEG_COLORS.available, flex: 1 }}
+                      title={`Available: ${available}h`}
+                      onClick={e => { e.stopPropagation(); setDrillCell({ personId: person.id, personName: person.name, month }) }}
+                    />
+                  )}
+                  {isOver && (
+                    <div
+                      style={{ width: `${toW(committed - contracted)}%`, backgroundColor: SEG_COLORS.over, flexShrink: 0 }}
+                      title={`Over by ${Math.round(committed - contracted)}h`}
+                    />
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-between text-[9px] mt-0.5 px-0.5">
+                <span className={isOver ? 'text-red-600 font-medium' : 'text-gray-500'}>{Math.round(committed)}h</span>
+                {isOver
+                  ? <span className="text-red-500">+{Math.round(committed - contracted)}h</span>
+                  : <span className="text-gray-400">{Math.round(available)}h free</span>
+                }
+              </div>
+            </td>
+          )
+        })}
+      </tr>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -146,31 +290,36 @@ export default function TeamActivity() {
         <div className="flex items-center gap-1">
           <span className="text-xs text-gray-500 uppercase tracking-wide">Horizon:</span>
           {HORIZONS.map(h => (
-            <button
-              key={h}
-              onClick={() => setHorizon(h)}
+            <button key={h} onClick={() => setHorizon(h)}
               className={clsx('px-2 py-0.5 text-xs rounded font-medium transition-colors',
                 horizon === h ? 'bg-near-black text-white' : 'text-gray-500 hover:bg-gray-100'
-              )}
-            >
+              )}>
               {h}m
             </button>
           ))}
         </div>
 
-        <select
-          value={filterDomain}
-          onChange={e => { setFilterDomain(e.target.value); setFilterPerson('') }}
-          className="text-xs border border-border rounded px-2 py-1 bg-white"
-        >
+        <div className="h-4 w-px bg-border" />
+
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-500 uppercase tracking-wide">Group by:</span>
+          {(['domain', 'team'] as const).map(g => (
+            <button key={g} onClick={() => setGroupBy(g)}
+              className={clsx('px-2 py-0.5 text-xs rounded font-medium transition-colors capitalize',
+                groupBy === g ? 'bg-near-black text-white' : 'text-gray-500 hover:bg-gray-100'
+              )}>
+              {g === 'domain' ? 'Domain' : 'Team'}
+            </button>
+          ))}
+        </div>
+
+        <select value={filterDomain} onChange={e => { setFilterDomain(e.target.value); setFilterPerson('') }}
+          className="text-xs border border-border rounded px-2 py-1 bg-white">
           <option value="">All Domains</option>
           {store.domains.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
-        <select
-          value={filterPerson}
-          onChange={e => setFilterPerson(e.target.value)}
-          className="text-xs border border-border rounded px-2 py-1 bg-white"
-        >
+        <select value={filterPerson} onChange={e => setFilterPerson(e.target.value)}
+          className="text-xs border border-border rounded px-2 py-1 bg-white">
           <option value="">All People</option>
           {store.people.filter(p => !filterDomain || p.primary_domain_id === filterDomain).map(p =>
             <option key={p.id} value={p.id}>{p.name}</option>
@@ -187,10 +336,8 @@ export default function TeamActivity() {
                 Person
               </th>
               {months.map(m => (
-                <th key={m} className={clsx(
-                  'px-2 py-2 text-center font-medium border-r border-border/50 min-w-[140px]',
-                  m === now ? 'text-brand bg-blue-50/50' : 'text-gray-500'
-                )}>
+                <th key={m} className={clsx('px-2 py-2 text-center font-medium border-r border-border/50 min-w-[140px]',
+                  m === now ? 'text-brand bg-blue-50/50' : 'text-gray-500')}>
                   {formatMonthLabel(m)}
                   {m === now && <div className="text-[9px] text-brand font-semibold">NOW</div>}
                 </th>
@@ -198,97 +345,39 @@ export default function TeamActivity() {
             </tr>
           </thead>
           <tbody>
-            {groupedPeople.map(group => (
-              <>
-                <tr key={group.domain.id + '-header'} className="bg-gray-50/80">
-                  <td colSpan={months.length + 1} className="px-4 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-border">
-                    {group.domain.name}
-                  </td>
-                </tr>
-                {group.rows.map(person => (
-                  <tr key={person.id} className="border-b border-border/50 hover:bg-gray-50/20">
-                    <td className="sticky left-0 bg-white border-r border-border px-4 py-2 z-10">
-                      <div className="font-medium text-near-black">{person.name}</div>
-                      <div className="text-gray-400">{person.contracted_hours_per_month}h/mo</div>
-                      {person.available_from && person.available_from > now && (
-                        <div className="text-[10px] text-yellow-600">Joins {person.available_from}</div>
-                      )}
-                      {person.available_to && person.available_to < months[months.length - 1] && (
-                        <div className="text-[10px] text-orange-600">Leaves {person.available_to}</div>
-                      )}
+            {groupBy === 'team' ? (
+              groupedByTeam.map(group => (
+                <Fragment key={group.team.id}>
+                  {/* Team header row with aggregate summary bar per month */}
+                  <tr className="bg-slate-100/60 border-b border-border">
+                    <td className="sticky left-0 bg-slate-100/60 border-r border-border px-4 py-2 z-10">
+                      <div className="font-semibold text-near-black text-xs">{group.team.name}</div>
+                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">{group.team.type}</div>
                     </td>
                     {months.map(month => {
-                      const notAvailable = !monthInRange(month, person.available_from, person.available_to)
-                      const contracted = person.contracted_hours_per_month
-
-                      if (notAvailable) {
-                        return (
-                          <td key={month} className="px-2 py-2 border-r border-border/50">
-                            <div
-                              className="h-7 rounded bg-gray-100"
-                              style={{ backgroundImage: 'repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,0.04) 4px, rgba(0,0,0,0.04) 8px)' }}
-                            />
-                            <div className="text-[9px] text-gray-300 text-center mt-0.5">n/a</div>
-                          </td>
-                        )
-                      }
-
-                      const hrs = getHoursByType(person.id, month)
-                      const committed = hrs.bau + hrs.npd + hrs.plant + hrs.strategy
-                      const available = Math.max(0, contracted - committed)
-                      const isOver = committed > contracted
-
-                      // Build segment widths as % of contracted
-                      const toW = (h: number) => contracted > 0 ? (h / contracted) * 100 : 0
-
+                      const s = getTeamSummary(group.team.id, month)
+                      const committed = s.bau + s.npd + s.plant + s.strategy
+                      const available = Math.max(0, s.contracted - committed)
+                      const isOver = committed > s.contracted
+                      const toW = (h: number) => s.contracted > 0 ? (h / s.contracted) * 100 : 0
                       return (
-                        <td
-                          key={month}
-                          className={clsx(
-                            'px-1.5 py-1.5 border-r border-border/50 cursor-pointer',
-                            isOver ? 'bg-red-50' : 'hover:bg-gray-50/60'
-                          )}
-                          onClick={() => setDrillCell({ personId: person.id, personName: person.name, month })}
-                        >
-                          {/* Tooltip on the bar container */}
-                          <div
-                            className="relative h-7 bg-gray-100 rounded overflow-hidden"
-                            title={`${person.name} · ${formatMonthLabel(month)}\nBAU ${hrs.bau}h · NPD ${hrs.npd}h · Plant ${hrs.plant}h · Strategy ${hrs.strategy}h · Available ${available}h / ${contracted}h`}
-                          >
+                        <td key={month} className={clsx('px-1.5 py-1.5 border-r border-border/50', isOver ? 'bg-red-50' : '')}>
+                          <div className="relative h-7 bg-gray-100 rounded overflow-hidden"
+                            title={`${group.team.name} · ${formatMonthLabel(month)}\n${Math.round(committed)}h committed / ${Math.round(s.contracted)}h contracted`}>
                             <div className="absolute inset-0 flex">
                               {SEGMENTS.map(seg => {
-                                const h = hrs[seg.key]
+                                const h = s[seg.key]
                                 if (h <= 0) return null
-                                return (
-                                  <div
-                                    key={seg.key}
-                                    style={{ width: `${Math.min(toW(h), 100)}%`, backgroundColor: SEG_COLORS[seg.key], flexShrink: 0 }}
-                                    title={`${seg.label}: ${h}h`}
-                                    onClick={e => { e.stopPropagation(); setDrillCell({ personId: person.id, personName: person.name, month, filterKey: seg.key }) }}
-                                  />
-                                )
+                                return <div key={seg.key} style={{ width: `${Math.min(toW(h), 100)}%`, backgroundColor: SEG_COLORS[seg.key], flexShrink: 0 }} />
                               })}
-                              {!isOver && available > 0 && (
-                                <div
-                                  style={{ backgroundColor: SEG_COLORS.available, flex: 1 }}
-                                  title={`Available: ${available}h`}
-                                  onClick={e => { e.stopPropagation(); setDrillCell({ personId: person.id, personName: person.name, month }) }}
-                                />
-                              )}
-                              {isOver && (
-                                <div
-                                  style={{ width: `${toW(committed - contracted)}%`, backgroundColor: SEG_COLORS.over, flexShrink: 0 }}
-                                  title={`Over by ${Math.round(committed - contracted)}h`}
-                                />
-                              )}
+                              {!isOver && available > 0 && <div style={{ backgroundColor: SEG_COLORS.available, flex: 1 }} />}
+                              {isOver && <div style={{ width: `${toW(committed - s.contracted)}%`, backgroundColor: SEG_COLORS.over, flexShrink: 0 }} />}
                             </div>
                           </div>
                           <div className="flex justify-between text-[9px] mt-0.5 px-0.5">
-                            <span className={isOver ? 'text-red-600 font-medium' : 'text-gray-500'}>
-                              {Math.round(committed)}h
-                            </span>
+                            <span className={isOver ? 'text-red-600 font-medium' : 'text-gray-500'}>{Math.round(committed)}h</span>
                             {isOver
-                              ? <span className="text-red-500">+{Math.round(committed - contracted)}h</span>
+                              ? <span className="text-red-500">+{Math.round(committed - s.contracted)}h</span>
                               : <span className="text-gray-400">{Math.round(available)}h free</span>
                             }
                           </div>
@@ -296,9 +385,21 @@ export default function TeamActivity() {
                       )
                     })}
                   </tr>
-                ))}
-              </>
-            ))}
+                  {group.rows.map(person => renderPersonRow(person))}
+                </Fragment>
+              ))
+            ) : (
+              groupedPeople.map(group => (
+                <Fragment key={group.domain.id}>
+                  <tr className="bg-gray-50/80">
+                    <td colSpan={months.length + 1} className="px-4 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-border">
+                      {group.domain.name}
+                    </td>
+                  </tr>
+                  {group.rows.map(person => renderPersonRow(person))}
+                </Fragment>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -319,6 +420,10 @@ export default function TeamActivity() {
           <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: SEG_COLORS.over }} />
           Over-allocated
         </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-sm border-2" style={{ backgroundColor: SEG_COLORS.plant, borderColor: CROSS_TEAM_BORDER }} />
+          Cross-team allocation
+        </div>
       </div>
 
       {/* Drill-down panel */}
@@ -331,10 +436,8 @@ export default function TeamActivity() {
                 <span className="text-sm font-semibold text-near-black">{drillCell.personName}</span>
                 <span className="text-xs text-gray-500 ml-2">{formatMonthLabel(drillCell.month)}</span>
                 {drillCell.filterKey && (
-                  <span
-                    className="ml-2 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: SEG_COLORS[drillCell.filterKey] + '33', color: '#374151' }}
-                  >
+                  <span className="ml-2 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded"
+                    style={{ backgroundColor: SEG_COLORS[drillCell.filterKey] + '33', color: '#374151' }}>
                     {SEGMENTS.find(s => s.key === drillCell.filterKey)?.label}
                     <button onClick={() => setDrillCell(c => c ? { ...c, filterKey: undefined } : null)} className="opacity-60 hover:opacity-100">
                       <X size={10} />
@@ -342,9 +445,7 @@ export default function TeamActivity() {
                   </span>
                 )}
               </div>
-              <button onClick={() => setDrillCell(null)} className="text-gray-400 hover:text-near-black">
-                <X size={15} />
-              </button>
+              <button onClick={() => setDrillCell(null)} className="text-gray-400 hover:text-near-black"><X size={15} /></button>
             </div>
             <div className="overflow-y-auto flex-1 px-5 py-3">
               {drillItems.length === 0 ? (
@@ -357,14 +458,10 @@ export default function TeamActivity() {
                     const seg = SEGMENTS.find(s => s.type === item.type)
                     return (
                       <div key={i} className="flex items-center gap-3 p-2.5 rounded border border-border bg-gray-50">
-                        {seg && (
-                          <div className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: SEG_COLORS[seg.key] }} />
-                        )}
+                        {seg && <div className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: SEG_COLORS[seg.key] }} />}
                         <div className="flex-1 min-w-0">
-                          <button
-                            onClick={() => { setEditorId(item.demandId); setDrillCell(null) }}
-                            className="text-xs font-medium text-brand hover:underline text-left truncate block"
-                          >
+                          <button onClick={() => { setEditorId(item.demandId); setDrillCell(null) }}
+                            className="text-xs font-medium text-brand hover:underline text-left truncate block">
                             {item.name}
                           </button>
                           <div className="text-[10px] text-gray-400">{item.phase} · {item.type}</div>
