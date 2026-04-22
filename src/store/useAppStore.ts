@@ -120,7 +120,20 @@ export const useAppStore = create<Store>()(
       deleteTeam: id => set(s => ({ teams: s.teams.filter(x => x.id !== id) })),
 
       addDemandTeamAssignment: a => set(s => ({ demandTeamAssignments: [...s.demandTeamAssignments, { ...a, id: generateId('dta') }] })),
-      updateDemandTeamAssignment: (id, a) => set(s => ({ demandTeamAssignments: s.demandTeamAssignments.map(x => x.id === id ? { ...x, ...a } : x) })),
+      updateDemandTeamAssignment: (id, a) => set(s => {
+        const updated = s.demandTeamAssignments.map(x => x.id === id ? { ...x, ...a } : x)
+        // Auto-transition Scoping → Submitted when all assignments for a demand are confirmed
+        const changed = updated.find(x => x.id === id)
+        let demandItems = s.demandItems
+        if (changed && a.confirmed === true) {
+          const phaseAssignments = updated.filter(x => x.demandId === changed.demandId)
+          const demand = s.demandItems.find(d => d.id === changed.demandId)
+          if (demand?.status === 'Scoping' && phaseAssignments.length > 0 && phaseAssignments.every(x => x.confirmed)) {
+            demandItems = s.demandItems.map(d => d.id === changed.demandId ? { ...d, status: 'Submitted' as DemandStatus } : d)
+          }
+        }
+        return { demandTeamAssignments: updated, demandItems }
+      }),
       deleteDemandTeamAssignment: id => set(s => ({ demandTeamAssignments: s.demandTeamAssignments.filter(x => x.id !== id) })),
 
       addDomain: t => set(s => ({ domains: [...s.domains, { ...t, id: generateId('thm') }] })),
@@ -186,10 +199,10 @@ export const useAppStore = create<Store>()(
     }),
     {
       name: 'resource-forecast-v1',
-      version: 7,
+      version: 8,
       migrate: (_state, version) => {
         // On schema version mismatch, discard persisted state and reseed
-        if (version < 7) return SEED
+        if (version < 8) return SEED
         return _state as Store
       },
     }

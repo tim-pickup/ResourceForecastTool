@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react'
-import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronRight, CheckCircle2 } from 'lucide-react'
 import { parseISO, isAfter, differenceInMonths, addMonths, format } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
-import type { Phase, Requirement, FundingSource, Level, SkillRequirement, ExternalResourceRequirement } from '../../types'
+import type { DemandStatus, Phase, Requirement, FundingSource, Level, SkillRequirement, ExternalResourceRequirement } from '../../types'
 import { Input, Select } from '../../components/ui/FormFields'
 import { DomainSkillSelector } from '../../components/DomainSkillSelector'
 import { generateId } from '../../utils/ids'
@@ -514,11 +514,48 @@ interface PhaseEditorProps {
   onDelete: () => void
   extReqs: ExternalResourceRequirement[]
   onExtReqsChange: (reqs: ExternalResourceRequirement[]) => void
+  demandId?: string
+  demandStatus?: DemandStatus
 }
 
-export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtReqsChange }: PhaseEditorProps) {
+export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtReqsChange, demandId, demandStatus }: PhaseEditorProps) {
   const [open, setOpen] = useState(true)
   const store = useAppStore()
+
+  const isScoping = demandStatus === 'Scoping' && !!demandId
+  const phaseAssignments = isScoping
+    ? store.demandTeamAssignments.filter(a => a.demandId === demandId && a.phaseId === phase.id)
+    : []
+  const assignedTeamIds = new Set(phaseAssignments.map(a => a.teamId))
+  const activeTeams = store.teams.filter(t => t.active)
+
+  function handleTeamToggle(teamId: string) {
+    if (!demandId) return
+    const existing = phaseAssignments.find(a => a.teamId === teamId)
+    if (existing) {
+      store.deleteDemandTeamAssignment(existing.id)
+    } else {
+      store.addDemandTeamAssignment({
+        demandId,
+        phaseId: phase.id,
+        teamId,
+        confirmed: false,
+        confirmedBy: null,
+        confirmedAt: null,
+      })
+    }
+  }
+
+  function handleConfirm(teamId: string) {
+    if (!demandId) return
+    const assignment = phaseAssignments.find(a => a.teamId === teamId)
+    if (!assignment) return
+    store.updateDemandTeamAssignment(assignment.id, {
+      confirmed: true,
+      confirmedBy: 'Team Lead',
+      confirmedAt: new Date().toISOString(),
+    })
+  }
 
   const isIndefinite = phase.end_month === null
   const months = useMemo(() => getMonths(phase.start_month, phase.end_month), [phase.start_month, phase.end_month])
@@ -619,6 +656,57 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
             </div>
           </div>
           <Input label="Funding Notes" value={phase.funding_notes} onChange={e => onChange({ ...phase, funding_notes: e.target.value })} placeholder="e.g. IS-2026-04" />
+
+          {/* Teams assigned — shown in Scoping status only */}
+          {isScoping && (
+            <div className="border border-purple-200 rounded p-2.5 bg-purple-50/40">
+              <span className="text-xs font-medium text-purple-700 uppercase tracking-wide block mb-2">Teams Assigned</span>
+              {activeTeams.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">No active teams. Configure teams in Admin.</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {activeTeams.map(team => {
+                    const isAssigned = assignedTeamIds.has(team.id)
+                    const assignment = phaseAssignments.find(a => a.teamId === team.id)
+                    return (
+                      <button
+                        key={team.id}
+                        type="button"
+                        onClick={() => handleTeamToggle(team.id)}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border transition-colors ${
+                          isAssigned
+                            ? assignment?.confirmed
+                              ? 'bg-green-100 text-green-700 border-green-300'
+                              : 'bg-purple-100 text-purple-700 border-purple-300'
+                            : 'bg-white text-gray-500 border-gray-200 hover:border-purple-300'
+                        }`}
+                      >
+                        {isAssigned && assignment?.confirmed && <CheckCircle2 size={10} />}
+                        {team.name}
+                        {isAssigned && <span className="ml-0.5 opacity-60">×</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              {/* Confirm buttons for unconfirmed assignments */}
+              {phaseAssignments.filter(a => !a.confirmed).map(a => {
+                const team = store.teams.find(t => t.id === a.teamId)
+                return (
+                  <div key={a.id} className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleConfirm(a.teamId)}
+                      className="flex items-center gap-1 text-xs font-medium text-purple-700 hover:text-purple-900 border border-purple-300 rounded px-2 py-1 bg-white hover:bg-purple-50 transition-colors"
+                    >
+                      <CheckCircle2 size={11} />
+                      Confirm requirements for {team?.name ?? a.teamId}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           <div>
             <div className="flex items-center justify-between mb-1.5">

@@ -29,7 +29,7 @@ interface FooterButton {
 function footerButtons(status: DemandStatus): FooterButton[] {
   switch (status) {
     case 'Draft':
-      return [{ label: 'Submit', kind: 'transitional', next: 'Submitted', variant: 'primary' }]
+      return [{ label: 'Submit for Scoping', kind: 'transitional', next: 'Scoping', variant: 'primary' }]
     case 'Scoping':
       return [
         { label: 'Revert to Draft', kind: 'transitional', next: 'Draft', variant: 'secondary' },

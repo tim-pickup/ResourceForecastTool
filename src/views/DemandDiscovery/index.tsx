@@ -40,6 +40,21 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
   const project = item.project_id ? store.projects.find(p => p.id === item.project_id) : null
   const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
 
+  // Confirmation strip for Scoping items: one chip per team (aggregate across phases)
+  const scopingStrip = item.status === 'Scoping' ? (() => {
+    const assignments = store.demandTeamAssignments.filter(a => a.demandId === item.id)
+    const byTeam = new Map<string, boolean>()
+    for (const a of assignments) {
+      // A team is confirmed only if all its assignments are confirmed
+      byTeam.set(a.teamId, (byTeam.get(a.teamId) ?? true) && a.confirmed)
+    }
+    return [...byTeam.entries()].map(([teamId, confirmed]) => ({
+      teamId,
+      confirmed,
+      name: store.teams.find(t => t.id === teamId)?.name ?? teamId,
+    }))
+  })() : null
+
   return (
     <div
       ref={setNodeRef}
@@ -66,6 +81,23 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
             <div className="text-[10px] text-gray-300 italic mt-0.5">Unaligned</div>
           )}
           <div className="text-xs text-gray-400">Owner: {item.owner || '—'}</div>
+          {scopingStrip && scopingStrip.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5 pt-1.5 border-t border-purple-100">
+              {scopingStrip.map(({ teamId, confirmed, name }) => (
+                <span
+                  key={teamId}
+                  className={clsx(
+                    'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium',
+                    confirmed
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-amber-100 text-amber-700'
+                  )}
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -186,7 +186,8 @@ export function derivedPrimaryDomain(item: Pick<DemandItem, 'phases'>, domains: 
 
 // State machine — valid user-driven transitions (not including system auto-transitions)
 export const VALID_TRANSITIONS: Partial<Record<DemandStatus, DemandStatus[]>> = {
-  Draft: ['Submitted'],
+  Draft: ['Scoping'],
+  Scoping: ['Draft', 'Parked', 'Closed'],
   Submitted: ['Draft', 'Approved', 'Parked'],
   Approved: ['Submitted', 'Parked', 'Closed'],
   PartiallyAllocated: ['Parked', 'Closed'],

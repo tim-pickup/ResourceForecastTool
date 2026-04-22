@@ -19,7 +19,7 @@ interface Transition { label: string; next: DemandStatus; variant?: 'danger' | '
 function pageTransitions(status: DemandStatus, isNew: boolean): Transition[] {
   if (isNew) return []
   switch (status) {
-    case 'Draft':     return [{ label: 'Submit', next: 'Submitted' }]
+    case 'Draft':     return [{ label: 'Submit for Scoping', next: 'Scoping' }]
     case 'Scoping':   return [{ label: 'Revert to Draft', next: 'Draft' }, { label: 'Park', next: 'Parked' }]
     case 'Submitted': return [{ label: 'Approve', next: 'Approved' }, { label: 'Revert to Draft', next: 'Draft' }, { label: 'Park', next: 'Parked' }]
     case 'Approved':  return [{ label: 'Revise', next: 'Submitted' }, { label: 'Park', next: 'Parked' }, { label: 'Close', next: 'Closed', variant: 'danger' }]
@@ -293,6 +293,8 @@ export default function DemandEdit() {
                         onDelete={() => deletePhase(phase.id)}
                         extReqs={extReqsByPhase[phase.id] ?? []}
                         onExtReqsChange={reqs => { setExtReqsByPhase(prev => ({ ...prev, [phase.id]: reqs })); setIsDirty(true) }}
+                        demandId={id}
+                        demandStatus={draft.status as DemandStatus}
                       />
                     </div>
                   ))}
