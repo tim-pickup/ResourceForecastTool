@@ -2,19 +2,19 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, Search, X } from 'lucide-react'
 import { clsx } from 'clsx'
-import type { Theme, Skill } from '../types'
+import type { Domain, Skill } from '../types'
 
 interface Props {
   value: string | null
   onChange: (skillId: string) => void
-  themes: Theme[]
+  domains: Domain[]
   skills: Skill[]
   placeholder?: string
   className?: string
   disabled?: boolean
 }
 
-export function ThemeSkillSelector({ value, onChange, themes, skills, placeholder = 'Select skill…', className, disabled }: Props) {
+export function DomainSkillSelector({ value, onChange, domains, skills, placeholder = 'Select skill…', className, disabled }: Props) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -22,7 +22,7 @@ export function ThemeSkillSelector({ value, onChange, themes, skills, placeholde
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({})
 
   const selectedSkill = skills.find(s => s.id === value)
-  const selectedTheme = selectedSkill ? themes.find(t => t.id === selectedSkill.theme_id) : null
+  const selectedDomain = selectedSkill ? domains.find(t => t.id === selectedSkill.domain_id) : null
 
   useEffect(() => {
     if (!open) return
@@ -80,9 +80,9 @@ export function ThemeSkillSelector({ value, onChange, themes, skills, placeholde
     ? skills.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
     : skills
 
-  const skillsByTheme = themes.map(t => ({
-    theme: t,
-    skills: filteredSkills.filter(s => s.theme_id === t.id),
+  const skillsByDomain = domains.map(t => ({
+    domain: t,
+    skills: filteredSkills.filter(s => s.domain_id === t.id),
   })).filter(g => g.skills.length > 0)
 
   const dropdown = open ? createPortal(
@@ -107,13 +107,13 @@ export function ThemeSkillSelector({ value, onChange, themes, skills, placeholde
         )}
       </div>
       <div className="max-h-56 overflow-y-auto">
-        {skillsByTheme.length === 0 && (
+        {skillsByDomain.length === 0 && (
           <p className="px-3 py-2 text-xs text-gray-400 italic">No skills match.</p>
         )}
-        {skillsByTheme.map(({ theme, skills: tSkills }) => (
-          <div key={theme.id}>
+        {skillsByDomain.map(({ domain, skills: tSkills }) => (
+          <div key={domain.id}>
             <div className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 bg-gray-50 sticky top-0">
-              {theme.name}
+              {domain.name}
             </div>
             {tSkills.map(skill => (
               <button
@@ -150,7 +150,7 @@ export function ThemeSkillSelector({ value, onChange, themes, skills, placeholde
       >
         {selectedSkill ? (
           <span className="flex items-center gap-1 truncate">
-            <span className="text-gray-400">{selectedTheme?.name}</span>
+            <span className="text-gray-400">{selectedDomain?.name}</span>
             <span className="text-gray-300">›</span>
             <span className="text-near-black">{selectedSkill.name}</span>
           </span>

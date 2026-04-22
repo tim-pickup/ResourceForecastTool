@@ -4,7 +4,7 @@ import { parseISO, isAfter, differenceInMonths, addMonths, format } from 'date-f
 import { useAppStore } from '../../store/useAppStore'
 import type { Phase, Requirement, FundingSource, Level, SkillRequirement, ExternalResourceRequirement } from '../../types'
 import { Input, Select } from '../../components/ui/FormFields'
-import { ThemeSkillSelector } from '../../components/ThemeSkillSelector'
+import { DomainSkillSelector } from '../../components/DomainSkillSelector'
 import { generateId } from '../../utils/ids'
 import { generateMonths, formatMonthLabel, getCurrentMonth } from '../../utils/capacity'
 
@@ -208,7 +208,7 @@ interface ReqRowProps {
 }
 
 function RequirementRow({ req, months, onChange, onDelete }: ReqRowProps) {
-  const { skills, themes } = useAppStore()
+  const { skills, domains } = useAppStore()
   const [fillVal, setFillVal] = useState(0)
 
   const totalHrs = months.reduce((s, m) => s + (req.hours_by_month[m] ?? 0), 0)
@@ -226,10 +226,10 @@ function RequirementRow({ req, months, onChange, onDelete }: ReqRowProps) {
     <div className="border border-border rounded p-2.5 bg-gray-50/50 flex flex-col gap-2">
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex-1 min-w-[160px]">
-          <ThemeSkillSelector
+          <DomainSkillSelector
             value={req.skill_id}
             onChange={id => onChange({ ...req, skill_id: id })}
-            themes={themes}
+            domains={domains}
             skills={skills}
           />
         </div>
@@ -299,16 +299,16 @@ function RequirementRow({ req, months, onChange, onDelete }: ReqRowProps) {
 // ─── Requirement row (indefinite) ─────────────────────────────────────────────
 
 function IndefiniteRequirementRow({ req, onChange, onDelete }: { req: SkillRequirement; onChange: (r: SkillRequirement) => void; onDelete: () => void }) {
-  const { skills, themes } = useAppStore()
+  const { skills, domains } = useAppStore()
 
   return (
     <div className="border border-border rounded p-2.5 bg-gray-50/50 flex flex-col gap-2">
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex-1 min-w-[160px]">
-          <ThemeSkillSelector
+          <DomainSkillSelector
             value={req.skill_id}
             onChange={id => onChange({ ...req, skill_id: id })}
-            themes={themes}
+            domains={domains}
             skills={skills}
           />
         </div>

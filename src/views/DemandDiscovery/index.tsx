@@ -35,7 +35,7 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: item.id })
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
   const store = useAppStore()
-  const theme = store.themes.find(t => t.id === item.primary_theme_id)
+  const domain = store.domains.find(t => t.id === item.primary_domain_id)
   const project = item.project_id ? store.projects.find(p => p.id === item.project_id) : null
   const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
 
@@ -56,7 +56,7 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-near-black truncate">{item.name}</div>
           <div className="text-xs text-gray-500 mt-0.5">{item.type}</div>
-          {theme && <div className="text-xs text-gray-400">{theme.name}</div>}
+          {domain && <div className="text-xs text-gray-400">{domain.name}</div>}
           {programme && project ? (
             <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5">
               <GitMerge size={10} />{programme.name} › {project.name}
@@ -97,7 +97,7 @@ function TableRow({ item, projectMap, programmeMap, phasesWithExt, onSelect }: {
   const store = useAppStore()
   const project = item.project_id ? projectMap.get(item.project_id) : null
   const programme = project ? programmeMap.get(project.programme_id) : null
-  const themeMap = new Map(store.themes.map(t => [t.id, t.name]))
+  const domainMap = new Map(store.domains.map(t => [t.id, t.name]))
   const extHrs = store.externalResourceRequirements
     .filter(r => item.phases.some(p => p.id === r.phase_id))
     .reduce((s, ext) => {
@@ -118,7 +118,7 @@ function TableRow({ item, projectMap, programmeMap, phasesWithExt, onSelect }: {
       <td className="px-4 py-2.5 text-gray-600">{item.owner || '—'}</td>
       <td className="px-4 py-2.5 text-gray-500 text-xs">{programme?.name ?? <span className="text-gray-300">—</span>}</td>
       <td className="px-4 py-2.5 text-gray-500 text-xs">{project?.name ?? <span className="text-gray-300 italic">Unaligned</span>}</td>
-      <td className="px-4 py-2.5 text-gray-500 text-xs">{themeMap.get(item.primary_theme_id) ?? '—'}</td>
+      <td className="px-4 py-2.5 text-gray-500 text-xs">{domainMap.get(item.primary_domain_id) ?? '—'}</td>
       <td className="px-4 py-2.5 text-right text-xs text-amber-600">{extHrs > 0 ? `${Math.round(extHrs)}h` : <span className="text-gray-300">—</span>}</td>
     </tr>
   )
@@ -144,7 +144,7 @@ export default function DemandDiscovery() {
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType] = useState('')
-  const [filterTheme, setFilterTheme] = useState('')
+  const [filterDomain, setFilterDomain] = useState('')
   const [filterProgramme, setFilterProgramme] = useState('')
   const [filterProject, setFilterProject] = useState('')
   const [filterHasExternal, setFilterHasExternal] = useState(false)
@@ -154,7 +154,7 @@ export default function DemandDiscovery() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
-  const themeMap = useMemo(() => new Map(store.themes.map(t => [t.id, t.name])), [store.themes])
+  const domainMap = useMemo(() => new Map(store.domains.map(t => [t.id, t.name])), [store.domains])
   const projectMap = useMemo(() => new Map(store.projects.map(p => [p.id, p])), [store.projects])
   const programmeMap = useMemo(() => new Map(store.programmes.map(p => [p.id, p])), [store.programmes])
 
@@ -180,7 +180,7 @@ export default function DemandDiscovery() {
     let items = [...activeItems]
     if (filterStatus) items = items.filter(d => d.status === filterStatus)
     if (filterType) items = items.filter(d => d.type === filterType)
-    if (filterTheme) items = items.filter(d => d.primary_theme_id === filterTheme)
+    if (filterDomain) items = items.filter(d => d.primary_domain_id === filterDomain)
     if (filterProgramme) {
       const projIds = new Set(store.projects.filter(p => p.programme_id === filterProgramme).map(p => p.id))
       items = items.filter(d => d.project_id && projIds.has(d.project_id))
@@ -207,7 +207,7 @@ export default function DemandDiscovery() {
       return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
     })
     return items
-  }, [activeItems, filterStatus, filterType, filterTheme, filterProgramme, filterProject, filterHasExternal, search, sortKey, sortDir])
+  }, [activeItems, filterStatus, filterType, filterDomain, filterProgramme, filterProject, filterHasExternal, search, sortKey, sortDir])
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -268,9 +268,9 @@ export default function DemandDiscovery() {
               <option value="">All Types</option>
               {(['Group Strategy Project', 'Plant Project', 'NPD Demand', 'BAU'] as DemandType[]).map(t => <option key={t}>{t}</option>)}
             </select>
-            <select value={filterTheme} onChange={e => setFilterTheme(e.target.value)} className="text-xs border border-border rounded px-2 py-1 bg-white">
-              <option value="">All Themes</option>
-              {store.themes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            <select value={filterDomain} onChange={e => setFilterDomain(e.target.value)} className="text-xs border border-border rounded px-2 py-1 bg-white">
+              <option value="">All Domains</option>
+              {store.domains.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
             <select value={filterProgramme} onChange={e => { setFilterProgramme(e.target.value); setFilterProject('') }} className="text-xs border border-border rounded px-2 py-1 bg-white">
               <option value="">All Programmes</option>
@@ -337,7 +337,7 @@ export default function DemandDiscovery() {
                     <span className="flex items-center gap-1 capitalize">{k} <SortIcon k={k} /></span>
                   </th>
                 ))}
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Theme</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Domain</th>
                 <th className="px-4 py-2.5 text-right text-xs font-semibold text-amber-600 uppercase tracking-wide">Ext. hrs</th>
               </tr>
             </thead>
@@ -460,7 +460,7 @@ export default function DemandDiscovery() {
             <div className="flex gap-3 h-full min-h-[400px]">
               {ACTIVE_STATUSES.map(status => {
                 const colItems = activeItems.filter(d => d.status === status &&
-                  (!filterTheme || d.primary_theme_id === filterTheme) &&
+                  (!filterDomain || d.primary_domain_id === filterDomain) &&
                   (!filterType || d.type === filterType)
                 )
                 return (
@@ -503,7 +503,7 @@ export default function DemandDiscovery() {
                   <StatusBadge status={item.status} />
                   <span className="text-sm font-medium text-near-black">{item.name}</span>
                 </div>
-                <div className="text-xs text-gray-500">{item.type} · {themeMap.get(item.primary_theme_id)} · {item.owner || 'No owner'}</div>
+                <div className="text-xs text-gray-500">{item.type} · {domainMap.get(item.primary_domain_id)} · {item.owner || 'No owner'}</div>
                 {item.description && <div className="text-xs text-gray-400 mt-1 line-clamp-2">{item.description}</div>}
               </div>
             ))}

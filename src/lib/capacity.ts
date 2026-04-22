@@ -67,21 +67,21 @@ export function person_capacity(personId: string, month: string, state: AppState
   return Math.max(0, person.contracted_hours_per_month - real_committed_hours(personId, month, state))
 }
 
-// ─── 3. theme_capacity ───────────────────────────────────────────────────────
-// For each person who holds any skill in theme T:
+// ─── 3. domain_capacity ──────────────────────────────────────────────────────
+// For each person who holds any skill in domain T:
 //   max(0, contracted − sum of their allocs to skills NOT in T)
 //
-// Commitments to this theme's own skills show on the demand side of T's chart
+// Commitments to this domain's own skills show on the demand side of T's chart
 // and are deliberately NOT subtracted here (prevents double-counting).
 
-export function theme_capacity(themeId: string, month: string, state: AppState): number {
-  const themeSkillIds = new Set(state.skills.filter(s => s.theme_id === themeId).map(s => s.id))
+export function domain_capacity(domainId: string, month: string, state: AppState): number {
+  const domainSkillIds = new Set(state.skills.filter(s => s.domain_id === domainId).map(s => s.id))
   let total = 0
 
   for (const person of state.people) {
     if (!person.active) continue
     if (!monthInRange(month, person.available_from, person.available_to)) continue
-    if (!person.skills.some(ps => themeSkillIds.has(ps.skill_id))) continue
+    if (!person.skills.some(ps => domainSkillIds.has(ps.skill_id))) continue
 
     let otherCommitted = 0
     for (const item of state.demandItems) {
@@ -89,7 +89,7 @@ export function theme_capacity(themeId: string, month: string, state: AppState):
       for (const phase of item.phases) {
         if (!monthInRange(month, phase.start_month, phase.end_month)) continue
         for (const req of phase.requirements) {
-          if (themeSkillIds.has(req.skill_id)) continue  // skip this theme's skills
+          if (domainSkillIds.has(req.skill_id)) continue  // skip this domain's skills
           for (const alloc of req.allocations) {
             if (alloc.person_id === person.id) {
               otherCommitted += allocHoursForMonth(alloc, phase, month)
@@ -137,7 +137,7 @@ export function skill_capacity(skillId: string, month: string, state: AppState):
 
 // ─── 5. demand_hours_for ─────────────────────────────────────────────────────
 // Requirement target hours (not allocation hours) for the given target
-// (overall / theme / skill) and status set, in a given month.
+// (overall / domain / skill) and status set, in a given month.
 // Pass overlayItemId to include that Submitted item's demand on top of the
 // committed statuses.
 
@@ -150,7 +150,7 @@ export interface DemandBreakdown {
 
 export type DemandTarget =
   | { type: 'overall' }
-  | { type: 'theme'; id: string }
+  | { type: 'domain'; id: string }
   | { type: 'skill'; id: string }
 
 export function demand_hours_for(
@@ -162,8 +162,8 @@ export function demand_hours_for(
 ): DemandBreakdown {
   const out: DemandBreakdown = { strategy: 0, plant: 0, npd: 0, bau: 0 }
 
-  const themeSkillIds = target.type === 'theme'
-    ? new Set(state.skills.filter(s => s.theme_id === target.id).map(s => s.id))
+  const domainSkillIds = target.type === 'domain'
+    ? new Set(state.skills.filter(s => s.domain_id === target.id).map(s => s.id))
     : null
 
   for (const item of state.demandItems) {
@@ -181,7 +181,7 @@ export function demand_hours_for(
     for (const phase of item.phases) {
       if (!monthInRange(month, phase.start_month, phase.end_month)) continue
       for (const req of phase.requirements) {
-        if (target.type === 'theme' && themeSkillIds && !themeSkillIds.has(req.skill_id)) continue
+        if (target.type === 'domain' && domainSkillIds && !domainSkillIds.has(req.skill_id)) continue
         if (target.type === 'skill' && req.skill_id !== target.id) continue
         out[key] += reqHoursForMonth(req, phase, month)
       }
@@ -360,7 +360,7 @@ export function projected_consumption(
 
 // ─── grey_band ───────────────────────────────────────────────────────────────
 // Projected hours onto this chart's skill pool from requirements targeting
-// OTHER themes/skills. (Demand for THIS target appears on the demand stack —
+// OTHER domains/skills. (Demand for THIS target appears on the demand stack —
 // never in the grey band — to prevent double-counting: Invariant D.)
 
 export function grey_band(
@@ -371,13 +371,13 @@ export function grey_band(
 ): number {
   if (target.type === 'overall') return 0  // not shown on overall chart
 
-  const themeSkillIds = target.type === 'theme'
-    ? new Set(state.skills.filter(s => s.theme_id === target.id).map(s => s.id))
+  const domainSkillIds = target.type === 'domain'
+    ? new Set(state.skills.filter(s => s.domain_id === target.id).map(s => s.id))
     : null
 
   // People in this chart's pool
-  const poolPeople = target.type === 'theme'
-    ? state.people.filter(p => p.active && p.skills.some(ps => themeSkillIds!.has(ps.skill_id)))
+  const poolPeople = target.type === 'domain'
+    ? state.people.filter(p => p.active && p.skills.some(ps => domainSkillIds!.has(ps.skill_id)))
     : state.people.filter(p => p.active && p.skills.some(ps => ps.skill_id === target.id))
 
   let total = 0
@@ -390,8 +390,8 @@ export function grey_band(
     let fromAll = 0
     for (const [skillId, hours] of entry.bySkill) {
       fromAll += hours
-      const isInTarget = target.type === 'theme'
-        ? themeSkillIds!.has(skillId)
+      const isInTarget = target.type === 'domain'
+        ? domainSkillIds!.has(skillId)
         : skillId === target.id
       if (!isInTarget) fromOthers += hours
     }
@@ -677,15 +677,15 @@ export function checkInvariants(
         ),
       }
       const COMMITTED_STATUSES: ReadonlySet<DemandStatus> = new Set<DemandStatus>(['Approved', 'PartiallyAllocated', 'Allocated'])
-      for (const theme of state.themes) {
+      for (const domain of state.domains) {
         for (const month of months) {
-          const withOverlay = demand_hours_for({ type: 'theme', id: theme.id }, COMMITTED_STATUSES, month, state, overlayItemId)
-          const withPromo = demand_hours_for({ type: 'theme', id: theme.id }, COMMITTED_STATUSES, month, fakeState)
+          const withOverlay = demand_hours_for({ type: 'domain', id: domain.id }, COMMITTED_STATUSES, month, state, overlayItemId)
+          const withPromo = demand_hours_for({ type: 'domain', id: domain.id }, COMMITTED_STATUSES, month, fakeState)
           const ovTotal = withOverlay.strategy + withOverlay.plant + withOverlay.npd + withOverlay.bau
           const promoTotal = withPromo.strategy + withPromo.plant + withPromo.npd + withPromo.bau
           if (Math.abs(ovTotal - promoTotal) > 0.01) {
             failures.push(
-              `Invariant A: theme ${theme.name} ${month} — overlay(${ovTotal.toFixed(1)}) ≠ promoted(${promoTotal.toFixed(1)})`
+              `Invariant A: domain ${domain.name} ${month} — overlay(${ovTotal.toFixed(1)}) ≠ promoted(${promoTotal.toFixed(1)})`
             )
           }
         }

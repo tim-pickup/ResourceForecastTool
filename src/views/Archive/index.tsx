@@ -16,7 +16,7 @@ export default function Archive() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const closedItems = store.demandItems.filter(d => d.status === 'Closed')
-  const themeMap = new Map(store.themes.map(t => [t.id, t.name]))
+  const domainMap = new Map(store.domains.map(t => [t.id, t.name]))
 
   const handleRestore = (item: DemandItem) => {
     const restoreTo: DemandStatus = item.previous_status ?? 'Draft'
@@ -55,7 +55,7 @@ export default function Archive() {
               <tr>
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Name</th>
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Type</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Theme</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Domain</th>
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Owner</th>
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Closed From</th>
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Closed On</th>
@@ -68,7 +68,7 @@ export default function Archive() {
                 <tr key={item.id} className="border-b border-border/50 hover:bg-gray-50">
                   <td className="px-4 py-2.5 font-medium text-near-black">{item.name}</td>
                   <td className="px-4 py-2.5 text-gray-600 text-xs">{item.type}</td>
-                  <td className="px-4 py-2.5 text-gray-500 text-xs">{themeMap.get(item.primary_theme_id) ?? '—'}</td>
+                  <td className="px-4 py-2.5 text-gray-500 text-xs">{domainMap.get(item.primary_domain_id) ?? '—'}</td>
                   <td className="px-4 py-2.5 text-gray-600">{item.owner || '—'}</td>
                   <td className="px-4 py-2.5">
                     {item.previous_status ? <StatusBadge status={item.previous_status} /> : <span className="text-gray-400 text-xs">—</span>}

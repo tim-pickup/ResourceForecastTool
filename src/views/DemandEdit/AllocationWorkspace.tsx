@@ -430,11 +430,11 @@ interface ReqBlockProps {
 }
 
 function RequirementAllocationBlock({ req, phase, months, draft, demandItemId, onChange }: ReqBlockProps) {
-  const { skills, themes } = useAppStore()
+  const { skills, domains } = useAppStore()
   const isIndefinite = phase.end_month === null
 
   const skill = skills.find(s => s.id === req.skill_id)
-  const theme = skill ? themes.find(t => t.id === skill.theme_id) : null
+  const domain = skill ? domains.find(t => t.id === skill.domain_id) : null
 
   const coverage = isIndefinite ? null : requirementCoverage(req, months)
   const indCovStatus = isIndefinite ? indefiniteCoverage(req) : null
@@ -465,7 +465,7 @@ function RequirementAllocationBlock({ req, phase, months, draft, demandItemId, o
       {/* Requirement header */}
       <div className="flex items-center gap-2 px-3 py-2 bg-gray-50">
         <div className="flex-1 flex items-center gap-1.5">
-          <span className="text-[10px] text-gray-400">{theme?.name} ›</span>
+          <span className="text-[10px] text-gray-400">{domain?.name} ›</span>
           <span className="text-xs font-medium">{skill?.name ?? req.skill_id}</span>
           <span className="text-[10px] text-gray-500">· {req.level}</span>
         </div>
@@ -528,8 +528,8 @@ interface Props {
 
 export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRevise, onRevise }: Props) {
   const store = useAppStore()
-  const { themes } = store
-  const theme = themes.find(t => t.id === draft.primary_theme_id)
+  const { domains } = store
+  const domain = domains.find(t => t.id === draft.primary_domain_id)
   const project = draft.project_id ? store.projects.find(p => p.id === draft.project_id) : null
   const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
 
@@ -579,7 +579,7 @@ export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRev
           <span className="text-gray-400">·</span>
           <span className="text-gray-500">{draft.type}</span>
           <span className="text-gray-400">·</span>
-          <span className="text-gray-500">{theme?.name}</span>
+          <span className="text-gray-500">{domain?.name}</span>
           {draft.owner && <><span className="text-gray-400">·</span><span className="text-gray-500">{draft.owner}</span></>}
         </div>
         {/* Project alignment — editable even in Mode B (§2.1.1 explicit exception) */}

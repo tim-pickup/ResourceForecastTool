@@ -50,7 +50,7 @@ interface DrillCell {
 export default function TeamActivity() {
   const store = useAppStore()
   const [horizon, setHorizon] = useState(6)
-  const [filterTheme, setFilterTheme] = useState('')
+  const [filterDomain, setFilterDomain] = useState('')
   const [filterPerson, setFilterPerson] = useState('')
   const [editorId, setEditorId] = useState<string | null>(null)
   const [drillCell, setDrillCell] = useState<DrillCell | null>(null)
@@ -68,13 +68,13 @@ export default function TeamActivity() {
   const people = useMemo(() =>
     store.people.filter(p =>
       p.active &&
-      (!filterTheme || p.primary_theme_id === filterTheme) &&
+      (!filterDomain || p.primary_domain_id === filterDomain) &&
       (!filterPerson || p.id === filterPerson)
     ),
-    [store.people, filterTheme, filterPerson]
+    [store.people, filterDomain, filterPerson]
   )
 
-  const themes = useMemo(() => store.themes, [store.themes])
+  const domains = useMemo(() => store.domains, [store.domains])
 
   function getHoursByType(personId: string, month: string): HoursByType {
     const r: HoursByType = { bau: 0, npd: 0, plant: 0, strategy: 0 }
@@ -123,11 +123,11 @@ export default function TeamActivity() {
   }
 
   const groupedPeople = useMemo(() =>
-    themes.map(t => ({
-      theme: t,
-      rows: people.filter(p => p.primary_theme_id === t.id),
+    domains.map(t => ({
+      domain: t,
+      rows: people.filter(p => p.primary_domain_id === t.id),
     })).filter(g => g.rows.length > 0),
-    [people, themes]
+    [people, domains]
   )
 
   // Drill-down panel data
@@ -159,12 +159,12 @@ export default function TeamActivity() {
         </div>
 
         <select
-          value={filterTheme}
-          onChange={e => { setFilterTheme(e.target.value); setFilterPerson('') }}
+          value={filterDomain}
+          onChange={e => { setFilterDomain(e.target.value); setFilterPerson('') }}
           className="text-xs border border-border rounded px-2 py-1 bg-white"
         >
-          <option value="">All Themes</option>
-          {store.themes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          <option value="">All Domains</option>
+          {store.domains.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
         <select
           value={filterPerson}
@@ -172,7 +172,7 @@ export default function TeamActivity() {
           className="text-xs border border-border rounded px-2 py-1 bg-white"
         >
           <option value="">All People</option>
-          {store.people.filter(p => !filterTheme || p.primary_theme_id === filterTheme).map(p =>
+          {store.people.filter(p => !filterDomain || p.primary_domain_id === filterDomain).map(p =>
             <option key={p.id} value={p.id}>{p.name}</option>
           )}
         </select>
@@ -200,9 +200,9 @@ export default function TeamActivity() {
           <tbody>
             {groupedPeople.map(group => (
               <>
-                <tr key={group.theme.id + '-header'} className="bg-gray-50/80">
+                <tr key={group.domain.id + '-header'} className="bg-gray-50/80">
                   <td colSpan={months.length + 1} className="px-4 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-border">
-                    {group.theme.name}
+                    {group.domain.name}
                   </td>
                 </tr>
                 {group.rows.map(person => (

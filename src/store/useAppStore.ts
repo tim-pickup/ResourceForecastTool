@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type {
-  Theme, Skill, Person, DemandItem, AppState, DemandStatus,
+  Domain, Skill, Person, DemandItem, AppState, DemandStatus,
   Programme, Project, Provider, ExternalResourceRequirement,
 } from '../types'
 import { generateId } from '../utils/ids'
@@ -11,7 +11,7 @@ import seedRaw from '../../DEMOSEED.json'
 function normalizeSeed(raw: any): AppState {
   const items: any[] = raw.demand_items || []
   return {
-    themes: raw.themes || [],
+    domains: raw.domains || [],
     skills: raw.skills || [],
     people: raw.people || [],
     programmes: raw.programmes || [],
@@ -50,9 +50,9 @@ function normalizeSeed(raw: any): AppState {
 const SEED: AppState = normalizeSeed(seedRaw as Record<string, unknown>)
 
 interface Store extends AppState {
-  addTheme: (t: Omit<Theme, 'id'>) => void
-  updateTheme: (id: string, t: Partial<Theme>) => void
-  deleteTheme: (id: string) => void
+  addDomain: (t: Omit<Domain, 'id'>) => void
+  updateDomain: (id: string, t: Partial<Domain>) => void
+  deleteDomain: (id: string) => void
 
   addSkill: (s: Omit<Skill, 'id'>) => void
   updateSkill: (id: string, s: Partial<Skill>) => void
@@ -91,9 +91,9 @@ export const useAppStore = create<Store>()(
     (set, get) => ({
       ...SEED,
 
-      addTheme: t => set(s => ({ themes: [...s.themes, { ...t, id: generateId('thm') }] })),
-      updateTheme: (id, t) => set(s => ({ themes: s.themes.map(x => x.id === id ? { ...x, ...t } : x) })),
-      deleteTheme: id => set(s => ({ themes: s.themes.filter(x => x.id !== id) })),
+      addDomain: t => set(s => ({ domains: [...s.domains, { ...t, id: generateId('thm') }] })),
+      updateDomain: (id, t) => set(s => ({ domains: s.domains.map(x => x.id === id ? { ...x, ...t } : x) })),
+      deleteDomain: id => set(s => ({ domains: s.domains.filter(x => x.id !== id) })),
 
       addSkill: s_ => set(s => ({ skills: [...s.skills, { ...s_, id: generateId('skl') }] })),
       updateSkill: (id, s_) => set(s => ({ skills: s.skills.map(x => x.id === id ? { ...x, ...s_ } : x) })),
@@ -153,10 +153,10 @@ export const useAppStore = create<Store>()(
     }),
     {
       name: 'resource-forecast-v1',
-      version: 5,
+      version: 6,
       migrate: (_state, version) => {
         // On schema version mismatch, discard persisted state and reseed
-        if (version < 5) return SEED
+        if (version < 6) return SEED
         return _state as Store
       },
     }

@@ -7,7 +7,7 @@ import {
   getPersonLoad,
 } from '../../utils/capacity'
 import {
-  theme_capacity, skill_capacity, team_capacity,
+  domain_capacity, skill_capacity, team_capacity,
   demand_hours_for, grey_band, computeProjection, projection_shortfalls,
   checkInvariants,
   type DemandTarget, type ProjectionResult,
@@ -286,7 +286,7 @@ function SummaryStrip({
     return (
       <div className="mb-3 px-3 py-2 rounded bg-green-50 border border-green-200 text-xs text-green-700 flex items-center gap-2">
         <CheckCircle2 size={13} className="shrink-0" />
-        All themes within capacity across the visible horizon — no projection shortfalls
+        All domains within capacity across the visible horizon — no projection shortfalls
       </div>
     )
   }
@@ -344,8 +344,8 @@ export default function CapacityValidation() {
   const navigate = useNavigate()
 
   const [horizon, setHorizon] = useState<6 | 12 | 24 | 60>(12)
-  const [sectionBMode, setSectionBMode] = useState<'theme' | 'skill'>('theme')
-  const [drillThemeId, setDrillThemeId] = useState<string | null>(null)
+  const [sectionBMode, setSectionBMode] = useState<'domain' | 'skill'>('domain')
+  const [drillDomainId, setDrillDomainId] = useState<string | null>(null)
   const [overlayId, setOverlayId] = useState<string | null>(null)
   const [editorId, setEditorId] = useState<string | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
@@ -406,13 +406,13 @@ export default function CapacityValidation() {
     navigate('/demand', { state: { openDrawer: modelImpactId } })
   }
 
-  // ── Projection (single pass for all charts) ──────────────────────────────
+  // ── Projection (single pass for all charts) ──────────────────────────
   const projResult: ProjectionResult = useMemo(
     () => computeProjection(store, months, overlayId),
     [store, months, overlayId]
   )
 
-  // ── Section A: overall team chart ─────────────────────────────────────────
+  // ── Section A: overall team chart ─────────────────────────────────────
   const EMPTY_STATUSES = useMemo(() => new Set<DemandStatus>(), [])
   const teamData: ChartPoint[] = useMemo(() => months.map(month => {
     // demand_hours_for uses demandFilteredState; capacity uses full store
@@ -437,9 +437,9 @@ export default function CapacityValidation() {
   const totalDemand = teamData.reduce((s, d) => s + d.bau + d.plant + d.npd + d.strategy, 0)
   const overMonths = teamData.filter(d => d.bau + d.plant + d.npd + d.strategy + d.overlay > d.capacity).length
 
-  // ── Section B: theme/skill charts ─────────────────────────────────────────
-  const themeCharts = useMemo(() => store.themes.map(theme => {
-    const target: DemandTarget = { type: 'theme', id: theme.id }
+  // ── Section B: domain/skill charts ─────────────────────────────────────
+  const domainCharts = useMemo(() => store.domains.map(domain => {
+    const target: DemandTarget = { type: 'domain', id: domain.id }
     const data: ChartPoint[] = months.map(month => {
       // demand stacks use filtered state; capacity and grey band use full store
       const committed = demand_hours_for(target, COMMITTED_STATUSES, month, demandFilteredState)
@@ -449,7 +449,7 @@ export default function CapacityValidation() {
       return {
         month,
         label: formatMonthLabel(month),
-        capacity: theme_capacity(theme.id, month, store),  // full store
+        capacity: domain_capacity(domain.id, month, store),  // full store
         bau: committed.bau,
         plant: committed.plant,
         npd: committed.npd,
@@ -458,12 +458,12 @@ export default function CapacityValidation() {
         grey: grey_band(target, month, store, projResult),  // full store
       }
     })
-    return { theme, data }
+    return { domain, data }
   }), [months, store, demandFilteredState, overlayId, EMPTY_STATUSES, projResult])
 
   const skillsForSectionB = useMemo(() =>
-    drillThemeId ? store.skills.filter(s => s.theme_id === drillThemeId) : store.skills,
-    [store.skills, drillThemeId]
+    drillDomainId ? store.skills.filter(s => s.domain_id === drillDomainId) : store.skills,
+    [store.skills, drillDomainId]
   )
 
   const skillCharts = useMemo(() => skillsForSectionB.map(skill => {
@@ -485,20 +485,20 @@ export default function CapacityValidation() {
         grey: grey_band(target, month, store, projResult),  // full store
       }
     })
-    return { skill, theme: store.themes.find(t => t.id === skill.theme_id), data }
+    return { skill, domain: store.domains.find(t => t.id === skill.domain_id), data }
   }), [months, store, demandFilteredState, skillsForSectionB, overlayId, EMPTY_STATUSES, projResult])
 
-  const skillsByTheme = useMemo(() => {
+  const skillsByDomain = useMemo(() => {
     const groups = new Map<string, typeof skillCharts>()
     for (const sc of skillCharts) {
-      const tid = sc.skill.theme_id
+      const tid = sc.skill.domain_id
       if (!groups.has(tid)) groups.set(tid, [])
       groups.get(tid)!.push(sc)
     }
-    return store.themes.map(t => ({ theme: t, skills: groups.get(t.id) ?? [] })).filter(g => g.skills.length > 0)
-  }, [skillCharts, store.themes])
+    return store.domains.map(t => ({ domain: t, skills: groups.get(t.id) ?? [] })).filter(g => g.skills.length > 0)
+  }, [skillCharts, store.domains])
 
-  // ── Over-capacity summary strip ────────────────────────────────────────────
+  // ── Over-capacity summary strip ────────────────────────────────────────
   const summaryEntries = useMemo((): OverCapacityEntry[] => {
     const entries: OverCapacityEntry[] = []
     const overlayName = overlayItem?.name
@@ -537,7 +537,7 @@ export default function CapacityValidation() {
       }
     }
 
-    for (const { theme, data } of themeCharts) buildEntries(data, theme.id, theme.name)
+    for (const { domain, data } of domainCharts) buildEntries(data, domain.id, domain.name)
     if (sectionBMode === 'skill') {
       for (const { skill, data } of skillCharts) buildEntries(data, skill.id, skill.name)
     }
@@ -564,10 +564,10 @@ export default function CapacityValidation() {
     }
 
     return entries
-  }, [themeCharts, skillCharts, sectionBMode, projResult, store.skills, months, overlayId, overlayItem])
+  }, [domainCharts, skillCharts, sectionBMode, projResult, store.skills, months, overlayId, overlayItem])
 
-  function handleThemeClick(themeId: string) {
-    setDrillThemeId(themeId)
+  function handleDomainClick(domainId: string) {
+    setDrillDomainId(domainId)
     setSectionBMode('skill')
   }
 
@@ -575,9 +575,9 @@ export default function CapacityValidation() {
     navigate(`/capacity/skill/${skillId}?horizon=${horizon}`)
   }
 
-  function handleBackToTheme() {
-    setSectionBMode('theme')
-    setDrillThemeId(null)
+  function handleBackToDomain() {
+    setSectionBMode('domain')
+    setDrillDomainId(null)
   }
 
   function scrollToChart(id: string) {
@@ -587,7 +587,7 @@ export default function CapacityValidation() {
   function openEditor(id: string) { setEditorId(id); setEditorOpen(true) }
   function closeEditor() { setEditorOpen(false); setEditorId(null) }
 
-  const drillThemeName = drillThemeId ? store.themes.find(t => t.id === drillThemeId)?.name : null
+  const drillDomainName = drillDomainId ? store.domains.find(t => t.id === drillDomainId)?.name : null
 
   // Dev-mode: log invariant check on mount / overlay change
   useEffect(() => {
@@ -693,13 +693,13 @@ export default function CapacityValidation() {
         <div>
           <div className="flex items-center gap-3 mb-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-              {sectionBMode === 'skill' && drillThemeName ? `Skills — ${drillThemeName}` : 'Breakdown'}
+              {sectionBMode === 'skill' && drillDomainName ? `Skills — ${drillDomainName}` : 'Breakdown'}
             </h2>
             <div className="flex items-center bg-gray-100 border border-border rounded p-0.5">
-              {(['theme', 'skill'] as const).map(m => (
+              {(['domain', 'skill'] as const).map(m => (
                 <button
                   key={m}
-                  onClick={() => { setSectionBMode(m); if (m === 'theme') { setDrillThemeId(null) } }}
+                  onClick={() => { setSectionBMode(m); if (m === 'domain') { setDrillDomainId(null) } }}
                   className={clsx('px-3 py-1 text-xs rounded capitalize font-medium transition-colors',
                     sectionBMode === m ? 'bg-white text-near-black shadow-sm' : 'text-gray-500 hover:text-gray-700'
                   )}
@@ -708,8 +708,8 @@ export default function CapacityValidation() {
                 </button>
               ))}
             </div>
-            {sectionBMode === 'skill' && drillThemeId && (
-              <button onClick={handleBackToTheme} className="flex items-center gap-1 text-xs text-gray-500 hover:text-near-black">
+            {sectionBMode === 'skill' && drillDomainId && (
+              <button onClick={handleBackToDomain} className="flex items-center gap-1 text-xs text-gray-500 hover:text-near-black">
                 <X size={12} /> Clear filter
               </button>
             )}
@@ -718,28 +718,28 @@ export default function CapacityValidation() {
           {/* Over-capacity summary strip */}
           <SummaryStrip entries={summaryEntries} onScrollTo={scrollToChart} />
 
-          {sectionBMode === 'theme' ? (
+          {sectionBMode === 'domain' ? (
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))' }}>
-              {themeCharts.map(({ theme, data }) => (
-                <div key={theme.id} id={`chart-${theme.id}`}>
+              {domainCharts.map(({ domain, data }) => (
+                <div key={domain.id} id={`chart-${domain.id}`}>
                   <CapacityChart
-                    title={theme.name}
+                    title={domain.name}
                     subtitle="Click to drill into skills"
                     data={data}
                     compact
-                    onClick={() => handleThemeClick(theme.id)}
+                    onClick={() => handleDomainClick(domain.id)}
                   />
                 </div>
               ))}
-              {themeCharts.length === 0 && (
-                <p className="text-sm text-gray-400 py-8">Add themes in Admin to see breakdown.</p>
+              {domainCharts.length === 0 && (
+                <p className="text-sm text-gray-400 py-8">Add domains in Admin to see breakdown.</p>
               )}
             </div>
           ) : (
             <div className="space-y-6">
-              {skillsByTheme.map(({ theme, skills }) => (
-                <div key={theme.id}>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">{theme.name}</p>
+              {skillsByDomain.map(({ domain, skills }) => (
+                <div key={domain.id}>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">{domain.name}</p>
                   <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))' }}>
                     {skills.map(({ skill, data }) => (
                       <div key={skill.id} id={`chart-${skill.id}`}>
@@ -755,7 +755,7 @@ export default function CapacityValidation() {
                   </div>
                 </div>
               ))}
-              {skillsByTheme.length === 0 && (
+              {skillsByDomain.length === 0 && (
                 <p className="text-sm text-gray-400 py-8">No skills found. Add skills in Admin.</p>
               )}
             </div>

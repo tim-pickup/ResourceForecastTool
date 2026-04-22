@@ -1,68 +1,68 @@
 import { useState } from 'react'
 import { Plus, Trash2, Edit2, Check, X, AlertTriangle, RefreshCw, ToggleLeft, ToggleRight } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
-import type { Theme, Skill, Person, Level, PersonSkill } from '../../types'
+import type { Domain, Skill, Person, Level, PersonSkill } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { Input, Select } from '../../components/ui/FormFields'
-import { ThemeSkillSelector } from '../../components/ThemeSkillSelector'
+import { DomainSkillSelector } from '../../components/DomainSkillSelector'
 import { clsx } from 'clsx'
 
 const LEVELS: Level[] = ['Basic', 'Advanced', 'Specialist']
-const TABS = ['Themes & Skills', 'People', 'Programmes', 'Projects', 'Providers', 'Reset'] as const
+const TABS = ['Domains & Skills', 'People', 'Programmes', 'Projects', 'Providers', 'Reset'] as const
 type Tab = typeof TABS[number]
 
-// ---- Themes & Skills ----
-function ThemesSkillsPanel() {
+// ---- Domains & Skills ----
+function DomainsSkillsPanel() {
   const store = useAppStore()
-  const [editThemeId, setEditThemeId] = useState<string | null>(null)
-  const [newTheme, setNewTheme] = useState({ name: '', description: '' })
-  const [showNewTheme, setShowNewTheme] = useState(false)
+  const [editDomainId, setEditDomainId] = useState<string | null>(null)
+  const [newDomain, setNewDomain] = useState({ name: '', description: '' })
+  const [showNewDomain, setShowNewDomain] = useState(false)
   const [editSkillId, setEditSkillId] = useState<string | null>(null)
   const [showNewSkillFor, setShowNewSkillFor] = useState<string | null>(null)
-  const [newSkill, setNewSkill] = useState({ name: '', theme_id: '' })
+  const [newSkill, setNewSkill] = useState({ name: '', domain_id: '' })
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-near-black">Themes</h3>
-          <Button size="sm" variant="secondary" onClick={() => setShowNewTheme(true)}>
-            <Plus size={12} /> Add Theme
+          <h3 className="text-sm font-semibold text-near-black">Domains</h3>
+          <Button size="sm" variant="secondary" onClick={() => setShowNewDomain(true)}>
+            <Plus size={12} /> Add Domain
           </Button>
         </div>
-        {showNewTheme && (
+        {showNewDomain && (
           <div className="border border-brand rounded-md p-3 mb-3 bg-blue-50/30 flex flex-col gap-2">
-            <Input label="Theme Name" value={newTheme.name} onChange={e => setNewTheme(n => ({ ...n, name: e.target.value }))} />
-            <Input label="Description" value={newTheme.description} onChange={e => setNewTheme(n => ({ ...n, description: e.target.value }))} />
+            <Input label="Domain Name" value={newDomain.name} onChange={e => setNewDomain(n => ({ ...n, name: e.target.value }))} />
+            <Input label="Description" value={newDomain.description} onChange={e => setNewDomain(n => ({ ...n, description: e.target.value }))} />
             <div className="flex gap-2">
-              <Button size="sm" variant="primary" onClick={() => { store.addTheme(newTheme); setNewTheme({ name: '', description: '' }); setShowNewTheme(false) }}>Save</Button>
-              <Button size="sm" variant="ghost" onClick={() => setShowNewTheme(false)}>Cancel</Button>
+              <Button size="sm" variant="primary" onClick={() => { store.addDomain(newDomain); setNewDomain({ name: '', description: '' }); setShowNewDomain(false) }}>Save</Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowNewDomain(false)}>Cancel</Button>
             </div>
           </div>
         )}
         <div className="flex flex-col gap-2">
-          {store.themes.map(theme => {
-            const themeSkills = store.skills.filter(s => s.theme_id === theme.id)
+          {store.domains.map(domain => {
+            const domainSkills = store.skills.filter(s => s.domain_id === domain.id)
             return (
-              <div key={theme.id} className="border border-border rounded-md overflow-hidden">
+              <div key={domain.id} className="border border-border rounded-md overflow-hidden">
                 <div className="flex items-center gap-2 px-3 py-2 bg-gray-50">
-                  {editThemeId === theme.id ? (
+                  {editDomainId === domain.id ? (
                     <InlineEdit
-                      value={theme.name}
-                      onSave={v => { store.updateTheme(theme.id, { name: v }); setEditThemeId(null) }}
-                      onCancel={() => setEditThemeId(null)}
+                      value={domain.name}
+                      onSave={v => { store.updateDomain(domain.id, { name: v }); setEditDomainId(null) }}
+                      onCancel={() => setEditDomainId(null)}
                     />
                   ) : (
                     <>
-                      <span className="text-sm font-semibold flex-1">{theme.name}</span>
-                      <span className="text-xs text-gray-400">{theme.description}</span>
-                      <button onClick={() => setEditThemeId(theme.id)} className="text-gray-400 hover:text-near-black"><Edit2 size={13} /></button>
-                      <button onClick={() => store.deleteTheme(theme.id)} className="text-gray-300 hover:text-accent-red"><Trash2 size={13} /></button>
+                      <span className="text-sm font-semibold flex-1">{domain.name}</span>
+                      <span className="text-xs text-gray-400">{domain.description}</span>
+                      <button onClick={() => setEditDomainId(domain.id)} className="text-gray-400 hover:text-near-black"><Edit2 size={13} /></button>
+                      <button onClick={() => store.deleteDomain(domain.id)} className="text-gray-300 hover:text-accent-red"><Trash2 size={13} /></button>
                     </>
                   )}
                 </div>
                 <div className="px-3 py-2 flex flex-col gap-1.5">
-                  {themeSkills.map(skill => (
+                  {domainSkills.map(skill => (
                     <div key={skill.id} className="flex items-center gap-2 text-sm">
                       {editSkillId === skill.id ? (
                         <InlineEdit
@@ -79,24 +79,24 @@ function ThemesSkillsPanel() {
                       )}
                     </div>
                   ))}
-                  {showNewSkillFor === theme.id ? (
+                  {showNewSkillFor === domain.id ? (
                     <div className="flex items-center gap-2 mt-1">
                       <input
                         autoFocus
                         value={newSkill.name}
-                        onChange={e => setNewSkill({ name: e.target.value, theme_id: theme.id })}
+                        onChange={e => setNewSkill({ name: e.target.value, domain_id: domain.id })}
                         placeholder="Skill name"
                         className="flex-1 text-xs border border-border rounded px-2 py-1 focus:outline-none focus:border-brand"
                         onKeyDown={e => {
-                          if (e.key === 'Enter') { store.addSkill({ name: newSkill.name, theme_id: theme.id }); setNewSkill({ name: '', theme_id: '' }); setShowNewSkillFor(null) }
+                          if (e.key === 'Enter') { store.addSkill({ name: newSkill.name, domain_id: domain.id }); setNewSkill({ name: '', domain_id: '' }); setShowNewSkillFor(null) }
                           if (e.key === 'Escape') { setShowNewSkillFor(null) }
                         }}
                       />
-                      <button onClick={() => { store.addSkill({ name: newSkill.name, theme_id: theme.id }); setNewSkill({ name: '', theme_id: '' }); setShowNewSkillFor(null) }} className="text-brand hover:text-brand-hover"><Check size={13} /></button>
+                      <button onClick={() => { store.addSkill({ name: newSkill.name, domain_id: domain.id }); setNewSkill({ name: '', domain_id: '' }); setShowNewSkillFor(null) }} className="text-brand hover:text-brand-hover"><Check size={13} /></button>
                       <button onClick={() => setShowNewSkillFor(null)} className="text-gray-400"><X size={13} /></button>
                     </div>
                   ) : (
-                    <button onClick={() => setShowNewSkillFor(theme.id)} className="text-xs text-brand hover:text-brand-hover flex items-center gap-1 mt-1">
+                    <button onClick={() => setShowNewSkillFor(domain.id)} className="text-xs text-brand hover:text-brand-hover flex items-center gap-1 mt-1">
                       <Plus size={11} /> Add skill
                     </button>
                   )}
@@ -131,7 +131,7 @@ function InlineEdit({ value, onSave, onCancel }: { value: string; onSave: (v: st
 function PersonForm({ person, onSave, onCancel }: { person?: Person; onSave: (p: any) => void; onCancel: () => void }) {
   const store = useAppStore()
   const [form, setForm] = useState<Omit<Person, 'id'>>(person ?? {
-    name: '', primary_theme_id: store.themes[0]?.id ?? '', contracted_hours_per_month: 152,
+    name: '', primary_domain_id: store.domains[0]?.id ?? '', contracted_hours_per_month: 152,
     available_from: null, available_to: null, active: true, skills: []
   })
 
@@ -143,8 +143,8 @@ function PersonForm({ person, onSave, onCancel }: { person?: Person; onSave: (p:
     <div className="border border-brand rounded-md p-3 bg-blue-50/20 flex flex-col gap-2">
       <div className="grid grid-cols-2 gap-2">
         <Input label="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-        <Select label="Primary Theme" value={form.primary_theme_id} onChange={e => setForm(f => ({ ...f, primary_theme_id: e.target.value }))}>
-          {store.themes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        <Select label="Primary Domain" value={form.primary_domain_id} onChange={e => setForm(f => ({ ...f, primary_domain_id: e.target.value }))}>
+          {store.domains.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </Select>
       </div>
       <div className="grid grid-cols-3 gap-2">
@@ -165,10 +165,10 @@ function PersonForm({ person, onSave, onCancel }: { person?: Person; onSave: (p:
         {form.skills.map((ps, i) => (
           <div key={i} className="flex items-center gap-2 mb-1.5">
             <div className="flex-1">
-              <ThemeSkillSelector
+              <DomainSkillSelector
                 value={ps.skill_id}
                 onChange={id => updateSkill(i, { ...ps, skill_id: id })}
-                themes={store.themes}
+                domains={store.domains}
                 skills={store.skills}
               />
             </div>
@@ -191,8 +191,8 @@ function PeoplePanel() {
   const store = useAppStore()
   const [editId, setEditId] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
-  const themeMap = new Map(store.themes.map(t => [t.id, t.name]))
-  const skillMap = new Map(store.skills.map(s => [s.id, { name: s.name, theme_id: s.theme_id }]))
+  const domainMap = new Map(store.domains.map(t => [t.id, t.name]))
+  const skillMap = new Map(store.skills.map(s => [s.id, { name: s.name, domain_id: s.domain_id }]))
 
   return (
     <div>
@@ -220,7 +220,7 @@ function PeoplePanel() {
                     {!person.active && <span className="text-xs text-gray-400 bg-gray-100 rounded px-1">Inactive</span>}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
-                    {themeMap.get(person.primary_theme_id)} · {person.contracted_hours_per_month}h/mo
+                    {domainMap.get(person.primary_domain_id)} · {person.contracted_hours_per_month}h/mo
                     {person.available_from && ` · From ${person.available_from}`}
                     {person.available_to && ` · To ${person.available_to}`}
                   </div>
@@ -228,10 +228,10 @@ function PeoplePanel() {
                     <div className="flex flex-wrap gap-1 mt-1">
                       {person.skills.map((ps, i) => {
                         const s = skillMap.get(ps.skill_id)
-                        const theme = s ? themeMap.get(store.skills.find(sk => sk.id === ps.skill_id)?.theme_id ?? '') : ''
+                        const domain = s ? domainMap.get(store.skills.find(sk => sk.id === ps.skill_id)?.domain_id ?? '') : ''
                         return (
                           <span key={i} className="text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">
-                            {theme && <span className="text-gray-400">{theme} › </span>}
+                            {domain && <span className="text-gray-400">{domain} › </span>}
                             {s?.name ?? ps.skill_id} <span className="text-gray-400">({ps.level})</span>
                           </span>
                         )
@@ -265,7 +265,7 @@ function ResetPanel() {
           <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
           <div>
             <p className="font-medium">This will reset all data to the demo seed state.</p>
-            <p className="mt-1 text-xs text-orange-600">All changes — demand items, people, themes, and skills — will be permanently discarded.</p>
+            <p className="mt-1 text-xs text-orange-600">All changes — demand items, people, domains, and skills — will be permanently discarded.</p>
           </div>
         </div>
         {!confirm ? (
@@ -618,7 +618,7 @@ function ProvidersPanel() {
 }
 
 export default function Admin() {
-  const [tab, setTab] = useState<Tab>('Themes & Skills')
+  const [tab, setTab] = useState<Tab>('Domains & Skills')
 
   return (
     <div className="flex h-full">
@@ -637,7 +637,7 @@ export default function Admin() {
         ))}
       </div>
       <div className="flex-1 overflow-y-auto p-6">
-        {tab === 'Themes & Skills' && <ThemesSkillsPanel />}
+        {tab === 'Domains & Skills' && <DomainsSkillsPanel />}
         {tab === 'People' && <PeoplePanel />}
         {tab === 'Programmes' && <ProgrammesPanel />}
         {tab === 'Projects' && <ProjectsPanel />}

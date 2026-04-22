@@ -1,10 +1,10 @@
-{
+﻿{
   "_meta": {
     "version": "1.5",
     "description": "Seed for v1.10 data model. Mix of realistic and stress-test data: some themes/skills are comfortably within capacity while others deliberately push into over-capacity, projection shortfall, and over-allocated states so v1.10 visual features (grey bands, over-capacity signals, projection shortfalls, cell-background tints) have exemplars to render. BAU = demand of type BAU. Phases can be finite (hours_by_month) or indefinite (steady_state_hours). Requirements are skill-shaped with allocations.",
     "today": "2026-05-01"
   },
-  "themes": [
+  "domains": [
     {
       "id": "thm_mom",
       "name": "MOM",
@@ -24,72 +24,72 @@
   "skills": [
     {
       "id": "skl_mom_mes",
-      "theme_id": "thm_mom",
+      "domain_id": "thm_mom",
       "name": "MES Platform (core configuration)"
     },
     {
       "id": "skl_mom_workflow",
-      "theme_id": "thm_mom",
+      "domain_id": "thm_mom",
       "name": "Production Workflow Design"
     },
     {
       "id": "skl_mom_scada",
-      "theme_id": "thm_mom",
+      "domain_id": "thm_mom",
       "name": "SCADA Integration"
     },
     {
       "id": "skl_mom_oee",
-      "theme_id": "thm_mom",
+      "domain_id": "thm_mom",
       "name": "OEE & Performance Tracking"
     },
     {
       "id": "skl_mom_genealogy",
-      "theme_id": "thm_mom",
+      "domain_id": "thm_mom",
       "name": "Genealogy & Traceability"
     },
     {
       "id": "skl_miv_historian",
-      "theme_id": "thm_miv",
+      "domain_id": "thm_miv",
       "name": "Historian Configuration"
     },
     {
       "id": "skl_miv_hmi",
-      "theme_id": "thm_miv",
+      "domain_id": "thm_miv",
       "name": "HMI & Visualisation Design"
     },
     {
       "id": "skl_miv_reporting",
-      "theme_id": "thm_miv",
+      "domain_id": "thm_miv",
       "name": "Reporting & Dashboards"
     },
     {
       "id": "skl_miv_analytics",
-      "theme_id": "thm_miv",
+      "domain_id": "thm_miv",
       "name": "Manufacturing Analytics"
     },
     {
       "id": "skl_miv_integration",
-      "theme_id": "thm_miv",
+      "domain_id": "thm_miv",
       "name": "Data Integration & Pipelines"
     },
     {
       "id": "skl_mbm_simulation",
-      "theme_id": "thm_mbm",
+      "domain_id": "thm_mbm",
       "name": "Process Simulation"
     },
     {
       "id": "skl_mbm_twin",
-      "theme_id": "thm_mbm",
+      "domain_id": "thm_mbm",
       "name": "Digital Twin Development"
     },
     {
       "id": "skl_mbm_modelling",
-      "theme_id": "thm_mbm",
+      "domain_id": "thm_mbm",
       "name": "Physics-Based Modelling"
     },
     {
       "id": "skl_mbm_optimisation",
-      "theme_id": "thm_mbm",
+      "domain_id": "thm_mbm",
       "name": "Process Optimisation"
     }
   ],
@@ -97,7 +97,7 @@
     {
       "id": "per_001",
       "name": "Alex Morgan",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "contracted_hours_per_month": 152,
       "available_from": null,
       "available_to": null,
@@ -120,7 +120,7 @@
     {
       "id": "per_002",
       "name": "Priya Kumar",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "contracted_hours_per_month": 152,
       "available_from": null,
       "available_to": null,
@@ -143,7 +143,7 @@
     {
       "id": "per_003",
       "name": "Daniel Okafor",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "contracted_hours_per_month": 152,
       "available_from": null,
       "available_to": null,
@@ -166,7 +166,7 @@
     {
       "id": "per_004",
       "name": "Sophie Laurent",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "contracted_hours_per_month": 122,
       "available_from": null,
       "available_to": null,
@@ -185,7 +185,7 @@
     {
       "id": "per_005",
       "name": "James Whitfield",
-      "primary_theme_id": "thm_miv",
+      "primary_domain_id": "thm_miv",
       "contracted_hours_per_month": 152,
       "available_from": null,
       "available_to": null,
@@ -208,7 +208,7 @@
     {
       "id": "per_006",
       "name": "Fatima Al-Rashid",
-      "primary_theme_id": "thm_miv",
+      "primary_domain_id": "thm_miv",
       "contracted_hours_per_month": 152,
       "available_from": null,
       "available_to": null,
@@ -231,7 +231,7 @@
     {
       "id": "per_007",
       "name": "Ben Carter",
-      "primary_theme_id": "thm_miv",
+      "primary_domain_id": "thm_miv",
       "contracted_hours_per_month": 152,
       "available_from": null,
       "available_to": null,
@@ -254,7 +254,7 @@
     {
       "id": "per_008",
       "name": "Naomi Chen",
-      "primary_theme_id": "thm_miv",
+      "primary_domain_id": "thm_miv",
       "contracted_hours_per_month": 152,
       "available_from": "2026-07",
       "available_to": null,
@@ -273,7 +273,7 @@
     {
       "id": "per_009",
       "name": "Marcus Vogel",
-      "primary_theme_id": "thm_mbm",
+      "primary_domain_id": "thm_mbm",
       "contracted_hours_per_month": 152,
       "available_from": null,
       "available_to": null,
@@ -296,7 +296,7 @@
     {
       "id": "per_010",
       "name": "Ishani Bhatia",
-      "primary_theme_id": "thm_mbm",
+      "primary_domain_id": "thm_mbm",
       "contracted_hours_per_month": 152,
       "available_from": null,
       "available_to": null,
@@ -319,7 +319,7 @@
     {
       "id": "per_011",
       "name": "Tom Ashford",
-      "primary_theme_id": "thm_mbm",
+      "primary_domain_id": "thm_mbm",
       "contracted_hours_per_month": 152,
       "available_from": null,
       "available_to": "2026-10",
@@ -338,7 +338,7 @@
     {
       "id": "per_012",
       "name": "Olivia Reyes",
-      "primary_theme_id": "thm_mbm",
+      "primary_domain_id": "thm_mbm",
       "contracted_hours_per_month": 152,
       "available_from": null,
       "available_to": null,
@@ -362,7 +362,7 @@
       "type": "Plant Project",
       "status": "Allocated",
       "owner": "Priya Kumar",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "description": "Extension of MES Phase 1 deployment at Plant B covering Lines 3–5, with genealogy and SCADA integration.",
       "parked_reason": null,
       "phases": [
@@ -545,7 +545,7 @@
       "type": "Group Strategy Project",
       "status": "Allocated",
       "owner": "Fatima Al-Rashid",
-      "primary_theme_id": "thm_miv",
+      "primary_domain_id": "thm_miv",
       "description": "Group-wide OEE reporting standardisation covering 5 plants. Defines KPI taxonomy and delivers a unified dashboard.",
       "parked_reason": null,
       "phases": [
@@ -700,7 +700,7 @@
       "type": "Group Strategy Project",
       "status": "PartiallyAllocated",
       "owner": "Marcus Vogel",
-      "primary_theme_id": "thm_mbm",
+      "primary_domain_id": "thm_mbm",
       "description": "Pilot digital twin for Line Y covering thermal and throughput behaviour. Success criteria feed into Group Strategy for a broader rollout.",
       "parked_reason": null,
       "phases": [
@@ -853,7 +853,7 @@
       "type": "Plant Project",
       "status": "Approved",
       "owner": "James Whitfield",
-      "primary_theme_id": "thm_miv",
+      "primary_domain_id": "thm_miv",
       "description": "Upgrade Plant C historian to current platform version, migrate tags, and rebuild critical dashboards.",
       "parked_reason": null,
       "phases": [
@@ -950,7 +950,7 @@
       "type": "Plant Project",
       "status": "Submitted",
       "owner": "Alex Morgan",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "description": "Major upgrade of Site X MES to add genealogy, improve SCADA integration, and introduce OEE dashboards. Largest single demand in the pipeline.",
       "parked_reason": null,
       "phases": [
@@ -1081,7 +1081,7 @@
       "type": "NPD Demand",
       "status": "Submitted",
       "owner": "Ishani Bhatia",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "description": "New product introduction on Line Y — cross-theme demand spanning MOM workflow changes, MI&V instrumentation, and MBM model updates. Demonstrates the cross-theme composition.",
       "parked_reason": null,
       "phases": [
@@ -1211,7 +1211,7 @@
       "type": "Plant Project",
       "status": "Draft",
       "owner": "Alex Morgan",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "description": "Enhance genealogy capture at Plant A to support new regulatory traceability requirements. Being shaped — requirements still being gathered from Quality.",
       "parked_reason": null,
       "phases": [
@@ -1246,7 +1246,7 @@
       "type": "Group Strategy Project",
       "status": "Draft",
       "owner": "Fatima Al-Rashid",
-      "primary_theme_id": "thm_miv",
+      "primary_domain_id": "thm_miv",
       "description": "POC dashboard combining historian data and simulation output to predict maintenance needs on critical assets. Still being shaped with Reliability team.",
       "parked_reason": null,
       "phases": [
@@ -1311,7 +1311,7 @@
       "type": "Plant Project",
       "status": "Parked",
       "owner": "Priya Kumar",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "description": "Greenfield MES deployment at new Plant D facility.",
       "parked_reason": "Plant D construction delayed by 12 months; re-assess in Q2 2027 when civil works are complete.",
       "phases": [
@@ -1379,7 +1379,7 @@
       "type": "Plant Project",
       "status": "Parked",
       "owner": "James Whitfield",
-      "primary_theme_id": "thm_miv",
+      "primary_domain_id": "thm_miv",
       "description": "Advanced analytics layer on top of Plant B historian to support yield optimisation.",
       "parked_reason": "Not resourceable within current 2026 plan. Plant B sponsor agreed to defer to 2027 and consider funding at next review.",
       "phases": [
@@ -1430,7 +1430,7 @@
       "type": "BAU",
       "status": "Allocated",
       "owner": "Alex Morgan",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "description": "Day-to-day MES support for Plant A super users, batch troubleshooting, recipe queries.",
       "parked_reason": null,
       "phases": [
@@ -1481,7 +1481,7 @@
       "type": "BAU",
       "status": "Allocated",
       "owner": "Priya Kumar",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "description": "Day-to-day MES support for Plant B. Planned handoff to business super users through 2026.",
       "parked_reason": null,
       "phases": [
@@ -1614,7 +1614,7 @@
       "type": "BAU",
       "status": "Allocated",
       "owner": "James Whitfield",
-      "primary_theme_id": "thm_miv",
+      "primary_domain_id": "thm_miv",
       "description": "Tag management, historian health, data quality investigations.",
       "parked_reason": null,
       "phases": [
@@ -1659,7 +1659,7 @@
       "type": "BAU",
       "status": "Allocated",
       "owner": "Ben Carter",
-      "primary_theme_id": "thm_miv",
+      "primary_domain_id": "thm_miv",
       "description": "Dashboard fixes, report tweaks, ad-hoc reporting requests.",
       "parked_reason": null,
       "phases": [
@@ -1704,7 +1704,7 @@
       "type": "BAU",
       "status": "Allocated",
       "owner": "Marcus Vogel",
-      "primary_theme_id": "thm_mbm",
+      "primary_domain_id": "thm_mbm",
       "description": "Licence admin, tooling updates, model troubleshooting for existing simulation users.",
       "parked_reason": null,
       "phases": [
@@ -1749,7 +1749,7 @@
       "type": "NPD Demand",
       "status": "Submitted",
       "owner": "Daniel Okafor",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "description": "Integration of MES genealogy and workflow coverage for the new NPD trial line in Plant A. Needed to unlock scaled production trials in Q4 2026.",
       "parked_reason": null,
       "phases": [
@@ -1832,7 +1832,7 @@
       "type": "NPD Demand",
       "status": "Allocated",
       "owner": "Naomi Chen",
-      "primary_theme_id": "thm_miv",
+      "primary_domain_id": "thm_miv",
       "description": "Quality reporting build-out for the NPD Line C rollout — dashboards and yield tracking for early-phase trials.",
       "parked_reason": null,
       "phases": [
@@ -1907,7 +1907,7 @@
       "type": "NPD Demand",
       "status": "Draft",
       "owner": "Marcus Vogel",
-      "primary_theme_id": "thm_mbm",
+      "primary_domain_id": "thm_mbm",
       "description": "Process simulation model for the Product Family Z NPD programme. Still being scoped with R&D.",
       "parked_reason": null,
       "phases": [
@@ -1958,7 +1958,7 @@
       "type": "Plant Project",
       "status": "Approved",
       "owner": "David Lin",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "description": "Full MES platform migration at Plant C. Approved but awaiting resource planning - heavy MOM Specialist requirement creates downstream capacity tension.",
       "parked_reason": null,
       "phases": [
@@ -2007,7 +2007,7 @@
       "type": "Group Strategy Project",
       "status": "Submitted",
       "owner": "Elena Richter",
-      "primary_theme_id": "thm_miv",
+      "primary_domain_id": "thm_miv",
       "description": "Strategic integration of plant data into group-level analytics lake. Pending Prioritisation Board review. Heavy MI&V Specialist requirement.",
       "parked_reason": null,
       "phases": [
@@ -2058,7 +2058,7 @@
       "type": "Plant Project",
       "status": "Submitted",
       "owner": "Martin Hughes",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "description": "Enhancement to OEE tracking at Plant A. Submitted for prioritisation. Would directly increase MOM demand in already-congested months.",
       "parked_reason": null,
       "phases": [
@@ -2094,7 +2094,7 @@
       "type": "Plant Project",
       "status": "PartiallyAllocated",
       "owner": "Priya Kumar",
-      "primary_theme_id": "thm_mom",
+      "primary_domain_id": "thm_mom",
       "description": "Rollout of genealogy & traceability tracking across plants. Priya partially allocated; further Advanced MOM capacity still needed.",
       "parked_reason": null,
       "phases": [
@@ -2141,7 +2141,7 @@
       "type": "Plant Project",
       "status": "Allocated",
       "owner": "Fatima Al-Rashid",
-      "primary_theme_id": "thm_miv",
+      "primary_domain_id": "thm_miv",
       "description": "Historian platform upgrade. Fatima leading; overlaps with her other MI&V commitments to test cross-project headroom tracking.",
       "parked_reason": null,
       "phases": [

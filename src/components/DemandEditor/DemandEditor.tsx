@@ -239,7 +239,7 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
   const store = useAppStore()
   const navigate = useNavigate()
 
-  const theme = store.themes.find(t => t.id === item.primary_theme_id)
+  const domain = store.domains.find(t => t.id === item.primary_domain_id)
   const project = item.project_id ? store.projects.find(p => p.id === item.project_id) : null
   const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
   const { finite: totalFiniteHours, indefiniteCount } = totalItemHours(item)
@@ -308,7 +308,7 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
               </h2>
               <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-gray-500">
                 <span>{item.type}</span>
-                {theme && <><span className="text-gray-300">·</span><span>{theme.name}</span></>}
+                {domain && <><span className="text-gray-300">·</span><span>{domain.name}</span></>}
                 {programme && project && (
                   <>
                     <span className="text-gray-300">·</span>

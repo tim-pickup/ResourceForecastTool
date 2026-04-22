@@ -3,7 +3,7 @@ export type DemandStatus = 'Draft' | 'Submitted' | 'Approved' | 'PartiallyAlloca
 export type DemandType = 'Group Strategy Project' | 'Plant Project' | 'NPD Demand' | 'BAU'
 export type FundingSource = 'Investment Scheme' | 'Plant/Sector Allocation' | 'Mixed'
 
-export interface Theme {
+export interface Domain {
   id: string
   name: string
   description: string
@@ -11,7 +11,7 @@ export interface Theme {
 
 export interface Skill {
   id: string
-  theme_id: string
+  domain_id: string
   name: string
 }
 
@@ -23,7 +23,7 @@ export interface PersonSkill {
 export interface Person {
   id: string
   name: string
-  primary_theme_id: string
+  primary_domain_id: string
   contracted_hours_per_month: number
   available_from: string | null
   available_to: string | null
@@ -68,7 +68,7 @@ export interface DemandItem {
   type: DemandType
   status: DemandStatus
   owner: string
-  primary_theme_id: string
+  primary_domain_id: string
   description: string
   parked_reason: string | null
   previous_status: DemandStatus | null
@@ -115,7 +115,7 @@ export interface ExternalResourceRequirement {
 // ─── App state ────────────────────────────────────────────────────────────────
 
 export interface AppState {
-  themes: Theme[]
+  domains: Domain[]
   skills: Skill[]
   people: Person[]
   demandItems: DemandItem[]

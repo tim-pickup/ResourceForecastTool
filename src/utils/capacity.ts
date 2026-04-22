@@ -199,8 +199,8 @@ function activePeopleInMonth(month: string, state: AppState): Person[] {
   return state.people.filter(p => p.active && monthInRange(month, p.available_from, p.available_to))
 }
 
-function personIdsWithThemeSkills(themeId: string, state: AppState): Set<string> {
-  const ids = new Set(state.skills.filter(s => s.theme_id === themeId).map(s => s.id))
+function personIdsWithDomainSkills(domainId: string, state: AppState): Set<string> {
+  const ids = new Set(state.skills.filter(s => s.domain_id === domainId).map(s => s.id))
   return new Set(state.people.filter(p => p.active && p.skills.some(ps => ids.has(ps.skill_id))).map(p => p.id))
 }
 
@@ -251,21 +251,21 @@ export function getTeamDemand(
   return demandFromItems(state.demandItems, month, () => true, new Set(statuses))
 }
 
-export function getThemeCapacity(themeId: string, month: string, state: AppState): number {
-  const inTheme = personIdsWithThemeSkills(themeId, state)
+export function getDomainCapacity(domainId: string, month: string, state: AppState): number {
+  const inDomain = personIdsWithDomainSkills(domainId, state)
   return activePeopleInMonth(month, state)
-    .filter(p => inTheme.has(p.id))
+    .filter(p => inDomain.has(p.id))
     .reduce((s, p) => s + Math.max(0, p.contracted_hours_per_month - getPersonBauHoursFromDemand(p.id, month, state.demandItems)), 0)
 }
 
-export function getThemeDemand(
-  themeId: string,
+export function getDomainDemand(
+  domainId: string,
   month: string,
   state: AppState,
   statuses: string[] = ['Approved', 'PartiallyAllocated', 'Allocated']
 ): DemandBreakdown {
-  const themeSkillIds = new Set(state.skills.filter(s => s.theme_id === themeId).map(s => s.id))
-  const reqFilter = (r: Requirement) => themeSkillIds.has(r.skill_id)
+  const domainSkillIds = new Set(state.skills.filter(s => s.domain_id === domainId).map(s => s.id))
+  const reqFilter = (r: Requirement) => domainSkillIds.has(r.skill_id)
   return demandFromItems(state.demandItems, month, reqFilter, new Set(statuses))
 }
 
@@ -306,8 +306,8 @@ export function getPeopleForSkill(skillId: string, state: AppState): Array<{ per
     })
 }
 
-export function getThemeSkillDemand(
-  themeId: string,
+export function getDomainSkillDemand(
+  domainId: string,
   month: string,
   state: AppState,
   statuses: string[] = ['Approved', 'PartiallyAllocated', 'Allocated']
@@ -319,7 +319,7 @@ export function getThemeSkillDemand(
       if (!monthInRange(month, phase.start_month, phase.end_month)) continue
       for (const req of phase.requirements) {
         const skill = state.skills.find(s => s.id === req.skill_id)
-        if (skill?.theme_id === themeId) total += getReqHoursForMonth(req, month, phase)
+        if (skill?.domain_id === domainId) total += getReqHoursForMonth(req, month, phase)
       }
     }
   }

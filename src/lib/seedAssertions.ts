@@ -32,7 +32,7 @@ function buildSeedState(): AppState {
   const raw = seedRaw as Record<string, any>
   const items: Record<string, unknown>[] = raw.demand_items || []
   return {
-    themes: raw.themes || [],
+    domains: raw.domains || [],
     skills: raw.skills || [],
     people: raw.people || [],
     programmes: raw.programmes || [],
@@ -50,7 +50,7 @@ function buildSeedState(): AppState {
       type: d.type as DemandItem['type'],
       status: (d.status === 'Accepted' ? 'Approved' : d.status) as DemandStatus,
       owner: d.owner as string,
-      primary_theme_id: d.primary_theme_id as string,
+      primary_domain_id: d.primary_domain_id as string,
       description: d.description as string,
       parked_reason: (d.parked_reason ?? null) as string | null,
       previous_status: (d.previous_status ?? null) as DemandStatus | null,
@@ -131,7 +131,7 @@ export function runSeedAssertions(): void {
 
   const projWithOverlay = computeProjection(state, months, corporateDataLakeId)
 
-  const mivTarget: DemandTarget = { type: 'theme', id: 'thm_miv' }
+  const mivTarget: DemandTarget = { type: 'domain', id: 'thm_miv' }
   const bandMivWithOverlay = grey_band(mivTarget, '2026-07', state, projWithOverlay)
   assert('grey_band(thm_miv, 2026-07) with Corporate Data Lake overlay', bandMivWithOverlay, '>', 0)
 
@@ -165,15 +165,15 @@ export function runSeedAssertions(): void {
         : d
     ),
   }
-  for (const theme of state.themes) {
+  for (const domain of state.domains) {
     for (const month of ['2026-07', '2026-08']) {
-      const withOv = demand_hours_for({ type: 'theme', id: theme.id }, EMPTY, month, state, corporateDataLakeId)
-      const withPr = demand_hours_for({ type: 'theme', id: theme.id }, COMMITTED_STATUSES, month, fakeState)
+      const withOv = demand_hours_for({ type: 'domain', id: domain.id }, EMPTY, month, state, corporateDataLakeId)
+      const withPr = demand_hours_for({ type: 'domain', id: domain.id }, COMMITTED_STATUSES, month, fakeState)
       const ovTotal = withOv.strategy + withOv.plant + withOv.npd + withOv.bau
       const prTotal = withPr.strategy + withPr.plant + withPr.npd + withPr.bau
       if (Math.abs(ovTotal - prTotal) > 0.01) {
         console.error(
-          `[SeedAssertion FAIL] Invariant A: theme ${theme.name} ${month} — overlay(${ovTotal.toFixed(1)}) ≠ promoted(${prTotal.toFixed(1)})`
+          `[SeedAssertion FAIL] Invariant A: domain ${domain.name} ${month} — overlay(${ovTotal.toFixed(1)}) ≠ promoted(${prTotal.toFixed(1)})`
         )
       }
     }

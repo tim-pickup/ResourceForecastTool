@@ -122,7 +122,7 @@ function PeopleList({
 
     return people.map(person => {
       const skillEntry = person.skills.find(ps => ps.skill_id === skillId)!
-      const theme = store.themes.find(t => t.id === person.primary_theme_id)
+      const domain = store.domains.find(t => t.id === person.primary_domain_id)
 
       const monthHeadrooms = months.map(month => {
         const contracted = monthInRange(month, person.available_from, person.available_to)
@@ -144,7 +144,7 @@ function PeopleList({
       return {
         person,
         level: skillEntry.level,
-        theme,
+        domain,
         avgHeadroom,
         worstHeadroom,
         worstMonth,
@@ -213,12 +213,12 @@ function PeopleList({
         <p className="text-xs text-gray-400 italic p-4">No active people hold this skill.</p>
       )}
 
-      {sorted.map(({ person, level, theme, avgHeadroom, worstHeadroom, worstMonth }) => (
+      {sorted.map(({ person, level, domain, avgHeadroom, worstHeadroom, worstMonth }) => (
         <div key={person.id} className="px-4 py-2 flex items-center gap-4 border-b border-border/50 hover:bg-gray-50/50">
           <span className="text-xs font-medium text-near-black w-32 truncate">{person.name}</span>
           <div className="w-24 flex items-center gap-1">
             <span className={clsx('text-[10px] px-1.5 py-0.5 rounded font-medium', levelBg[level])}>{level}</span>
-            {theme && <span className="text-[9px] text-gray-400 truncate">{theme.name}</span>}
+            {domain && <span className="text-[9px] text-gray-400 truncate">{domain.name}</span>}
           </div>
           <div className="flex gap-0.5">
             {months.map(month => {
@@ -525,7 +525,7 @@ export default function SkillDetail() {
   const [editorOpen, setEditorOpen] = useState(false)
 
   const skill = skillId ? store.skills.find(s => s.id === skillId) : null
-  const theme = skill ? store.themes.find(t => t.id === skill.theme_id) : null
+  const domain = skill ? store.domains.find(t => t.id === skill.domain_id) : null
 
   const months = useMemo(() => generateMonths(getCurrentMonth(), horizon), [horizon])
 
@@ -601,7 +601,7 @@ export default function SkillDetail() {
         </button>
         <div className="h-4 w-px bg-border" />
         <span className="text-sm font-semibold text-near-black">
-          {theme?.name} › {skill.name}
+          {domain?.name} › {skill.name}
         </span>
         <div className="flex-1" />
         {/* Horizon */}
@@ -628,7 +628,7 @@ export default function SkillDetail() {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h1 className="text-lg font-semibold text-near-black">{skill.name}</h1>
-              <p className="text-xs text-gray-500 mt-0.5">{theme?.name}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{domain?.name}</p>
             </div>
             <div className="flex gap-6 flex-wrap">
               {/* Level breakdown */}
