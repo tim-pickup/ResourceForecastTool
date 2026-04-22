@@ -12,7 +12,7 @@ After completing each change: `git add -A && git commit -m "v1.15 Change N: <sho
 ## Status
 
 - [x] Change 1 — Domain rename ✓ committed
-- [ ] Change 2 — Primary Domain auto-derived
+- [x] Change 2 — Primary Domain auto-derived
 - [ ] Change 3 — Drawer header fix
 - [ ] Change 4 — External requirements Fill All
 - [ ] Change 5 — External Resource Demand chart
