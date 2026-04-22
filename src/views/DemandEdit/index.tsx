@@ -29,10 +29,10 @@ function pageTransitions(status: DemandStatus, isNew: boolean): Transition[] {
   }
 }
 
-function blankDemand(domainId: string): Omit<DemandItem, 'id'> {
+function blankDemand(): Omit<DemandItem, 'id'> {
   return {
     name: '', type: 'Plant Project', status: 'Draft', owner: '',
-    primary_domain_id: domainId, description: '', parked_reason: null,
+    primary_domain_id: '', description: '', parked_reason: null,
     previous_status: null, closed_at: null, phases: [], project_id: null,
   }
 }
@@ -46,7 +46,7 @@ export default function DemandEdit() {
   const existing = id ? store.demandItems.find(d => d.id === id) : null
 
   const [draft, setDraft] = useState<Omit<DemandItem, 'id'>>(() =>
-    existing ? { ...existing } : blankDemand(store.domains[0]?.id ?? '')
+    existing ? { ...existing } : blankDemand()
   )
   const [isDirty, setIsDirty] = useState(false)
 
@@ -230,14 +230,9 @@ export default function DemandEdit() {
                   onChange={e => update(d => ({ ...d, name: e.target.value }))}
                   placeholder="e.g. Plant B MES Phase 2 Rollout"
                 />
-                <div className="grid grid-cols-2 gap-3">
-                  <Select label="Type" value={draft.type} onChange={e => update(d => ({ ...d, type: e.target.value as DemandType }))}>
-                    {TYPES.map(t => <option key={t}>{t}</option>)}
-                  </Select>
-                  <Select label="Primary Domain" value={draft.primary_domain_id} onChange={e => update(d => ({ ...d, primary_domain_id: e.target.value }))}>
-                    {store.domains.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </Select>
-                </div>
+                <Select label="Type" value={draft.type} onChange={e => update(d => ({ ...d, type: e.target.value as DemandType }))}>
+                  {TYPES.map(t => <option key={t}>{t}</option>)}
+                </Select>
                 <Input label="Owner" value={draft.owner} onChange={e => update(d => ({ ...d, owner: e.target.value }))} placeholder="Name or role" />
                 {/* Project alignment */}
                 <div>

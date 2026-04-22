@@ -3,6 +3,7 @@ import { Plus, Trash2, AlertTriangle, Lock } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAppStore } from '../../store/useAppStore'
 import type { AppState, DemandItem, SkillRequirement, NamedAllocation, Level, DemandStatus, Phase } from '../../types'
+import { derivedPrimaryDomain } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { formatMonthLabel, getPersonAvgAvailableForPhase, monthInRange } from '../../utils/capacity'
 import { generateId } from '../../utils/ids'
@@ -529,7 +530,7 @@ interface Props {
 export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRevise, onRevise }: Props) {
   const store = useAppStore()
   const { domains } = store
-  const domain = domains.find(t => t.id === draft.primary_domain_id)
+  const domain = derivedPrimaryDomain(draft, domains, store.skills)
   const project = draft.project_id ? store.projects.find(p => p.id === draft.project_id) : null
   const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
 

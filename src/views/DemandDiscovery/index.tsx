@@ -8,7 +8,7 @@ import { DemandDrawer } from '../../components/DemandEditor/DemandEditor'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import type { DemandItem, DemandStatus, DemandType } from '../../types'
-import { isValidTransition } from '../../types'
+import { isValidTransition, derivedPrimaryDomain } from '../../types'
 import { clsx } from 'clsx'
 import { getCurrentMonth, generateMonths } from '../../utils/capacity'
 import { project_internal_hours, project_external_hours, project_external_hours_by_provider } from '../../lib/capacity'
@@ -35,7 +35,7 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: item.id })
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
   const store = useAppStore()
-  const domain = store.domains.find(t => t.id === item.primary_domain_id)
+  const domain = derivedPrimaryDomain(item, store.domains, store.skills)
   const project = item.project_id ? store.projects.find(p => p.id === item.project_id) : null
   const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
 
@@ -97,7 +97,6 @@ function TableRow({ item, projectMap, programmeMap, phasesWithExt, onSelect }: {
   const store = useAppStore()
   const project = item.project_id ? projectMap.get(item.project_id) : null
   const programme = project ? programmeMap.get(project.programme_id) : null
-  const domainMap = new Map(store.domains.map(t => [t.id, t.name]))
   const extHrs = store.externalResourceRequirements
     .filter(r => item.phases.some(p => p.id === r.phase_id))
     .reduce((s, ext) => {
@@ -118,7 +117,7 @@ function TableRow({ item, projectMap, programmeMap, phasesWithExt, onSelect }: {
       <td className="px-4 py-2.5 text-gray-600">{item.owner || '—'}</td>
       <td className="px-4 py-2.5 text-gray-500 text-xs">{programme?.name ?? <span className="text-gray-300">—</span>}</td>
       <td className="px-4 py-2.5 text-gray-500 text-xs">{project?.name ?? <span className="text-gray-300 italic">Unaligned</span>}</td>
-      <td className="px-4 py-2.5 text-gray-500 text-xs">{domainMap.get(item.primary_domain_id) ?? '—'}</td>
+      <td className="px-4 py-2.5 text-gray-500 text-xs italic">{derivedPrimaryDomain(item, store.domains, store.skills)?.name ?? 'Unassigned'}</td>
       <td className="px-4 py-2.5 text-right text-xs text-amber-600">{extHrs > 0 ? `${Math.round(extHrs)}h` : <span className="text-gray-300">—</span>}</td>
     </tr>
   )
@@ -154,7 +153,6 @@ export default function DemandDiscovery() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
-  const domainMap = useMemo(() => new Map(store.domains.map(t => [t.id, t.name])), [store.domains])
   const projectMap = useMemo(() => new Map(store.projects.map(p => [p.id, p])), [store.projects])
   const programmeMap = useMemo(() => new Map(store.programmes.map(p => [p.id, p])), [store.programmes])
 
@@ -180,7 +178,7 @@ export default function DemandDiscovery() {
     let items = [...activeItems]
     if (filterStatus) items = items.filter(d => d.status === filterStatus)
     if (filterType) items = items.filter(d => d.type === filterType)
-    if (filterDomain) items = items.filter(d => d.primary_domain_id === filterDomain)
+    if (filterDomain) items = items.filter(d => derivedPrimaryDomain(d, store.domains, store.skills)?.id === filterDomain)
     if (filterProgramme) {
       const projIds = new Set(store.projects.filter(p => p.programme_id === filterProgramme).map(p => p.id))
       items = items.filter(d => d.project_id && projIds.has(d.project_id))
@@ -460,7 +458,7 @@ export default function DemandDiscovery() {
             <div className="flex gap-3 h-full min-h-[400px]">
               {ACTIVE_STATUSES.map(status => {
                 const colItems = activeItems.filter(d => d.status === status &&
-                  (!filterDomain || d.primary_domain_id === filterDomain) &&
+                  (!filterDomain || derivedPrimaryDomain(d, store.domains, store.skills)?.id === filterDomain) &&
                   (!filterType || d.type === filterType)
                 )
                 return (
@@ -503,7 +501,7 @@ export default function DemandDiscovery() {
                   <StatusBadge status={item.status} />
                   <span className="text-sm font-medium text-near-black">{item.name}</span>
                 </div>
-                <div className="text-xs text-gray-500">{item.type} · {domainMap.get(item.primary_domain_id)} · {item.owner || 'No owner'}</div>
+                <div className="text-xs text-gray-500">{item.type} · <span className="italic">{derivedPrimaryDomain(item, store.domains, store.skills)?.name ?? 'Unassigned'}</span> · {item.owner || 'No owner'}</div>
                 {item.description && <div className="text-xs text-gray-400 mt-1 line-clamp-2">{item.description}</div>}
               </div>
             ))}

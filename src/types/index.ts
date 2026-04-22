@@ -134,6 +134,23 @@ export function getExternalRequirementsForPhase(
   return state.externalResourceRequirements.filter(r => r.phase_id === phase_id)
 }
 
+export function derivedPrimaryDomain(item: Pick<DemandItem, 'phases'>, domains: Domain[], skills: Skill[]): Domain | null {
+  const totals = new Map<string, number>()
+  for (const phase of item.phases) {
+    for (const req of phase.requirements) {
+      const skill = skills.find(s => s.id === req.skill_id)
+      if (!skill) continue
+      const hours = phase.end_month === null
+        ? (req.steady_state_hours ?? 0)
+        : Object.values(req.hours_by_month).reduce((s, h) => s + h, 0)
+      totals.set(skill.domain_id, (totals.get(skill.domain_id) ?? 0) + hours)
+    }
+  }
+  if (totals.size === 0) return null
+  const [topDomainId] = [...totals.entries()].sort((a, b) => b[1] - a[1])[0]
+  return domains.find(d => d.id === topDomainId) ?? null
+}
+
 // State machine — valid user-driven transitions (not including system auto-transitions)
 export const VALID_TRANSITIONS: Partial<Record<DemandStatus, DemandStatus[]>> = {
   Draft: ['Submitted'],

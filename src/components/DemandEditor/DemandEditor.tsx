@@ -6,6 +6,7 @@ import { useAppStore } from '../../store/useAppStore'
 import { Button } from '../ui/Button'
 import { StatusBadge } from '../ui/Badge'
 import type { DemandItem, DemandStatus } from '../../types'
+import { derivedPrimaryDomain } from '../../types'
 
 interface Props {
   demandId: string | null
@@ -239,7 +240,7 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
   const store = useAppStore()
   const navigate = useNavigate()
 
-  const domain = store.domains.find(t => t.id === item.primary_domain_id)
+  const domain = derivedPrimaryDomain(item, store.domains, store.skills)
   const project = item.project_id ? store.projects.find(p => p.id === item.project_id) : null
   const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
   const { finite: totalFiniteHours, indefiniteCount } = totalItemHours(item)
@@ -380,6 +381,12 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
               </div>
             )
           })()}
+
+          {/* Primary Domain — read-only, auto-derived from requirement hours */}
+          <div className="text-xs">
+            <span className="text-gray-400">Primary Domain: </span>
+            <span>{domain?.name ?? 'Unassigned'}</span>
+          </div>
 
           {/* Project alignment */}
           {project ? (

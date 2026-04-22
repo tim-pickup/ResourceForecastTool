@@ -5,6 +5,7 @@ import { useAppStore } from '../../store/useAppStore'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import type { DemandItem, DemandStatus } from '../../types'
+import { derivedPrimaryDomain } from '../../types'
 
 function totalHours(item: DemandItem): number {
   return item.phases.flatMap(p => p.requirements).flatMap(r => Object.values(r.hours_by_month)).reduce((s, h) => s + h, 0)
@@ -16,7 +17,6 @@ export default function Archive() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const closedItems = store.demandItems.filter(d => d.status === 'Closed')
-  const domainMap = new Map(store.domains.map(t => [t.id, t.name]))
 
   const handleRestore = (item: DemandItem) => {
     const restoreTo: DemandStatus = item.previous_status ?? 'Draft'
@@ -68,7 +68,7 @@ export default function Archive() {
                 <tr key={item.id} className="border-b border-border/50 hover:bg-gray-50">
                   <td className="px-4 py-2.5 font-medium text-near-black">{item.name}</td>
                   <td className="px-4 py-2.5 text-gray-600 text-xs">{item.type}</td>
-                  <td className="px-4 py-2.5 text-gray-500 text-xs">{domainMap.get(item.primary_domain_id) ?? '—'}</td>
+                  <td className="px-4 py-2.5 text-gray-500 text-xs italic">{derivedPrimaryDomain(item, store.domains, store.skills)?.name ?? 'Unassigned'}</td>
                   <td className="px-4 py-2.5 text-gray-600">{item.owner || '—'}</td>
                   <td className="px-4 py-2.5">
                     {item.previous_status ? <StatusBadge status={item.previous_status} /> : <span className="text-gray-400 text-xs">—</span>}

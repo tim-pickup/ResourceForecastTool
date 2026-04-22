@@ -116,6 +116,7 @@ export const useAppStore = create<Store>()(
           id: newId,
           name: item.name + ' (copy)',
           status: 'Draft',
+          primary_domain_id: '',
           parked_reason: null,
           previous_status: null,
           closed_at: null,
