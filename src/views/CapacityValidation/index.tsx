@@ -7,7 +7,7 @@ import { useAppStore } from '../../store/useAppStore'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   generateMonths, getCurrentMonth, formatMonthLabel, getPeopleForSkill,
-  getPersonLoad,
+  getPersonLoad, monthInRange,
 } from '../../utils/capacity'
 import {
   domain_capacity, skill_capacity, team_capacity,
@@ -426,6 +426,8 @@ export default function CapacityValidation() {
   // Programme/Project filter — affects demand stacks only, not capacity or grey band
   const [filterProgramme, setFilterProgramme] = useState('')
   const [filterProject, setFilterProject] = useState('')
+  // Team filter — scopes the dashed secondary capacity line and demand tint only
+  const [filterTeam, setFilterTeam] = useState('')
   const [showExternal, setShowExternal] = useState(false)
 
   // Read URL query params for Model Impact deep-link
@@ -475,6 +477,46 @@ export default function CapacityValidation() {
   const modelImpactItem = modelImpactId ? store.demandItems.find(d => d.id === modelImpactId) : null
   const overlayItem = overlayId ? store.demandItems.find(d => d.id === overlayId) : null
 
+  const activeTeams = useMemo(() => store.teams.filter(t => t.active), [store.teams])
+  const selectedTeam = filterTeam ? activeTeams.find(t => t.id === filterTeam) : null
+
+  // Compute team-owned committed demand hours for a domain in a month
+  // (requirements where owningTeamId === filterTeam, in COMMITTED_STATUSES items)
+  function teamDemandForDomain(domainId: string, month: string): number {
+    if (!filterTeam) return 0
+    const domainSkillIds = new Set(store.skills.filter(s => s.domain_id === domainId).map(s => s.id))
+    let total = 0
+    for (const item of demandFilteredState.demandItems) {
+      if (!COMMITTED_STATUSES.has(item.status)) continue
+      for (const phase of item.phases) {
+        if (!monthInRange(month, phase.start_month, phase.end_month)) continue
+        for (const req of phase.requirements) {
+          if (req.owningTeamId !== filterTeam) continue
+          if (!domainSkillIds.has(req.skill_id)) continue
+          total += phase.end_month === null ? (req.steady_state_hours ?? 0) : (req.hours_by_month[month] ?? 0)
+        }
+      }
+    }
+    return total
+  }
+
+  function teamDemandForSkill(skillId: string, month: string): number {
+    if (!filterTeam) return 0
+    let total = 0
+    for (const item of demandFilteredState.demandItems) {
+      if (!COMMITTED_STATUSES.has(item.status)) continue
+      for (const phase of item.phases) {
+        if (!monthInRange(month, phase.start_month, phase.end_month)) continue
+        for (const req of phase.requirements) {
+          if (req.owningTeamId !== filterTeam) continue
+          if (req.skill_id !== skillId) continue
+          total += phase.end_month === null ? (req.steady_state_hours ?? 0) : (req.hours_by_month[month] ?? 0)
+        }
+      }
+    }
+    return total
+  }
+
   const handleBackToDemand = () => {
     navigate('/demand', { state: { openDrawer: modelImpactId } })
   }
@@ -522,17 +564,22 @@ export default function CapacityValidation() {
       return {
         month,
         label: formatMonthLabel(month),
-        capacity: domain_capacity(domain.id, month, store),  // full store
+        capacity: domain_capacity(domain.id, month, store),  // full store, full pool
         bau: committed.bau,
         plant: committed.plant,
         npd: committed.npd,
         strategy: committed.strategy,
         overlay: overlayDemand.bau + overlayDemand.plant + overlayDemand.npd + overlayDemand.strategy,
         grey: grey_band(target, month, store, projResult),  // full store
+        ...(filterTeam ? {
+          teamCapacity: domain_capacity(domain.id, month, store, filterTeam),
+          teamDemand: teamDemandForDomain(domain.id, month),
+        } : {}),
       }
     })
     return { domain, data }
-  }), [months, store, demandFilteredState, overlayId, EMPTY_STATUSES, projResult])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [months, store, demandFilteredState, overlayId, EMPTY_STATUSES, projResult, filterTeam])
 
   const skillsForSectionB = useMemo(() =>
     drillDomainId ? store.skills.filter(s => s.domain_id === drillDomainId) : store.skills,
@@ -549,17 +596,22 @@ export default function CapacityValidation() {
       return {
         month,
         label: formatMonthLabel(month),
-        capacity: skill_capacity(skill.id, month, store),  // full store
+        capacity: skill_capacity(skill.id, month, store),  // full store, full pool
         bau: committed.bau,
         plant: committed.plant,
         npd: committed.npd,
         strategy: committed.strategy,
         overlay: overlayDemand.bau + overlayDemand.plant + overlayDemand.npd + overlayDemand.strategy,
         grey: grey_band(target, month, store, projResult),  // full store
+        ...(filterTeam ? {
+          teamCapacity: skill_capacity(skill.id, month, store, filterTeam),
+          teamDemand: teamDemandForSkill(skill.id, month),
+        } : {}),
       }
     })
     return { skill, domain: store.domains.find(t => t.id === skill.domain_id), data }
-  }), [months, store, demandFilteredState, skillsForSectionB, overlayId, EMPTY_STATUSES, projResult])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [months, store, demandFilteredState, skillsForSectionB, overlayId, EMPTY_STATUSES, projResult, filterTeam])
 
   const skillsByDomain = useMemo(() => {
     const groups = new Map<string, typeof skillCharts>()
@@ -788,6 +840,16 @@ export default function CapacityValidation() {
           )}
         </div>
 
+        {/* Team filter — shows dashed secondary capacity line + demand tint */}
+        <select
+          value={filterTeam}
+          onChange={e => setFilterTeam(e.target.value)}
+          className="text-xs border border-border rounded px-2 py-1 bg-white"
+        >
+          <option value="">All Teams</option>
+          {activeTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+
         <div className="flex-1" />
 
         {/* Show external resource toggle */}
@@ -867,6 +929,7 @@ export default function CapacityValidation() {
                     data={data}
                     compact
                     onClick={() => handleDomainClick(domain.id)}
+                    teamName={selectedTeam?.name}
                   />
                 </div>
               ))}
@@ -888,6 +951,7 @@ export default function CapacityValidation() {
                           data={data}
                           compact
                           onClick={() => handleSkillClick(skill.id)}
+                          teamName={selectedTeam?.name}
                         />
                       </div>
                     ))}

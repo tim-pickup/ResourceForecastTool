@@ -74,12 +74,13 @@ export function person_capacity(personId: string, month: string, state: AppState
 // Commitments to this domain's own skills show on the demand side of T's chart
 // and are deliberately NOT subtracted here (prevents double-counting).
 
-export function domain_capacity(domainId: string, month: string, state: AppState): number {
+export function domain_capacity(domainId: string, month: string, state: AppState, teamId?: string): number {
   const domainSkillIds = new Set(state.skills.filter(s => s.domain_id === domainId).map(s => s.id))
   let total = 0
 
   for (const person of state.people) {
     if (!person.active) continue
+    if (teamId && person.teamId !== teamId) continue
     if (!monthInRange(month, person.available_from, person.available_to)) continue
     if (!person.skills.some(ps => domainSkillIds.has(ps.skill_id))) continue
 
@@ -107,11 +108,12 @@ export function domain_capacity(domainId: string, month: string, state: AppState
 // For each person who holds skill S (at any level):
 //   max(0, contracted − sum of their allocs to skills other than S)
 
-export function skill_capacity(skillId: string, month: string, state: AppState): number {
+export function skill_capacity(skillId: string, month: string, state: AppState, teamId?: string): number {
   let total = 0
 
   for (const person of state.people) {
     if (!person.active) continue
+    if (teamId && person.teamId !== teamId) continue
     if (!monthInRange(month, person.available_from, person.available_to)) continue
     if (!person.skills.some(ps => ps.skill_id === skillId)) continue
 

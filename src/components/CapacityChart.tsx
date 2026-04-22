@@ -14,6 +14,8 @@ export interface ChartPoint {
   bau: number
   overlay: number
   grey: number
+  teamCapacity?: number  // dashed secondary line — team-scoped capacity
+  teamDemand?: number    // tinted area — committed hours owned by selected team
 }
 
 // Internal type with the grey-band base derived from capacity
@@ -54,10 +56,16 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
       <p className="font-semibold mb-2 text-near-black">{d.label}</p>
       <div className="space-y-1">
         <Row label="Capacity" val={d.capacity} color={C.capacity} bold />
+        {d.teamCapacity != null && (
+          <Row label="Team capacity" val={d.teamCapacity} color="#146ef5" />
+        )}
         {d.bau > 0 && <Row label="BAU" val={d.bau} color={C.bau} />}
         {d.plant > 0 && <Row label="Plant Project" val={d.plant} color={C.plant} />}
         {d.npd > 0 && <Row label="NPD Demand" val={d.npd} color={C.npd} />}
         {d.strategy > 0 && <Row label="Group Strategy" val={d.strategy} color={C.strategy} />}
+        {d.teamDemand != null && d.teamDemand > 0 && (
+          <Row label="Team-owned demand" val={d.teamDemand} color="#7a3dff" />
+        )}
         {d.overlay > 0 && <Row label="Overlay (Submitted)" val={d.overlay} color={C.overlay} prefix="+" />}
         {d.grey > 0 && (
           <div className="mt-1.5 pt-1.5 border-t border-gray-100">
@@ -102,9 +110,10 @@ interface Props {
   data: ChartPoint[]
   compact?: boolean
   onClick?: () => void
+  teamName?: string  // when set, shows team capacity dashed line legend label
 }
 
-export function CapacityChart({ title, subtitle, data, compact = false, onClick }: Props) {
+export function CapacityChart({ title, subtitle, data, compact = false, onClick, teamName }: Props) {
   const h = compact ? 180 : 260
 
   // Unique pattern ID — multiple charts on same page need distinct SVG ids
@@ -121,6 +130,8 @@ export function CapacityChart({ title, subtitle, data, compact = false, onClick 
   // When overlay is universally 0, the stacked Area path is identical to the
   // top committed-stack path — a silent duplicate. §4 View 1 overlay correctness.
   const hasOverlay = chartData.some(d => d.overlay > 0)
+  const hasTeamCapacity = chartData.some(d => d.teamCapacity != null)
+  const hasTeamDemand = chartData.some(d => d.teamDemand != null && d.teamDemand > 0)
 
   // Over-capacity: committed demand alone exceeds capacity line
   const overCommittedMonths = data
@@ -262,8 +273,40 @@ export function CapacityChart({ title, subtitle, data, compact = false, onClick 
             />
           )}
 
+          {/* Team-owned demand tint — semi-transparent purple area from 0 to teamDemand.
+              Not stacked with "d" so underlying demand colours show through.
+              Visually marks the portion of committed demand owned by selected team. */}
+          {hasTeamDemand && (
+            <Area
+              type="monotone"
+              dataKey="teamDemand"
+              fill="#7a3dff"
+              fillOpacity={0.18}
+              stroke="#7a3dff"
+              strokeWidth={1}
+              strokeOpacity={0.4}
+              dot={false}
+              name="Team-owned demand"
+              isAnimationActive={false}
+            />
+          )}
+
           {/* Capacity line — drawn last so it sits on top */}
           <Line type="monotone" dataKey="capacity" stroke={C.capacity} strokeWidth={2.5} dot={false} name="Capacity" />
+
+          {/* Dashed secondary capacity line — team-scoped capacity when team filter active */}
+          {hasTeamCapacity && (
+            <Line
+              type="monotone"
+              dataKey="teamCapacity"
+              stroke="#146ef5"
+              strokeWidth={1.5}
+              strokeDasharray="5 3"
+              dot={false}
+              name="Team capacity"
+              isAnimationActive={false}
+            />
+          )}
         </ComposedChart>
       </ResponsiveContainer>
 
@@ -277,9 +320,13 @@ export function CapacityChart({ title, subtitle, data, compact = false, onClick 
           { color: C.overlay,  label: 'Overlay' },
           { color: '#9ca3af',  label: 'Proj. elsewhere', crosshatch: true },
           { color: C.capacity, label: 'Capacity', line: true },
-        ].map(({ color, label, line, crosshatch }) => (
+          ...(hasTeamCapacity ? [{ color: '#146ef5', label: teamName ? `${teamName} capacity` : 'Team capacity', line: true, dashed: true }] : []),
+          ...(hasTeamDemand   ? [{ color: '#7a3dff', label: 'Team-owned demand', tint: true }] : []),
+        ].map(({ color, label, line, crosshatch, dashed, tint }) => (
           <span key={label} className="flex items-center gap-1 text-[10px] text-gray-500">
-            {line
+            {line && dashed
+              ? <svg width="20" height="4" className="inline-block"><line x1="0" y1="2" x2="20" y2="2" stroke={color} strokeWidth="1.5" strokeDasharray="5 3" /></svg>
+              : line
               ? <span className="inline-block w-5 h-0.5 rounded" style={{ background: color }} />
               : crosshatch
               ? (
@@ -293,6 +340,8 @@ export function CapacityChart({ title, subtitle, data, compact = false, onClick 
                   <rect width="10" height="10" rx="2" fill={`url(#leg-${label.replace(/\s/g,'')})`} />
                 </svg>
               )
+              : tint
+              ? <span className="inline-block w-2.5 h-2.5 rounded-sm border" style={{ background: color, opacity: 0.3, borderColor: color }} />
               : <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: color, opacity: 0.85 }} />
             }
             {label}
