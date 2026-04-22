@@ -20,7 +20,7 @@ After completing each change: `git add -A && git commit -m "v1.15 Change N: <sho
 - [x] Change 7 — Scoping status
 - [x] Change 8 — Capacity Validation Team filter
 - [x] Change 9 — Team Activity Team grouping
-- [ ] Change 10 — Admin screens
+- [x] Change 10 — Admin screens
 
 ---
 
