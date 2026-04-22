@@ -9,7 +9,8 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git push *)",
-      "Bash(git mv *)"
+      "Bash(git mv *)",
+      "Bash(node -e \"const s=require\\('./DEMOSEED.json'\\); console.log\\('functions:', JSON.stringify\\(s.functions\\)\\); console.log\\('teams:', JSON.stringify\\(s.teams?.map\\(t=>\\({id:t.id,name:t.name,type:t.type}\\)\\)\\)\\)\")"
     ]
   },
   "enableAllProjectMcpServers": true,
