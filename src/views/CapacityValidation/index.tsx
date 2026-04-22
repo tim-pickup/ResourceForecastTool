@@ -1,5 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { X, ChevronLeft, AlertCircle, AlertTriangle, CheckCircle2, ChevronDown } from 'lucide-react'
+import { X, ChevronLeft, AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, Info } from 'lucide-react'
+import {
+  ComposedChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts'
 import { useAppStore } from '../../store/useAppStore'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -17,10 +20,15 @@ import type { ChartPoint } from '../../components/CapacityChart'
 import { DemandEditor } from '../../components/DemandEditor/DemandEditor'
 import { Button } from '../../components/ui/Button'
 import { clsx } from 'clsx'
-import type { DemandStatus, Level } from '../../types'
+import type { DemandStatus, Level, DemandItem } from '../../types'
 
 const HORIZONS = [6, 12, 24, 60] as const
 const COMMITTED_STATUSES = new Set<DemandStatus>(['Approved', 'PartiallyAllocated', 'Allocated'])
+
+// Section C: provider palette — distinct colours from DESIGN.md secondary palette
+const EXT_COLORS = ['#7a3dff', '#ed52cb', '#ff6b00', '#00d722', '#ffae13', '#ee1d36', '#0891b2', '#146ef5']
+// Same active-status set as capacity.ts: excludes only Parked and Closed
+const EXT_ACTIVE_STATUSES = new Set<DemandStatus>(['Draft', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated'])
 
 // ─── Model Impact banner ──────────────────────────────────────────────────────
 
@@ -336,6 +344,70 @@ function SummaryStrip({
   )
 }
 
+// ─── Section C tooltips ───────────────────────────────────────────────────────
+
+function ExtC1Tooltip({ active, payload, providers }: {
+  active?: boolean
+  payload?: Array<{ dataKey: string; value: number; payload: { label: string } }>
+  providers: Array<{ id: string; name: string }>
+}) {
+  if (!active || !payload?.length) return null
+  const label = payload[0]?.payload?.label
+  const total = payload.reduce((s, p) => s + (p.value || 0), 0)
+  if (total === 0) return null
+  return (
+    <div className="bg-white border border-amber-200 rounded shadow-md p-3 text-xs min-w-[160px]">
+      <p className="font-semibold mb-2 text-near-black">{label}</p>
+      <div className="space-y-1">
+        {[...payload].reverse().filter(p => (p.value || 0) > 0).map(p => {
+          const prov = providers.find(pr => pr.id === p.dataKey)
+          return (
+            <div key={p.dataKey} className="flex justify-between gap-4">
+              <span className="text-gray-600">{prov?.name ?? p.dataKey}</span>
+              <span>{Math.round(p.value)}h</span>
+            </div>
+          )
+        })}
+        <div className="pt-1 border-t border-gray-100 flex justify-between gap-4 font-medium">
+          <span>Total</span><span>{Math.round(total)}h</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ExtC2Tooltip({ active, payload, providerName, demandItems }: {
+  active?: boolean
+  payload?: Array<{ dataKey: string; value: number; payload: { label: string } }>
+  providerName: string
+  demandItems: DemandItem[]
+}) {
+  if (!active || !payload?.length) return null
+  const label = payload[0]?.payload?.label
+  const total = payload.reduce((s, p) => s + (p.value || 0), 0)
+  if (total === 0) return null
+  return (
+    <div className="bg-white border border-amber-200 rounded shadow-md p-3 text-xs min-w-[160px]">
+      <p className="font-semibold mb-1 text-near-black">{label}</p>
+      <p className="text-amber-600 mb-2">{providerName}</p>
+      <div className="space-y-1">
+        {[...payload].reverse().filter(p => (p.value || 0) > 0).map(p => {
+          const item = demandItems.find(d => d.id === p.dataKey)
+          return (
+            <div key={p.dataKey} className="flex justify-between gap-4">
+              <span className="text-gray-600 truncate max-w-[130px]">{item?.name ?? p.dataKey}</span>
+              <span>{Math.round(p.value)}h</span>
+            </div>
+          )
+        })}
+        <div className="pt-1 border-t border-gray-100 flex justify-between gap-4 font-medium">
+          <span>Total</span><span>{Math.round(total)}h</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main view ───────────────────────────────────────────────────────────────
 
 export default function CapacityValidation() {
@@ -354,6 +426,7 @@ export default function CapacityValidation() {
   // Programme/Project filter — affects demand stacks only, not capacity or grey band
   const [filterProgramme, setFilterProgramme] = useState('')
   const [filterProject, setFilterProject] = useState('')
+  const [showExternal, setShowExternal] = useState(false)
 
   // Read URL query params for Model Impact deep-link
   useEffect(() => {
@@ -497,6 +570,61 @@ export default function CapacityValidation() {
     }
     return store.domains.map(t => ({ domain: t, skills: groups.get(t.id) ?? [] })).filter(g => g.skills.length > 0)
   }, [skillCharts, store.domains])
+
+  // ── Section C: external demand data ───────────────────────────────────
+  // Per-month breakdown by provider and by demand item, scoped to Programme/Project filter.
+  // Status set matches capacity.ts ACTIVE_FOR_EXTERNAL_STATUSES (excludes Parked + Closed only).
+  const extDataByMonth = useMemo(() => {
+    const phaseToItem = new Map<string, DemandItem>()
+    for (const item of demandFilteredState.demandItems) {
+      if (!EXT_ACTIVE_STATUSES.has(item.status)) continue
+      for (const phase of item.phases) {
+        phaseToItem.set(phase.id, item)
+      }
+    }
+    return months.map(month => {
+      const byProvider: Record<string, number> = {}
+      const byProviderByDemand: Record<string, Record<string, number>> = {}
+      for (const ext of store.externalResourceRequirements) {
+        const item = phaseToItem.get(ext.phase_id)
+        if (!item) continue
+        const phase = item.phases.find(p => p.id === ext.phase_id)
+        if (!phase) continue
+        if (month < phase.start_month) continue
+        if (phase.end_month !== null && month > phase.end_month) continue
+        const hrs = phase.end_month === null
+          ? (ext.steady_state_hours ?? 0)
+          : (ext.hours_by_month[month] ?? 0)
+        if (hrs <= 0) continue
+        const pid = ext.provider_id
+        byProvider[pid] = (byProvider[pid] ?? 0) + hrs
+        if (!byProviderByDemand[pid]) byProviderByDemand[pid] = {}
+        byProviderByDemand[pid][item.id] = (byProviderByDemand[pid][item.id] ?? 0) + hrs
+      }
+      return { month, label: formatMonthLabel(month), byProvider, byProviderByDemand }
+    })
+  }, [months, demandFilteredState.demandItems, store.externalResourceRequirements])
+
+  const extActiveProviders = useMemo(() => {
+    const seen = new Set<string>()
+    for (const d of extDataByMonth) {
+      for (const pid of Object.keys(d.byProvider)) seen.add(pid)
+    }
+    return store.providers.filter(p => seen.has(p.id))
+  }, [extDataByMonth, store.providers])
+
+  const extDemandsByProvider = useMemo(() => {
+    const map = new Map<string, string[]>()
+    for (const d of extDataByMonth) {
+      for (const [pid, demandHrs] of Object.entries(d.byProviderByDemand)) {
+        const existing = map.get(pid) ?? []
+        const existing2 = new Set(existing)
+        for (const did of Object.keys(demandHrs)) existing2.add(did)
+        map.set(pid, Array.from(existing2))
+      }
+    }
+    return map
+  }, [extDataByMonth])
 
   // ── Over-capacity summary strip ────────────────────────────────────────
   const summaryEntries = useMemo((): OverCapacityEntry[] => {
@@ -662,6 +790,17 @@ export default function CapacityValidation() {
 
         <div className="flex-1" />
 
+        {/* Show external resource toggle */}
+        <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showExternal}
+            onChange={e => setShowExternal(e.target.checked)}
+            className="accent-brand"
+          />
+          Show external resource
+        </label>
+
         {/* Single-item overlay selector */}
         <OverlaySelector
           overlayId={overlayId}
@@ -761,6 +900,125 @@ export default function CapacityValidation() {
             </div>
           )}
         </div>
+
+        {/* Section C: External Resource Demand */}
+        {showExternal && (
+          <div className="mt-8 bg-amber-50/60 border border-amber-200 rounded-lg p-5">
+            <div className="flex items-start gap-2 mb-5">
+              <div>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-amber-700 mb-1">
+                  External Resource Demand
+                </h2>
+                <p className="flex items-center gap-1.5 text-xs text-amber-600 italic">
+                  <Info size={11} className="shrink-0" />
+                  External hours are shown for planning visibility only — they do not affect team capacity calculations.
+                </p>
+              </div>
+            </div>
+
+            {/* C1: Overview — stacked area chart by Provider */}
+            <div className="mb-6 bg-white border border-amber-200 rounded-lg p-4">
+              <h3 className="text-xs font-semibold text-amber-700 mb-3">Overview — All Providers</h3>
+              {extActiveProviders.length === 0 ? (
+                <p className="text-xs text-amber-500 italic py-6 text-center">
+                  No external resource hours in the visible horizon.
+                </p>
+              ) : (() => {
+                const c1Data = extDataByMonth.map(d => ({
+                  label: d.label,
+                  ...Object.fromEntries(extActiveProviders.map(p => [p.id, d.byProvider[p.id] ?? 0])),
+                }))
+                return (
+                  <>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <ComposedChart data={c1Data} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#fef3c7" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                        <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickFormatter={v => `${v}h`} />
+                        <Tooltip content={<ExtC1Tooltip providers={extActiveProviders} />} />
+                        {extActiveProviders.map((p, i) => (
+                          <Area
+                            key={p.id}
+                            type="monotone"
+                            dataKey={p.id}
+                            name={p.name}
+                            stackId="ext"
+                            fill={EXT_COLORS[i % EXT_COLORS.length]}
+                            stroke="none"
+                            fillOpacity={0.75}
+                            isAnimationActive={false}
+                          />
+                        ))}
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                    <div className="flex flex-wrap gap-3 mt-3 justify-end">
+                      {extActiveProviders.map((p, i) => (
+                        <span key={p.id} className="flex items-center gap-1 text-[10px] text-gray-500">
+                          <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: EXT_COLORS[i % EXT_COLORS.length], opacity: 0.75 }} />
+                          {p.name}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+
+            {/* C2: Per-Provider breakdown — one chart per Provider */}
+            {extActiveProviders.length > 0 && (
+              <div>
+                <h3 className="text-xs font-semibold text-amber-700 mb-3">Per-Provider Breakdown</h3>
+                <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))' }}>
+                  {extActiveProviders.map((provider, pi) => {
+                    const activeDemandIds = extDemandsByProvider.get(provider.id) ?? []
+                    const c2Data = extDataByMonth.map(d => ({
+                      label: d.label,
+                      ...Object.fromEntries(activeDemandIds.map(did => [did, d.byProviderByDemand[provider.id]?.[did] ?? 0])),
+                    }))
+                    const activeItems = activeDemandIds
+                      .map(did => store.demandItems.find(d => d.id === did))
+                      .filter((d): d is DemandItem => !!d)
+                    return (
+                      <div key={provider.id} className="bg-white border border-amber-200 rounded-lg p-4">
+                        <h4 className="text-xs font-semibold text-amber-700 mb-3">{provider.name}</h4>
+                        <ResponsiveContainer width="100%" height={180}>
+                          <ComposedChart data={c2Data} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#fef3c7" vertical={false} />
+                            <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                            <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickFormatter={v => `${v}h`} />
+                            <Tooltip content={<ExtC2Tooltip providerName={provider.name} demandItems={activeItems} />} />
+                            {activeDemandIds.map((did, i) => (
+                              <Area
+                                key={did}
+                                type="monotone"
+                                dataKey={did}
+                                stackId="extd"
+                                fill={EXT_COLORS[(pi + i) % EXT_COLORS.length]}
+                                stroke="none"
+                                fillOpacity={0.75}
+                                isAnimationActive={false}
+                              />
+                            ))}
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                        {activeItems.length > 1 && (
+                          <div className="flex flex-wrap gap-2 mt-2 justify-end">
+                            {activeItems.map((item, i) => (
+                              <span key={item.id} className="flex items-center gap-1 text-[10px] text-gray-500">
+                                <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: EXT_COLORS[(pi + i) % EXT_COLORS.length], opacity: 0.75 }} />
+                                {item.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {!overlayId && (
           <p className="text-center text-xs text-gray-400 mt-8">
