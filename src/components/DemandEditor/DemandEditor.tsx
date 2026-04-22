@@ -4,7 +4,7 @@ import { X, MoreHorizontal, Copy, Trash2, Edit2, AlertTriangle, ExternalLink, Gi
 import { parseISO, format } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
 import { Button } from '../ui/Button'
-import { StatusBadge } from '../ui/Badge'
+import { StatusBadge, Badge } from '../ui/Badge'
 import type { DemandItem, DemandStatus } from '../../types'
 import { derivedPrimaryDomain } from '../../types'
 
@@ -307,16 +307,22 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
               <h2 className="text-sm font-semibold text-near-black leading-snug">
                 {item.name || 'Unnamed'}
               </h2>
-              <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-gray-500">
-                <span>{item.type}</span>
-                {domain && <><span className="text-gray-300">·</span><span>{domain.name}</span></>}
-                {programme && project && (
-                  <>
-                    <span className="text-gray-300">·</span>
+              <div className="mt-1.5 flex flex-col gap-1 text-xs">
+                {/* Row 2: Type badge */}
+                <div><Badge>{item.type}</Badge></div>
+                {/* Row 3: Project alignment */}
+                <div>
+                  {programme && project ? (
                     <span className="text-gray-400">{programme.name} › {project.name}</span>
-                  </>
-                )}
-                {item.owner && <><span className="text-gray-300">·</span><span>{item.owner}</span></>}
+                  ) : (
+                    <span className="text-gray-400 italic">
+                      <span className="[@media(max-width:319px)]:hidden">Unaligned — Not Associated To A Project</span>
+                      <span className="hidden [@media(max-width:319px)]:inline">Unaligned</span>
+                    </span>
+                  )}
+                </div>
+                {/* Row 4: Owner */}
+                {item.owner && <div className="text-gray-500">{item.owner}</div>}
               </div>
             </div>
             {/* Right: Edit → kebab → × */}
