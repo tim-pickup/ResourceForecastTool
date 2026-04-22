@@ -369,7 +369,14 @@ interface ExtReqRowProps {
 
 function ExtRequirementRow({ ext, months, onChange, onDelete }: ExtReqRowProps) {
   const { providers } = useAppStore()
+  const [fillVal, setFillVal] = useState(0)
   const totalHrs = months.reduce((s, m) => s + (ext.hours_by_month[m] ?? 0), 0)
+
+  const handleFillAll = () => {
+    const hbm: Record<string, number> = {}
+    months.forEach(m => { hbm[m] = fillVal })
+    onChange({ ...ext, hours_by_month: hbm })
+  }
 
   return (
     <div className="border border-amber-200 rounded p-2.5 bg-amber-50/40 flex flex-col gap-2">
@@ -404,26 +411,42 @@ function ExtRequirementRow({ ext, months, onChange, onDelete }: ExtReqRowProps) 
         </button>
       </div>
       {months.length > 0 ? (
-        <div className="overflow-x-auto">
-          <div className="flex items-end gap-1 min-w-max">
-            {months.map(m => (
-              <div key={m} className="flex flex-col items-center">
-                <span className="text-[10px] text-amber-500 mb-0.5 whitespace-nowrap">{formatMonthLabel(m)}</span>
-                <input
-                  type="number"
-                  value={ext.hours_by_month[m] ?? 0}
-                  onChange={e => onChange({ ...ext, hours_by_month: { ...ext.hours_by_month, [m]: Math.max(0, Number(e.target.value)) } })}
-                  className="w-14 text-xs border border-amber-300 rounded px-1 py-1 text-right bg-white"
-                  min={0}
-                />
+        <>
+          <div className="overflow-x-auto">
+            <div className="flex items-end gap-1 min-w-max">
+              {months.map(m => (
+                <div key={m} className="flex flex-col items-center">
+                  <span className="text-[10px] text-amber-500 mb-0.5 whitespace-nowrap">{formatMonthLabel(m)}</span>
+                  <input
+                    type="number"
+                    value={ext.hours_by_month[m] ?? 0}
+                    onChange={e => onChange({ ...ext, hours_by_month: { ...ext.hours_by_month, [m]: Math.max(0, Number(e.target.value)) } })}
+                    className="w-14 text-xs border border-amber-300 rounded px-1 py-1 text-right bg-white"
+                    min={0}
+                  />
+                </div>
+              ))}
+              <div className="flex flex-col items-center ml-1">
+                <span className="text-[10px] text-amber-400 mb-0.5">Total</span>
+                <span className="text-xs font-medium text-amber-700 px-1 py-1">{Math.round(totalHrs)}h</span>
               </div>
-            ))}
-            <div className="flex flex-col items-center ml-1">
-              <span className="text-[10px] text-amber-400 mb-0.5">Total</span>
-              <span className="text-xs font-medium text-amber-700 px-1 py-1">{Math.round(totalHrs)}h</span>
             </div>
           </div>
-        </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-amber-500">Fill all:</span>
+            <input
+              type="number"
+              value={fillVal}
+              onChange={e => setFillVal(Math.max(0, Number(e.target.value)))}
+              className="w-16 text-xs border border-amber-300 rounded px-1.5 py-1 text-right bg-white"
+              min={0}
+            />
+            <span className="text-xs text-amber-500">h/mo</span>
+            <button onClick={handleFillAll} className="text-xs text-amber-600 hover:text-amber-700 font-medium">
+              Fill all
+            </button>
+          </div>
+        </>
       ) : (
         <p className="text-xs text-amber-500 italic">Set phase start/end months to enter hours.</p>
       )}
