@@ -4,21 +4,61 @@
     "description": "Seed for v1.10 data model. Mix of realistic and stress-test data: some themes/skills are comfortably within capacity while others deliberately push into over-capacity, projection shortfall, and over-allocated states so v1.10 visual features (grey bands, over-capacity signals, projection shortfalls, cell-background tints) have exemplars to render. BAU = demand of type BAU. Phases can be finite (hours_by_month) or indefinite (steady_state_hours). Requirements are skill-shaped with allocations.",
     "today": "2026-05-01"
   },
+  "functions": [
+    {
+      "id": "func_001",
+      "name": "Digital Manufacturing",
+      "description": "Digital manufacturing capability spanning MOM, MI&V and MBM domains across all plants.",
+      "active": true
+    }
+  ],
+  "teams": [
+    {
+      "id": "team_001",
+      "name": "Central Delivery Team",
+      "description": "Cross-domain central delivery capability for group-wide and cross-plant initiatives.",
+      "functionId": "func_001",
+      "type": "Central",
+      "leadPersonId": null,
+      "active": true
+    },
+    {
+      "id": "team_002",
+      "name": "Plant Team A",
+      "description": "Plant-facing delivery team primarily supporting MOM and related plant operations.",
+      "functionId": "func_001",
+      "type": "Plant",
+      "leadPersonId": null,
+      "active": true
+    },
+    {
+      "id": "team_003",
+      "name": "Plant Team B",
+      "description": "Plant-facing delivery team supporting MI&V, MOM, and MBM for Plant B and associated sites.",
+      "functionId": "func_001",
+      "type": "Plant",
+      "leadPersonId": null,
+      "active": true
+    }
+  ],
   "domains": [
     {
       "id": "thm_mom",
       "name": "MOM",
-      "description": "Manufacturing Operations Management — MES, order execution, production tracking, OEE."
+      "description": "Manufacturing Operations Management — MES, order execution, production tracking, OEE.",
+      "functionId": "func_001"
     },
     {
       "id": "thm_miv",
       "name": "MI&V",
-      "description": "Manufacturing Intelligence & Visualisation — historians, analytics, dashboards, reporting."
+      "description": "Manufacturing Intelligence & Visualisation — historians, analytics, dashboards, reporting.",
+      "functionId": "func_001"
     },
     {
       "id": "thm_mbm",
       "name": "MBM",
-      "description": "Model-Based Manufacturing — simulation, digital twins, process modelling."
+      "description": "Model-Based Manufacturing — simulation, digital twins, process modelling.",
+      "functionId": "func_001"
     }
   ],
   "skills": [
@@ -102,6 +142,7 @@
       "available_from": null,
       "available_to": null,
       "active": true,
+      "teamId": "team_002",
       "skills": [
         {
           "skill_id": "skl_mom_mes",
@@ -125,6 +166,7 @@
       "available_from": null,
       "available_to": null,
       "active": true,
+      "teamId": "team_002",
       "skills": [
         {
           "skill_id": "skl_mom_mes",
@@ -148,6 +190,7 @@
       "available_from": null,
       "available_to": null,
       "active": true,
+      "teamId": "team_002",
       "skills": [
         {
           "skill_id": "skl_mom_workflow",
@@ -171,6 +214,7 @@
       "available_from": null,
       "available_to": null,
       "active": true,
+      "teamId": "team_003",
       "skills": [
         {
           "skill_id": "skl_mom_mes",
@@ -190,6 +234,7 @@
       "available_from": null,
       "available_to": null,
       "active": true,
+      "teamId": "team_001",
       "skills": [
         {
           "skill_id": "skl_miv_historian",
@@ -213,6 +258,7 @@
       "available_from": null,
       "available_to": null,
       "active": true,
+      "teamId": "team_001",
       "skills": [
         {
           "skill_id": "skl_miv_analytics",
@@ -236,6 +282,7 @@
       "available_from": null,
       "available_to": null,
       "active": true,
+      "teamId": "team_003",
       "skills": [
         {
           "skill_id": "skl_miv_hmi",
@@ -259,6 +306,7 @@
       "available_from": "2026-07",
       "available_to": null,
       "active": true,
+      "teamId": "team_003",
       "skills": [
         {
           "skill_id": "skl_miv_hmi",
@@ -278,6 +326,7 @@
       "available_from": null,
       "available_to": null,
       "active": true,
+      "teamId": "team_001",
       "skills": [
         {
           "skill_id": "skl_mbm_simulation",
@@ -301,6 +350,7 @@
       "available_from": null,
       "available_to": null,
       "active": true,
+      "teamId": "team_001",
       "skills": [
         {
           "skill_id": "skl_mbm_twin",
@@ -324,6 +374,7 @@
       "available_from": null,
       "available_to": "2026-10",
       "active": true,
+      "teamId": "team_002",
       "skills": [
         {
           "skill_id": "skl_mbm_simulation",
@@ -343,6 +394,7 @@
       "available_from": null,
       "available_to": null,
       "active": true,
+      "teamId": "team_003",
       "skills": [
         {
           "skill_id": "skl_mbm_twin",
@@ -2181,6 +2233,28 @@
         }
       ],
       "project_id": null
+    },
+    {
+      "id": "dmd_scoping_001",
+      "name": "Plant A MES Line 6 Extension",
+      "type": "Plant Project",
+      "status": "Scoping",
+      "owner": "Alex Morgan",
+      "primary_domain_id": "thm_mom",
+      "description": "Extension of the Plant A MES to cover Line 6. Submitted for scoping — teams are being assigned to define the skill-shaped requirements.",
+      "parked_reason": null,
+      "phases": [
+        {
+          "id": "phs_scoping_001",
+          "name": "Design & Build",
+          "start_month": "2026-09",
+          "end_month": "2026-12",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant A capital budget",
+          "requirements": []
+        }
+      ],
+      "project_id": null
     }
   ],
   "programmes": [
@@ -2271,6 +2345,26 @@
     {
       "id": "prv_006",
       "name": "Other"
+    }
+  ],
+  "demand_team_assignments": [
+    {
+      "id": "dta_001",
+      "demandId": "dmd_scoping_001",
+      "phaseId": "phs_scoping_001",
+      "teamId": "team_001",
+      "confirmed": true,
+      "confirmedBy": "James Whitfield",
+      "confirmedAt": "2026-04-18T09:00:00Z"
+    },
+    {
+      "id": "dta_002",
+      "demandId": "dmd_scoping_001",
+      "phaseId": "phs_scoping_001",
+      "teamId": "team_002",
+      "confirmed": false,
+      "confirmedBy": null,
+      "confirmedAt": null
     }
   ],
   "external_resource_requirements": [

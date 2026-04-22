@@ -187,11 +187,11 @@ function requirementsToFinite(reqs: Requirement[], months: string[], defaultHrs:
 export function blankSkillReq(skillId: string, months: string[]): SkillRequirement {
   const hours_by_month: Record<string, number> = {}
   months.forEach(m => { hours_by_month[m] = 0 })
-  return { id: generateId('req'), shape: 'skill', skill_id: skillId, level: 'Basic', hours_by_month, steady_state_hours: null, notes: null, allocations: [] }
+  return { id: generateId('req'), shape: 'skill', skill_id: skillId, level: 'Basic', hours_by_month, steady_state_hours: null, notes: null, allocations: [], owningTeamId: null }
 }
 
 export function blankSkillReqIndefinite(skillId: string): SkillRequirement {
-  return { id: generateId('req'), shape: 'skill', skill_id: skillId, level: 'Basic', hours_by_month: {}, steady_state_hours: 0, notes: null, allocations: [] }
+  return { id: generateId('req'), shape: 'skill', skill_id: skillId, level: 'Basic', hours_by_month: {}, steady_state_hours: 0, notes: null, allocations: [], owningTeamId: null }
 }
 
 export function blankPhase(): Phase {

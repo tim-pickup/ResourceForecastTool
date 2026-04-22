@@ -3,6 +3,7 @@ import type { DemandStatus } from '../../types'
 
 const STATUS_STYLES: Record<DemandStatus, string> = {
   Draft: 'bg-gray-100 text-gray-600',
+  Scoping: 'bg-purple-50 text-purple-700 border border-purple-200',
   Submitted: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
   Approved: 'bg-blue-50 text-blue-700 border border-blue-200',
   PartiallyAllocated: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
@@ -13,6 +14,7 @@ const STATUS_STYLES: Record<DemandStatus, string> = {
 
 const STATUS_LABELS: Record<DemandStatus, string> = {
   Draft: 'Draft',
+  Scoping: 'Scoping',
   Submitted: 'Submitted',
   Approved: 'Approved',
   PartiallyAllocated: 'Partially Allocated',

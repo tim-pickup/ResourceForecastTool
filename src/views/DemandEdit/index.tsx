@@ -11,7 +11,7 @@ import { PhaseEditor, blankPhase, PhaseGantt } from './ModeAEditor'
 import { AllocationWorkspace, computeAutoStatus } from './AllocationWorkspace'
 
 const TYPES: DemandType[] = ['Group Strategy Project', 'Plant Project', 'NPD Demand', 'BAU']
-const MODE_A: DemandStatus[] = ['Draft', 'Submitted', 'Parked']
+const MODE_A: DemandStatus[] = ['Draft', 'Scoping', 'Submitted', 'Parked']
 const MODE_B: DemandStatus[] = ['Approved', 'PartiallyAllocated', 'Allocated']
 
 interface Transition { label: string; next: DemandStatus; variant?: 'danger' | 'secondary' }
@@ -20,6 +20,7 @@ function pageTransitions(status: DemandStatus, isNew: boolean): Transition[] {
   if (isNew) return []
   switch (status) {
     case 'Draft':     return [{ label: 'Submit', next: 'Submitted' }]
+    case 'Scoping':   return [{ label: 'Revert to Draft', next: 'Draft' }, { label: 'Park', next: 'Parked' }]
     case 'Submitted': return [{ label: 'Approve', next: 'Approved' }, { label: 'Revert to Draft', next: 'Draft' }, { label: 'Park', next: 'Parked' }]
     case 'Approved':  return [{ label: 'Revise', next: 'Submitted' }, { label: 'Park', next: 'Parked' }, { label: 'Close', next: 'Closed', variant: 'danger' }]
     case 'PartiallyAllocated': return [{ label: 'Park', next: 'Parked' }, { label: 'Close', next: 'Closed', variant: 'danger' }]

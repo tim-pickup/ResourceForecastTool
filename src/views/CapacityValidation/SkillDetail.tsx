@@ -257,7 +257,7 @@ const DEMAND_TYPE_COLOR: Record<DemandType, string> = {
 }
 
 const STATUS_ORDER: Record<DemandStatus, number> = {
-  Allocated: 0, PartiallyAllocated: 1, Approved: 2, Submitted: 3, Draft: 4, Parked: 5, Closed: 6,
+  Allocated: 0, PartiallyAllocated: 1, Approved: 2, Submitted: 3, Scoping: 4, Draft: 5, Parked: 6, Closed: 7,
 }
 
 const STATUS_LABEL: Partial<Record<DemandStatus, string>> = {

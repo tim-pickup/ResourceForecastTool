@@ -14,10 +14,11 @@ import { getCurrentMonth, generateMonths } from '../../utils/capacity'
 import { project_internal_hours, project_external_hours, project_external_hours_by_provider } from '../../lib/capacity'
 
 // Active statuses — Closed items live in Archive, not here
-const ACTIVE_STATUSES: DemandStatus[] = ['Draft', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated', 'Parked']
+const ACTIVE_STATUSES: DemandStatus[] = ['Draft', 'Scoping', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated', 'Parked']
 
 const COLUMN_COLORS: Record<DemandStatus, string> = {
   Draft: 'bg-gray-50',
+  Scoping: 'bg-purple-50',
   Submitted: 'bg-yellow-50',
   Approved: 'bg-blue-50',
   PartiallyAllocated: 'bg-indigo-50',

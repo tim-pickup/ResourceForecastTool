@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type {
+  AppFunction, Team, DemandTeamAssignment,
   Domain, Skill, Person, DemandItem, AppState, DemandStatus,
   Programme, Project, Provider, ExternalResourceRequirement,
 } from '../types'
@@ -11,9 +12,15 @@ import seedRaw from '../../DEMOSEED.json'
 function normalizeSeed(raw: any): AppState {
   const items: any[] = raw.demand_items || []
   return {
+    functions: (raw.functions || []) as AppFunction[],
+    teams: (raw.teams || []) as Team[],
+    demandTeamAssignments: (raw.demand_team_assignments || []) as DemandTeamAssignment[],
     domains: raw.domains || [],
     skills: raw.skills || [],
-    people: raw.people || [],
+    people: (raw.people || []).map((p: any) => ({
+      ...p,
+      teamId: p.teamId ?? '',
+    })) as Person[],
     programmes: raw.programmes || [],
     projects: raw.projects || [],
     providers: raw.providers || [],
@@ -37,6 +44,7 @@ function normalizeSeed(raw: any): AppState {
           shape: 'skill' as const,
           notes: r.notes ?? null,
           steady_state_hours: r.steady_state_hours ?? null,
+          owningTeamId: r.owningTeamId ?? null,
           allocations: (r.allocations ?? []).map((a: any) => ({
             ...a,
             steady_state_hours: a.steady_state_hours ?? null,
@@ -50,6 +58,18 @@ function normalizeSeed(raw: any): AppState {
 const SEED: AppState = normalizeSeed(seedRaw as Record<string, unknown>)
 
 interface Store extends AppState {
+  addFunction: (f: Omit<AppFunction, 'id'>) => void
+  updateFunction: (id: string, f: Partial<AppFunction>) => void
+  deleteFunction: (id: string) => void
+
+  addTeam: (t: Omit<Team, 'id'>) => void
+  updateTeam: (id: string, t: Partial<Team>) => void
+  deleteTeam: (id: string) => void
+
+  addDemandTeamAssignment: (a: Omit<DemandTeamAssignment, 'id'>) => void
+  updateDemandTeamAssignment: (id: string, a: Partial<DemandTeamAssignment>) => void
+  deleteDemandTeamAssignment: (id: string) => void
+
   addDomain: (t: Omit<Domain, 'id'>) => void
   updateDomain: (id: string, t: Partial<Domain>) => void
   deleteDomain: (id: string) => void
@@ -90,6 +110,18 @@ export const useAppStore = create<Store>()(
   persist(
     (set, get) => ({
       ...SEED,
+
+      addFunction: f => set(s => ({ functions: [...s.functions, { ...f, id: generateId('fnc') }] })),
+      updateFunction: (id, f) => set(s => ({ functions: s.functions.map(x => x.id === id ? { ...x, ...f } : x) })),
+      deleteFunction: id => set(s => ({ functions: s.functions.filter(x => x.id !== id) })),
+
+      addTeam: t => set(s => ({ teams: [...s.teams, { ...t, id: generateId('tem') }] })),
+      updateTeam: (id, t) => set(s => ({ teams: s.teams.map(x => x.id === id ? { ...x, ...t } : x) })),
+      deleteTeam: id => set(s => ({ teams: s.teams.filter(x => x.id !== id) })),
+
+      addDemandTeamAssignment: a => set(s => ({ demandTeamAssignments: [...s.demandTeamAssignments, { ...a, id: generateId('dta') }] })),
+      updateDemandTeamAssignment: (id, a) => set(s => ({ demandTeamAssignments: s.demandTeamAssignments.map(x => x.id === id ? { ...x, ...a } : x) })),
+      deleteDemandTeamAssignment: id => set(s => ({ demandTeamAssignments: s.demandTeamAssignments.filter(x => x.id !== id) })),
 
       addDomain: t => set(s => ({ domains: [...s.domains, { ...t, id: generateId('thm') }] })),
       updateDomain: (id, t) => set(s => ({ domains: s.domains.map(x => x.id === id ? { ...x, ...t } : x) })),
@@ -154,10 +186,10 @@ export const useAppStore = create<Store>()(
     }),
     {
       name: 'resource-forecast-v1',
-      version: 6,
+      version: 7,
       migrate: (_state, version) => {
         // On schema version mismatch, discard persisted state and reseed
-        if (version < 6) return SEED
+        if (version < 7) return SEED
         return _state as Store
       },
     }

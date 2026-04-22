@@ -1,12 +1,40 @@
 export type Level = 'Basic' | 'Advanced' | 'Specialist'
-export type DemandStatus = 'Draft' | 'Submitted' | 'Approved' | 'PartiallyAllocated' | 'Allocated' | 'Parked' | 'Closed'
+export type DemandStatus = 'Draft' | 'Scoping' | 'Submitted' | 'Approved' | 'PartiallyAllocated' | 'Allocated' | 'Parked' | 'Closed'
 export type DemandType = 'Group Strategy Project' | 'Plant Project' | 'NPD Demand' | 'BAU'
 export type FundingSource = 'Investment Scheme' | 'Plant/Sector Allocation' | 'Mixed'
+
+export interface AppFunction {
+  id: string
+  name: string
+  description: string
+  active: boolean
+}
+
+export interface Team {
+  id: string
+  name: string
+  description: string
+  functionId: string
+  type: 'Plant' | 'Central' | 'Specialist' | 'Other'
+  leadPersonId: string | null
+  active: boolean
+}
+
+export interface DemandTeamAssignment {
+  id: string
+  demandId: string
+  phaseId: string
+  teamId: string
+  confirmed: boolean
+  confirmedBy: string | null
+  confirmedAt: string | null
+}
 
 export interface Domain {
   id: string
   name: string
   description: string
+  functionId: string
 }
 
 export interface Skill {
@@ -29,6 +57,7 @@ export interface Person {
   available_to: string | null
   active: boolean
   skills: PersonSkill[]
+  teamId: string
 }
 
 export interface NamedAllocation {
@@ -48,6 +77,7 @@ export interface SkillRequirement {
   steady_state_hours?: number | null
   notes: string | null
   allocations: NamedAllocation[]
+  owningTeamId: string | null
 }
 
 export type Requirement = SkillRequirement
@@ -115,6 +145,9 @@ export interface ExternalResourceRequirement {
 // ─── App state ────────────────────────────────────────────────────────────────
 
 export interface AppState {
+  functions: AppFunction[]
+  teams: Team[]
+  demandTeamAssignments: DemandTeamAssignment[]
   domains: Domain[]
   skills: Skill[]
   people: Person[]

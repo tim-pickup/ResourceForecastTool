@@ -35,7 +35,7 @@ function DomainsSkillsPanel() {
             <Input label="Domain Name" value={newDomain.name} onChange={e => setNewDomain(n => ({ ...n, name: e.target.value }))} />
             <Input label="Description" value={newDomain.description} onChange={e => setNewDomain(n => ({ ...n, description: e.target.value }))} />
             <div className="flex gap-2">
-              <Button size="sm" variant="primary" onClick={() => { store.addDomain(newDomain); setNewDomain({ name: '', description: '' }); setShowNewDomain(false) }}>Save</Button>
+              <Button size="sm" variant="primary" onClick={() => { store.addDomain({ ...newDomain, functionId: store.functions[0]?.id ?? 'func_001' }); setNewDomain({ name: '', description: '' }); setShowNewDomain(false) }}>Save</Button>
               <Button size="sm" variant="ghost" onClick={() => setShowNewDomain(false)}>Cancel</Button>
             </div>
           </div>
@@ -132,7 +132,7 @@ function PersonForm({ person, onSave, onCancel }: { person?: Person; onSave: (p:
   const store = useAppStore()
   const [form, setForm] = useState<Omit<Person, 'id'>>(person ?? {
     name: '', primary_domain_id: store.domains[0]?.id ?? '', contracted_hours_per_month: 152,
-    available_from: null, available_to: null, active: true, skills: []
+    available_from: null, available_to: null, active: true, skills: [], teamId: ''
   })
 
   const addSkill = () => setForm(f => ({ ...f, skills: [...f.skills, { skill_id: store.skills[0]?.id ?? '', level: 'Basic' as Level }] }))

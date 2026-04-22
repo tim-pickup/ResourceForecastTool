@@ -13,9 +13,9 @@ After completing each change: `git add -A && git commit -m "v1.15 Change N: <sho
 
 - [x] Change 1 — Domain rename ✓ committed
 - [x] Change 2 — Primary Domain auto-derived
-- [ ] Change 3 — Drawer header fix
-- [ ] Change 4 — External requirements Fill All
-- [ ] Change 5 — External Resource Demand chart
+- [x] Change 3 — Drawer header fix
+- [x] Change 4 — External requirements Fill All
+- [x] Change 5 — External Resource Demand chart
 - [ ] Change 6 — Data model: Function, Team, DemandTeamAssignment
 - [ ] Change 7 — Scoping status
 - [ ] Change 8 — Capacity Validation Team filter

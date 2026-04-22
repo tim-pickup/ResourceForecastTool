@@ -30,6 +30,11 @@ function footerButtons(status: DemandStatus): FooterButton[] {
   switch (status) {
     case 'Draft':
       return [{ label: 'Submit', kind: 'transitional', next: 'Submitted', variant: 'primary' }]
+    case 'Scoping':
+      return [
+        { label: 'Revert to Draft', kind: 'transitional', next: 'Draft', variant: 'secondary' },
+        { label: 'Park', kind: 'transitional', next: 'Parked', variant: 'secondary' },
+      ]
     case 'Submitted':
       return [
         { label: 'Park', kind: 'transitional', next: 'Parked', variant: 'secondary' },
@@ -62,6 +67,12 @@ function overflowActions(status: DemandStatus): OverflowAction[] {
   switch (status) {
     case 'Draft':
       return [{ label: 'Duplicate', kind: 'duplicate' }, { label: 'Delete', kind: 'delete', danger: true }]
+    case 'Scoping':
+      return [
+        { label: 'Close', kind: 'close', danger: true },
+        { label: 'Duplicate', kind: 'duplicate' },
+        { label: 'Delete', kind: 'delete', danger: true },
+      ]
     case 'Submitted':
       return [{ label: 'Duplicate', kind: 'duplicate' }, { label: 'Delete', kind: 'delete', danger: true }]
     case 'Approved':

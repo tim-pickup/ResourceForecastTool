@@ -32,9 +32,12 @@ function buildSeedState(): AppState {
   const raw = seedRaw as Record<string, any>
   const items: Record<string, unknown>[] = raw.demand_items || []
   return {
+    functions: raw.functions || [],
+    teams: raw.teams || [],
+    demandTeamAssignments: raw.demand_team_assignments || [],
     domains: raw.domains || [],
     skills: raw.skills || [],
-    people: raw.people || [],
+    people: (raw.people || []).map((p: Record<string, unknown>) => ({ ...p, teamId: (p.teamId ?? '') as string })),
     programmes: raw.programmes || [],
     projects: raw.projects || [],
     providers: raw.providers || [],
@@ -71,6 +74,7 @@ function buildSeedState(): AppState {
           hours_by_month: (r.hours_by_month ?? {}) as Record<string, number>,
           steady_state_hours: (r.steady_state_hours ?? null) as number | null,
           notes: (r.notes ?? null) as string | null,
+          owningTeamId: (r.owningTeamId ?? null) as string | null,
           allocations: ((r.allocations ?? []) as Record<string, unknown>[]).map(a => ({
             id: a.id as string,
             person_id: a.person_id as string,
