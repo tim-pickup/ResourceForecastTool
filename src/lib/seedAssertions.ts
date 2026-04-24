@@ -53,12 +53,12 @@ function buildSeedState(): AppState {
       type: d.type as DemandItem['type'],
       status: (d.status === 'Accepted' ? 'Approved' : d.status) as DemandStatus,
       owner: d.owner as string,
-      primary_domain_id: d.primary_domain_id as string,
       description: d.description as string,
       parked_reason: (d.parked_reason ?? null) as string | null,
       previous_status: (d.previous_status ?? null) as DemandStatus | null,
       closed_at: (d.closed_at ?? null) as string | null,
       project_id: (d.project_id ?? null) as string | null,
+      createdUnderFunctionId: (d.createdUnderFunctionId ?? null) as string | null,
       phases: ((d.phases || []) as Record<string, unknown>[]).map(p => ({
         id: p.id as string,
         name: p.name as string,

@@ -33,8 +33,8 @@ function pageTransitions(status: DemandStatus, isNew: boolean): Transition[] {
 function blankDemand(): Omit<DemandItem, 'id'> {
   return {
     name: '', type: 'Plant Project', status: 'Draft', owner: '',
-    primary_domain_id: '', description: '', parked_reason: null,
-    previous_status: null, closed_at: null, phases: [], project_id: null,
+    description: '', parked_reason: null,
+    previous_status: null, closed_at: null, phases: [], project_id: null, createdUnderFunctionId: null,
   }
 }
 

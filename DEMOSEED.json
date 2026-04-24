@@ -1,4 +1,4 @@
-﻿{
+{
   "_meta": {
     "version": "1.5",
     "description": "Seed for v1.10 data model. Mix of realistic and stress-test data: some themes/skills are comfortably within capacity while others deliberately push into over-capacity, projection shortfall, and over-allocated states so v1.10 visual features (grey bands, over-capacity signals, projection shortfalls, cell-background tints) have exemplars to render. BAU = demand of type BAU. Phases can be finite (hours_by_month) or indefinite (steady_state_hours). Requirements are skill-shaped with allocations.",
@@ -19,7 +19,6 @@
       "description": "Cross-domain central delivery capability for group-wide and cross-plant initiatives.",
       "functionId": "func_001",
       "type": "Central",
-      "leadPersonId": null,
       "active": true
     },
     {
@@ -28,7 +27,6 @@
       "description": "Plant-facing delivery team primarily supporting MOM and related plant operations.",
       "functionId": "func_001",
       "type": "Plant",
-      "leadPersonId": null,
       "active": true
     },
     {
@@ -37,7 +35,6 @@
       "description": "Plant-facing delivery team supporting MI&V, MOM, and MBM for Plant B and associated sites.",
       "functionId": "func_001",
       "type": "Plant",
-      "leadPersonId": null,
       "active": true
     }
   ],
@@ -414,7 +411,6 @@
       "type": "Plant Project",
       "status": "Allocated",
       "owner": "Priya Kumar",
-      "primary_domain_id": "thm_mom",
       "description": "Extension of MES Phase 1 deployment at Plant B covering Lines 3–5, with genealogy and SCADA integration.",
       "parked_reason": null,
       "phases": [
@@ -589,7 +585,8 @@
           ]
         }
       ],
-      "project_id": "prj_001"
+      "project_id": "prj_001",
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_002",
@@ -597,7 +594,6 @@
       "type": "Group Strategy Project",
       "status": "Allocated",
       "owner": "Fatima Al-Rashid",
-      "primary_domain_id": "thm_miv",
       "description": "Group-wide OEE reporting standardisation covering 5 plants. Defines KPI taxonomy and delivers a unified dashboard.",
       "parked_reason": null,
       "phases": [
@@ -744,7 +740,8 @@
           ]
         }
       ],
-      "project_id": "prj_006"
+      "project_id": "prj_006",
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_003",
@@ -752,7 +749,6 @@
       "type": "Group Strategy Project",
       "status": "PartiallyAllocated",
       "owner": "Marcus Vogel",
-      "primary_domain_id": "thm_mbm",
       "description": "Pilot digital twin for Line Y covering thermal and throughput behaviour. Success criteria feed into Group Strategy for a broader rollout.",
       "parked_reason": null,
       "phases": [
@@ -897,7 +893,8 @@
           ]
         }
       ],
-      "project_id": "prj_004"
+      "project_id": "prj_004",
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_004",
@@ -905,7 +902,6 @@
       "type": "Plant Project",
       "status": "Approved",
       "owner": "James Whitfield",
-      "primary_domain_id": "thm_miv",
       "description": "Upgrade Plant C historian to current platform version, migrate tags, and rebuild critical dashboards.",
       "parked_reason": null,
       "phases": [
@@ -994,7 +990,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_005",
@@ -1002,7 +999,6 @@
       "type": "Plant Project",
       "status": "Submitted",
       "owner": "Alex Morgan",
-      "primary_domain_id": "thm_mom",
       "description": "Major upgrade of Site X MES to add genealogy, improve SCADA integration, and introduce OEE dashboards. Largest single demand in the pipeline.",
       "parked_reason": null,
       "phases": [
@@ -1125,7 +1121,8 @@
           ]
         }
       ],
-      "project_id": "prj_003"
+      "project_id": "prj_003",
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_006",
@@ -1133,7 +1130,6 @@
       "type": "NPD Demand",
       "status": "Submitted",
       "owner": "Ishani Bhatia",
-      "primary_domain_id": "thm_mom",
       "description": "New product introduction on Line Y — cross-theme demand spanning MOM workflow changes, MI&V instrumentation, and MBM model updates. Demonstrates the cross-theme composition.",
       "parked_reason": null,
       "phases": [
@@ -1255,7 +1251,8 @@
           ]
         }
       ],
-      "project_id": "prj_004"
+      "project_id": "prj_004",
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_007",
@@ -1263,7 +1260,6 @@
       "type": "Plant Project",
       "status": "Draft",
       "owner": "Alex Morgan",
-      "primary_domain_id": "thm_mom",
       "description": "Enhance genealogy capture at Plant A to support new regulatory traceability requirements. Being shaped — requirements still being gathered from Quality.",
       "parked_reason": null,
       "phases": [
@@ -1290,7 +1286,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_008",
@@ -1298,7 +1295,6 @@
       "type": "Group Strategy Project",
       "status": "Draft",
       "owner": "Fatima Al-Rashid",
-      "primary_domain_id": "thm_miv",
       "description": "POC dashboard combining historian data and simulation output to predict maintenance needs on critical assets. Still being shaped with Reliability team.",
       "parked_reason": null,
       "phases": [
@@ -1355,7 +1351,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_009",
@@ -1363,7 +1360,6 @@
       "type": "Plant Project",
       "status": "Parked",
       "owner": "Priya Kumar",
-      "primary_domain_id": "thm_mom",
       "description": "Greenfield MES deployment at new Plant D facility.",
       "parked_reason": "Plant D construction delayed by 12 months; re-assess in Q2 2027 when civil works are complete.",
       "phases": [
@@ -1423,7 +1419,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_010",
@@ -1431,7 +1428,6 @@
       "type": "Plant Project",
       "status": "Parked",
       "owner": "James Whitfield",
-      "primary_domain_id": "thm_miv",
       "description": "Advanced analytics layer on top of Plant B historian to support yield optimisation.",
       "parked_reason": "Not resourceable within current 2026 plan. Plant B sponsor agreed to defer to 2027 and consider funding at next review.",
       "phases": [
@@ -1474,7 +1470,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_bau_bau_001",
@@ -1482,7 +1479,6 @@
       "type": "BAU",
       "status": "Allocated",
       "owner": "Alex Morgan",
-      "primary_domain_id": "thm_mom",
       "description": "Day-to-day MES support for Plant A super users, batch troubleshooting, recipe queries.",
       "parked_reason": null,
       "phases": [
@@ -1525,7 +1521,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_bau_bau_002",
@@ -1533,7 +1530,6 @@
       "type": "BAU",
       "status": "Allocated",
       "owner": "Priya Kumar",
-      "primary_domain_id": "thm_mom",
       "description": "Day-to-day MES support for Plant B. Planned handoff to business super users through 2026.",
       "parked_reason": null,
       "phases": [
@@ -1658,7 +1654,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_bau_bau_003",
@@ -1666,7 +1663,6 @@
       "type": "BAU",
       "status": "Allocated",
       "owner": "James Whitfield",
-      "primary_domain_id": "thm_miv",
       "description": "Tag management, historian health, data quality investigations.",
       "parked_reason": null,
       "phases": [
@@ -1703,7 +1699,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_bau_bau_004",
@@ -1711,7 +1708,6 @@
       "type": "BAU",
       "status": "Allocated",
       "owner": "Ben Carter",
-      "primary_domain_id": "thm_miv",
       "description": "Dashboard fixes, report tweaks, ad-hoc reporting requests.",
       "parked_reason": null,
       "phases": [
@@ -1748,7 +1744,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_bau_bau_005",
@@ -1756,7 +1753,6 @@
       "type": "BAU",
       "status": "Allocated",
       "owner": "Marcus Vogel",
-      "primary_domain_id": "thm_mbm",
       "description": "Licence admin, tooling updates, model troubleshooting for existing simulation users.",
       "parked_reason": null,
       "phases": [
@@ -1793,7 +1789,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_npd_002",
@@ -1801,7 +1798,6 @@
       "type": "NPD Demand",
       "status": "Submitted",
       "owner": "Daniel Okafor",
-      "primary_domain_id": "thm_mom",
       "description": "Integration of MES genealogy and workflow coverage for the new NPD trial line in Plant A. Needed to unlock scaled production trials in Q4 2026.",
       "parked_reason": null,
       "phases": [
@@ -1876,7 +1872,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_npd_003",
@@ -1884,7 +1881,6 @@
       "type": "NPD Demand",
       "status": "Allocated",
       "owner": "Naomi Chen",
-      "primary_domain_id": "thm_miv",
       "description": "Quality reporting build-out for the NPD Line C rollout — dashboards and yield tracking for early-phase trials.",
       "parked_reason": null,
       "phases": [
@@ -1951,7 +1947,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_npd_004",
@@ -1959,7 +1956,6 @@
       "type": "NPD Demand",
       "status": "Draft",
       "owner": "Marcus Vogel",
-      "primary_domain_id": "thm_mbm",
       "description": "Process simulation model for the Product Family Z NPD programme. Still being scoped with R&D.",
       "parked_reason": null,
       "phases": [
@@ -2002,7 +1998,8 @@
           ]
         }
       ],
-      "project_id": "prj_004"
+      "project_id": "prj_004",
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_stress_001",
@@ -2010,7 +2007,6 @@
       "type": "Plant Project",
       "status": "Approved",
       "owner": "David Lin",
-      "primary_domain_id": "thm_mom",
       "description": "Full MES platform migration at Plant C. Approved but awaiting resource planning - heavy MOM Specialist requirement creates downstream capacity tension.",
       "parked_reason": null,
       "phases": [
@@ -2051,7 +2047,8 @@
           ]
         }
       ],
-      "project_id": "prj_002"
+      "project_id": "prj_002",
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_stress_002",
@@ -2059,7 +2056,6 @@
       "type": "Group Strategy Project",
       "status": "Submitted",
       "owner": "Elena Richter",
-      "primary_domain_id": "thm_miv",
       "description": "Strategic integration of plant data into group-level analytics lake. Pending Prioritisation Board review. Heavy MI&V Specialist requirement.",
       "parked_reason": null,
       "phases": [
@@ -2102,7 +2098,8 @@
           ]
         }
       ],
-      "project_id": "prj_005"
+      "project_id": "prj_005",
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_stress_003",
@@ -2110,7 +2107,6 @@
       "type": "Plant Project",
       "status": "Submitted",
       "owner": "Martin Hughes",
-      "primary_domain_id": "thm_mom",
       "description": "Enhancement to OEE tracking at Plant A. Submitted for prioritisation. Would directly increase MOM demand in already-congested months.",
       "parked_reason": null,
       "phases": [
@@ -2138,7 +2134,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_stress_004",
@@ -2146,7 +2143,6 @@
       "type": "Plant Project",
       "status": "PartiallyAllocated",
       "owner": "Priya Kumar",
-      "primary_domain_id": "thm_mom",
       "description": "Rollout of genealogy & traceability tracking across plants. Priya partially allocated; further Advanced MOM capacity still needed.",
       "parked_reason": null,
       "phases": [
@@ -2185,7 +2181,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_stress_005",
@@ -2193,7 +2190,6 @@
       "type": "Plant Project",
       "status": "Allocated",
       "owner": "Fatima Al-Rashid",
-      "primary_domain_id": "thm_miv",
       "description": "Historian platform upgrade. Fatima leading; overlaps with her other MI&V commitments to test cross-project headroom tracking.",
       "parked_reason": null,
       "phases": [
@@ -2232,7 +2228,8 @@
           ]
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     },
     {
       "id": "dmd_scoping_001",
@@ -2240,7 +2237,6 @@
       "type": "Plant Project",
       "status": "Scoping",
       "owner": "Alex Morgan",
-      "primary_domain_id": "thm_mom",
       "description": "Extension of the Plant A MES to cover Line 6. Submitted for scoping — teams are being assigned to define the skill-shaped requirements.",
       "parked_reason": null,
       "phases": [
@@ -2254,7 +2250,8 @@
           "requirements": []
         }
       ],
-      "project_id": null
+      "project_id": null,
+      "createdUnderFunctionId": "func_001"
     }
   ],
   "programmes": [

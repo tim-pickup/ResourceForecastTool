@@ -36,6 +36,7 @@ function normalizeSeed(raw: any): AppState {
       previous_status: (d.previous_status ?? null) as DemandStatus | null,
       closed_at: d.closed_at ?? null,
       project_id: d.project_id ?? null,
+      createdUnderFunctionId: d.createdUnderFunctionId ?? null,
       phases: (d.phases || []).map((p: any) => ({
         ...p,
         end_month: p.end_month ?? null,
@@ -161,7 +162,6 @@ export const useAppStore = create<Store>()(
           id: newId,
           name: item.name + ' (copy)',
           status: 'Draft',
-          primary_domain_id: '',
           parked_reason: null,
           previous_status: null,
           closed_at: null,
@@ -199,10 +199,10 @@ export const useAppStore = create<Store>()(
     }),
     {
       name: 'resource-forecast-v1',
-      version: 8,
+      version: 9,
       migrate: (_state, version) => {
         // On schema version mismatch, discard persisted state and reseed
-        if (version < 8) return SEED
+        if (version < 9) return SEED
         return _state as Store
       },
     }

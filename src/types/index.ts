@@ -16,7 +16,6 @@ export interface Team {
   description: string
   functionId: string
   type: 'Plant' | 'Central' | 'Specialist' | 'Other'
-  leadPersonId: string | null
   active: boolean
 }
 
@@ -98,13 +97,13 @@ export interface DemandItem {
   type: DemandType
   status: DemandStatus
   owner: string
-  primary_domain_id: string
   description: string
   parked_reason: string | null
   previous_status: DemandStatus | null
   closed_at: string | null
   phases: Phase[]
   project_id: string | null  // null = unaligned
+  createdUnderFunctionId: string | null
 }
 
 // ─── v1.14 entities ───────────────────────────────────────────────────────────

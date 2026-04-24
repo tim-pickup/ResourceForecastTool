@@ -68,15 +68,14 @@ function TeamsPanel() {
   const store = useAppStore()
   const [editId, setEditId] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
-  const [newForm, setNewForm] = useState<{ name: string; type: Team['type']; leadPersonId: string }>({ name: '', type: 'Plant', leadPersonId: '' })
-  const [editForm, setEditForm] = useState<{ name: string; type: Team['type']; leadPersonId: string }>({ name: '', type: 'Plant', leadPersonId: '' })
+  const [newForm, setNewForm] = useState<{ name: string; type: Team['type'] }>({ name: '', type: 'Plant' })
+  const [editForm, setEditForm] = useState<{ name: string; type: Team['type'] }>({ name: '', type: 'Plant' })
   const [blockId, setBlockId] = useState<string | null>(null)
 
   const fnId = store.functions[0]?.id ?? 'func_001'
   const fnName = store.functions[0]?.name ?? 'Digital Manufacturing'
 
   function memberCount(teamId: string) { return store.people.filter(p => p.teamId === teamId).length }
-  function leadName(leadPersonId: string | null) { return store.people.find(p => p.id === leadPersonId)?.name ?? '—' }
 
   function handleDelete(team: Team) {
     const blocking = store.people.filter(p => p.teamId === team.id)
@@ -86,14 +85,14 @@ function TeamsPanel() {
 
   function startEdit(team: Team) {
     setEditId(team.id)
-    setEditForm({ name: team.name, type: team.type, leadPersonId: team.leadPersonId ?? '' })
+    setEditForm({ name: team.name, type: team.type })
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-near-black">Teams ({store.teams.length})</h3>
-        <Button size="sm" variant="secondary" onClick={() => { setNewForm({ name: '', type: 'Plant', leadPersonId: '' }); setShowNew(true) }}>
+        <Button size="sm" variant="secondary" onClick={() => { setNewForm({ name: '', type: 'Plant' }); setShowNew(true) }}>
           <Plus size={12} /> Add Team
         </Button>
       </div>
@@ -120,15 +119,11 @@ function TeamsPanel() {
               {TEAM_TYPES.map(t => <option key={t}>{t}</option>)}
             </Select>
           </div>
-          <Select label="Lead (optional)" value={newForm.leadPersonId} onChange={e => setNewForm(f => ({ ...f, leadPersonId: e.target.value }))}>
-            <option value="">— none —</option>
-            {store.people.filter(p => p.active).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </Select>
           <div className="text-xs text-gray-400">Function: {fnName} (locked in v1)</div>
           <div className="flex gap-2">
             <Button size="sm" variant="primary" onClick={() => {
               if (!newForm.name.trim()) return
-              store.addTeam({ name: newForm.name.trim(), description: '', functionId: fnId, type: newForm.type, leadPersonId: newForm.leadPersonId || null, active: true })
+              store.addTeam({ name: newForm.name.trim(), description: '', functionId: fnId, type: newForm.type, active: true })
               setShowNew(false)
             }}>Save</Button>
             <Button size="sm" variant="ghost" onClick={() => setShowNew(false)}>Cancel</Button>
@@ -149,14 +144,10 @@ function TeamsPanel() {
                       {TEAM_TYPES.map(t => <option key={t}>{t}</option>)}
                     </Select>
                   </div>
-                  <Select label="Lead (optional)" value={editForm.leadPersonId} onChange={e => setEditForm(f => ({ ...f, leadPersonId: e.target.value }))}>
-                    <option value="">— none —</option>
-                    {store.people.filter(p => p.active).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </Select>
                   <div className="flex gap-2">
                     <Button size="sm" variant="primary" onClick={() => {
                       if (!editForm.name.trim()) return
-                      store.updateTeam(team.id, { name: editForm.name.trim(), type: editForm.type, leadPersonId: editForm.leadPersonId || null })
+                      store.updateTeam(team.id, { name: editForm.name.trim(), type: editForm.type })
                       setEditId(null)
                     }}>Save</Button>
                     <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>Cancel</Button>
@@ -171,7 +162,7 @@ function TeamsPanel() {
                       {!team.active && <span className="text-xs text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">Inactive</span>}
                     </div>
                     <div className="text-xs text-gray-500 mt-0.5">
-                      Lead: {leadName(team.leadPersonId)} · {count} member{count !== 1 ? 's' : ''}
+                      {count} member{count !== 1 ? 's' : ''}
                     </div>
                   </div>
                   <div className="flex gap-1 items-center">
