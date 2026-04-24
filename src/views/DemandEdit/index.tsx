@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Copy } from 'lucide-react'
+import { ArrowLeft, Copy, CheckCircle, AlertTriangle } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import type { DemandItem, DemandStatus, DemandType, ExternalResourceRequirement } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { Input, Select, Textarea } from '../../components/ui/FormFields'
 import { StatusBadge } from '../../components/ui/Badge'
+import { Modal } from '../../components/ui/Modal'
 import { generateId } from '../../utils/ids'
 import { PhaseEditor, blankPhase, PhaseGantt } from './ModeAEditor'
 import { AllocationWorkspace, computeAutoStatus } from './AllocationWorkspace'
@@ -14,13 +15,17 @@ const TYPES: DemandType[] = ['Group Strategy Project', 'Plant Project', 'NPD Dem
 const MODE_A: DemandStatus[] = ['Draft', 'Scoping', 'Submitted', 'Parked']
 const MODE_B: DemandStatus[] = ['Approved', 'PartiallyAllocated', 'Allocated']
 
-interface Transition { label: string; next: DemandStatus; variant?: 'danger' | 'secondary' }
+interface Transition { label: string; next: DemandStatus; variant?: 'danger' | 'secondary'; isSubmitAction?: boolean }
 
 function pageTransitions(status: DemandStatus, isNew: boolean): Transition[] {
   if (isNew) return []
   switch (status) {
     case 'Draft':     return [{ label: 'Submit for Scoping', next: 'Scoping' }]
-    case 'Scoping':   return [{ label: 'Revert to Draft', next: 'Draft' }, { label: 'Park', next: 'Parked' }]
+    case 'Scoping':   return [
+      { label: 'Revert to Draft', next: 'Draft' },
+      { label: 'Park', next: 'Parked' },
+      { label: 'Submit for capacity assessment', next: 'Submitted', isSubmitAction: true },
+    ]
     case 'Submitted': return [{ label: 'Approve', next: 'Approved' }, { label: 'Revert to Draft', next: 'Draft' }, { label: 'Park', next: 'Parked' }]
     case 'Approved':  return [{ label: 'Revise', next: 'Submitted' }, { label: 'Park', next: 'Parked' }, { label: 'Close', next: 'Closed', variant: 'danger' }]
     case 'PartiallyAllocated': return [{ label: 'Park', next: 'Parked' }, { label: 'Close', next: 'Closed', variant: 'danger' }]
@@ -50,6 +55,7 @@ export default function DemandEdit() {
     existing ? { ...existing } : blankDemand()
   )
   const [isDirty, setIsDirty] = useState(false)
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false)
 
   // External resource requirements — keyed by phase_id, tracked separately from draft
   const [extReqsByPhase, setExtReqsByPhase] = useState<Record<string, ExternalResourceRequirement[]>>(() => {
@@ -175,6 +181,13 @@ export default function DemandEdit() {
     setIsDirty(false)
   }
 
+  const handleConfirmSubmitForAssessment = () => {
+    if (!isNew && id) store.updateDemandItem(id, { status: 'Submitted' })
+    update(d => ({ ...d, status: 'Submitted' }))
+    setIsDirty(false)
+    setShowSubmitDialog(false)
+  }
+
   const trans = pageTransitions(draft.status as DemandStatus, isNew)
   const updatePhase = (phaseId: string, p: typeof draft.phases[0]) =>
     update(d => ({ ...d, phases: d.phases.map(x => x.id === phaseId ? p : x) }))
@@ -201,7 +214,12 @@ export default function DemandEdit() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {!isNew && trans.map(t => (
-            <Button key={t.label} size="sm" variant={t.variant ?? 'secondary'} onClick={() => handleStatusChange(t.next)}>
+            <Button
+              key={t.label}
+              size="sm"
+              variant={t.isSubmitAction ? 'primary' : (t.variant ?? 'secondary')}
+              onClick={() => t.isSubmitAction ? setShowSubmitDialog(true) : handleStatusChange(t.next)}
+            >
               {t.label}
             </Button>
           ))}
@@ -321,6 +339,96 @@ export default function DemandEdit() {
           </div>
         </div>
       </div>
+
+      {/* Submit for capacity assessment dialog */}
+      {showSubmitDialog && id && (() => {
+        const assignments = store.demandTeamAssignments.filter(a => a.demandId === id)
+        const rows = assignments.map(a => {
+          const team = store.teams.find(t => t.id === a.teamId)
+          const phaseIdx = draft.phases.findIndex(p => p.id === a.phaseId)
+          const phase = phaseIdx >= 0 ? draft.phases[phaseIdx] : undefined
+          const reqCount = phase ? phase.requirements.filter(r => r.owningTeamId === a.teamId).length : 0
+          return {
+            teamName: team?.name ?? 'Unknown Team',
+            phaseLabel: phase?.name ? phase.name : `Phase ${phaseIdx + 1}`,
+            reqCount,
+            confirmed: a.confirmed,
+          }
+        })
+        const unconfirmedCount = rows.filter(r => !r.confirmed).length
+        const hasAnyAssignments = rows.length > 0
+        const allConfirmed = hasAnyAssignments && unconfirmedCount === 0
+        const submitLabel = (hasAnyAssignments && !allConfirmed) ? 'Submit anyway' : 'Submit'
+
+        let bodyContent: React.ReactNode
+        if (!hasAnyAssignments) {
+          bodyContent = (
+            <p className="text-xs text-gray-600">
+              No teams are assigned to phases on this Demand. You can still submit now and assign teams or add requirements before Approval.
+            </p>
+          )
+        } else if (allConfirmed) {
+          bodyContent = (
+            <>
+              <p className="text-xs text-gray-600 mb-3">
+                All {rows.length} assigned team{rows.length !== 1 ? 's have' : ' has'} confirmed their requirements:
+              </p>
+              <ul className="flex flex-col gap-1.5">
+                {rows.map((r, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-gray-700">
+                    <CheckCircle size={13} className="text-green-500 mt-0.5 shrink-0" />
+                    <span><strong>{r.teamName}</strong> — {r.reqCount} requirement{r.reqCount !== 1 ? 's' : ''} on {r.phaseLabel}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-gray-400 mt-3">
+                Once submitted, the Demand will appear on the Capacity Validation page as a candidate Submitted overlay, and allocation work can begin after approval.
+              </p>
+            </>
+          )
+        } else {
+          bodyContent = (
+            <>
+              <p className="text-xs text-gray-600 mb-3">
+                {unconfirmedCount} of {rows.length} assigned team{rows.length !== 1 ? 's have' : ' has'} not yet confirmed their requirements:
+              </p>
+              <ul className="flex flex-col gap-1.5">
+                {rows.map((r, i) => (
+                  <li key={i} className={`flex items-start gap-2 text-xs ${r.confirmed ? 'text-gray-700' : 'text-amber-700'}`}>
+                    {r.confirmed
+                      ? <CheckCircle size={13} className="text-green-500 mt-0.5 shrink-0" />
+                      : <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
+                    }
+                    <span>
+                      <strong>{r.teamName}</strong> — {r.reqCount} requirement{r.reqCount !== 1 ? 's' : ''} on {r.phaseLabel}
+                      {!r.confirmed && <span className="italic">, not confirmed</span>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-gray-500 mt-3">
+                You can still submit now and follow up with those teams afterwards. Their requirements can continue to be added before the Demand is Approved.
+              </p>
+            </>
+          )
+        }
+
+        return (
+          <Modal
+            open={showSubmitDialog}
+            onClose={() => setShowSubmitDialog(false)}
+            title={`Submit "${draft.name || 'this demand'}" for capacity assessment?`}
+            footer={
+              <>
+                <Button size="sm" variant="ghost" onClick={() => setShowSubmitDialog(false)}>Cancel</Button>
+                <Button size="sm" variant="primary" onClick={handleConfirmSubmitForAssessment}>{submitLabel}</Button>
+              </>
+            }
+          >
+            {bodyContent}
+          </Modal>
+        )
+      })()}
     </div>
   )
 }

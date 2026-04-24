@@ -1,12 +1,43 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, MoreHorizontal, Copy, Trash2, Edit2, AlertTriangle, ExternalLink, GitMerge } from 'lucide-react'
+import { X, MoreHorizontal, Copy, Trash2, Edit2, AlertTriangle, ExternalLink, GitMerge, CheckCircle } from 'lucide-react'
 import { parseISO, format } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
 import { Button } from '../ui/Button'
 import { StatusBadge, Badge } from '../ui/Badge'
-import type { DemandItem, DemandStatus } from '../../types'
+import { Modal } from '../ui/Modal'
+import type { DemandItem, DemandStatus, DemandTeamAssignment, Team } from '../../types'
 import { derivedPrimaryDomain } from '../../types'
+
+// ─── Submit-for-assessment dialog helpers ─────────────────────────────────────
+
+interface SubmitRow {
+  teamName: string
+  phaseLabel: string
+  reqCount: number
+  confirmed: boolean
+}
+
+function buildSubmitRows(
+  item: DemandItem,
+  assignments: DemandTeamAssignment[],
+  teams: Team[]
+): SubmitRow[] {
+  return assignments
+    .filter(a => a.demandId === item.id)
+    .map(a => {
+      const team = teams.find(t => t.id === a.teamId)
+      const phaseIdx = item.phases.findIndex(p => p.id === a.phaseId)
+      const phase = phaseIdx >= 0 ? item.phases[phaseIdx] : undefined
+      const reqCount = phase ? phase.requirements.filter(r => r.owningTeamId === a.teamId).length : 0
+      return {
+        teamName: team?.name ?? 'Unknown Team',
+        phaseLabel: phase?.name ? phase.name : `Phase ${phaseIdx + 1}`,
+        reqCount,
+        confirmed: a.confirmed,
+      }
+    })
+}
 
 interface Props {
   demandId: string | null
@@ -34,6 +65,7 @@ function footerButtons(status: DemandStatus): FooterButton[] {
       return [
         { label: 'Revert to Draft', kind: 'transitional', next: 'Draft', variant: 'secondary' },
         { label: 'Park', kind: 'transitional', next: 'Parked', variant: 'secondary' },
+        { label: 'Submit for capacity assessment', kind: 'navigational', action: 'submit-for-assessment', variant: 'primary' },
       ]
     case 'Submitted':
       return [
@@ -250,6 +282,7 @@ interface DrawerContentProps {
 function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
   const store = useAppStore()
   const navigate = useNavigate()
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false)
 
   const domain = derivedPrimaryDomain(item, store.domains, store.skills)
   const project = item.project_id ? store.projects.find(p => p.id === item.project_id) : null
@@ -293,6 +326,11 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
   function handleAllocate() { onClose(); navigate(`/demand/${demandId}/edit`) }
   function handleModelImpact() { onClose(); navigate(`/capacity?overlay=${demandId}&from=demand`) }
 
+  function handleConfirmSubmit() {
+    store.updateDemandItem(demandId, { status: 'Submitted' })
+    setShowSubmitDialog(false)
+  }
+
   function handleFooterAction(btn: FooterButton) {
     if (btn.kind === 'transitional') {
       if (btn.label === 'Restore') {
@@ -303,10 +341,12 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
     } else {
       if (btn.action === 'allocate') handleAllocate()
       if (btn.action === 'model-impact') handleModelImpact()
+      if (btn.action === 'submit-for-assessment') setShowSubmitDialog(true)
     }
   }
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-black/20" onClick={onClose} />
       <div className="w-[440px] bg-white border-l border-border flex flex-col shadow-panel overflow-hidden">
@@ -521,6 +561,86 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
         )}
       </div>
     </div>
+
+    {/* ── Submit for capacity assessment dialog ──────────────────────────── */}
+    {(() => {
+      if (!showSubmitDialog) return null
+      const rows = buildSubmitRows(item, store.demandTeamAssignments, store.teams)
+      const unconfirmedCount = rows.filter(r => !r.confirmed).length
+      const hasAnyAssignments = rows.length > 0
+      const allConfirmed = hasAnyAssignments && unconfirmedCount === 0
+      const submitLabel = (hasAnyAssignments && !allConfirmed) ? 'Submit anyway' : 'Submit'
+
+      let bodyContent: React.ReactNode
+      if (!hasAnyAssignments) {
+        bodyContent = (
+          <p className="text-xs text-gray-600">
+            No teams are assigned to phases on this Demand. You can still submit now and assign teams or add requirements before Approval.
+          </p>
+        )
+      } else if (allConfirmed) {
+        bodyContent = (
+          <>
+            <p className="text-xs text-gray-600 mb-3">
+              All {rows.length} assigned team{rows.length !== 1 ? 's have' : ' has'} confirmed their requirements:
+            </p>
+            <ul className="flex flex-col gap-1.5">
+              {rows.map((r, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-gray-700">
+                  <CheckCircle size={13} className="text-green-500 mt-0.5 shrink-0" />
+                  <span><strong>{r.teamName}</strong> — {r.reqCount} requirement{r.reqCount !== 1 ? 's' : ''} on {r.phaseLabel}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-gray-400 mt-3">
+              Once submitted, the Demand will appear on the Capacity Validation page as a candidate Submitted overlay, and allocation work can begin after approval.
+            </p>
+          </>
+        )
+      } else {
+        bodyContent = (
+          <>
+            <p className="text-xs text-gray-600 mb-3">
+              {unconfirmedCount} of {rows.length} assigned team{rows.length !== 1 ? 's have' : ' has'} not yet confirmed their requirements:
+            </p>
+            <ul className="flex flex-col gap-1.5">
+              {rows.map((r, i) => (
+                <li key={i} className={`flex items-start gap-2 text-xs ${r.confirmed ? 'text-gray-700' : 'text-amber-700'}`}>
+                  {r.confirmed
+                    ? <CheckCircle size={13} className="text-green-500 mt-0.5 shrink-0" />
+                    : <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
+                  }
+                  <span>
+                    <strong>{r.teamName}</strong> — {r.reqCount} requirement{r.reqCount !== 1 ? 's' : ''} on {r.phaseLabel}
+                    {!r.confirmed && <span className="italic">, not confirmed</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-gray-500 mt-3">
+              You can still submit now and follow up with those teams afterwards. Their requirements can continue to be added before the Demand is Approved.
+            </p>
+          </>
+        )
+      }
+
+      return (
+        <Modal
+          open={showSubmitDialog}
+          onClose={() => setShowSubmitDialog(false)}
+          title={`Submit "${item.name}" for capacity assessment?`}
+          footer={
+            <>
+              <Button size="sm" variant="ghost" onClick={() => setShowSubmitDialog(false)}>Cancel</Button>
+              <Button size="sm" variant="primary" onClick={handleConfirmSubmit}>{submitLabel}</Button>
+            </>
+          }
+        >
+          {bodyContent}
+        </Modal>
+      )
+    })()}
+    </>
   )
 }
 

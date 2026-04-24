@@ -15,7 +15,7 @@ Tracks implementation progress against REQUIREMENTS.md v1.16. REQUIREMENTS.md is
 
 ## 2. State machine update — remove Scoping auto-advance
 
-- [ ] Remove the auto-transition `Scoping → Submitted on all assignments confirmed`. Add a user-driven transition via `Submit for capacity assessment` action.
+- [x] Remove the auto-transition `Scoping → Submitted on all assignments confirmed`. Add a user-driven transition via `Submit for capacity assessment` action.
 - **Scope**: state machine implementation + transitions table
 - **Dependencies**: none
 - **Reference**: section 3 (transitions table, Scoping workflow subsection), section 9 build step 2
