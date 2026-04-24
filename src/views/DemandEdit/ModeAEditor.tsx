@@ -200,18 +200,28 @@ export function blankPhase(): Phase {
 
 // ─── Requirement row (finite) ─────────────────────────────────────────────────
 
+type AssignedTeam = { id: string; name: string; functionId: string }
+
 interface ReqRowProps {
   req: SkillRequirement
   months: string[]
   onChange: (r: SkillRequirement) => void
   onDelete: () => void
+  assignedTeams?: AssignedTeam[]
 }
 
-function RequirementRow({ req, months, onChange, onDelete }: ReqRowProps) {
-  const { skills, domains } = useAppStore()
+function RequirementRow({ req, months, onChange, onDelete, assignedTeams = [] }: ReqRowProps) {
+  const { skills, domains, activeFunctionId } = useAppStore()
   const [fillVal, setFillVal] = useState(0)
 
   const totalHrs = months.reduce((s, m) => s + (req.hours_by_month[m] ?? 0), 0)
+
+  // Scope DomainSkillSelector to owning team's Function, or active Function if no owning team (§4.5.2)
+  const owningTeam = req.owningTeamId ? assignedTeams.find(t => t.id === req.owningTeamId) : null
+  const scopingFnId = owningTeam?.functionId ?? activeFunctionId
+  const scopedDomains = scopingFnId ? domains.filter(d => d.functionId === scopingFnId) : domains
+  const scopedDomainIds = new Set(scopedDomains.map(d => d.id))
+  const scopedSkills = skills.filter(s => scopedDomainIds.has(s.domain_id))
 
   const handleFillAll = () => {
     const hbm: Record<string, number> = {}
@@ -225,12 +235,23 @@ function RequirementRow({ req, months, onChange, onDelete }: ReqRowProps) {
   return (
     <div className="border border-border rounded p-2.5 bg-gray-50/50 flex flex-col gap-2">
       <div className="flex items-center gap-2 flex-wrap">
+        {assignedTeams.length > 0 && (
+          <select
+            value={req.owningTeamId ?? ''}
+            onChange={e => onChange({ ...req, owningTeamId: e.target.value || null })}
+            className="text-xs border border-border rounded px-1.5 py-1 bg-white"
+            title="Owning team"
+          >
+            <option value="">— Owning Team —</option>
+            {assignedTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        )}
         <div className="flex-1 min-w-[160px]">
           <DomainSkillSelector
             value={req.skill_id}
             onChange={id => onChange({ ...req, skill_id: id })}
-            domains={domains}
-            skills={skills}
+            domains={scopedDomains}
+            skills={scopedSkills}
           />
         </div>
         <select
@@ -298,18 +319,35 @@ function RequirementRow({ req, months, onChange, onDelete }: ReqRowProps) {
 
 // ─── Requirement row (indefinite) ─────────────────────────────────────────────
 
-function IndefiniteRequirementRow({ req, onChange, onDelete }: { req: SkillRequirement; onChange: (r: SkillRequirement) => void; onDelete: () => void }) {
-  const { skills, domains } = useAppStore()
+function IndefiniteRequirementRow({ req, onChange, onDelete, assignedTeams = [] }: { req: SkillRequirement; onChange: (r: SkillRequirement) => void; onDelete: () => void; assignedTeams?: AssignedTeam[] }) {
+  const { skills, domains, activeFunctionId } = useAppStore()
+
+  const owningTeam = req.owningTeamId ? assignedTeams.find(t => t.id === req.owningTeamId) : null
+  const scopingFnId = owningTeam?.functionId ?? activeFunctionId
+  const scopedDomains = scopingFnId ? domains.filter(d => d.functionId === scopingFnId) : domains
+  const scopedDomainIds = new Set(scopedDomains.map(d => d.id))
+  const scopedSkills = skills.filter(s => scopedDomainIds.has(s.domain_id))
 
   return (
     <div className="border border-border rounded p-2.5 bg-gray-50/50 flex flex-col gap-2">
       <div className="flex items-center gap-2 flex-wrap">
+        {assignedTeams.length > 0 && (
+          <select
+            value={req.owningTeamId ?? ''}
+            onChange={e => onChange({ ...req, owningTeamId: e.target.value || null })}
+            className="text-xs border border-border rounded px-1.5 py-1 bg-white"
+            title="Owning team"
+          >
+            <option value="">— Owning Team —</option>
+            {assignedTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        )}
         <div className="flex-1 min-w-[160px]">
           <DomainSkillSelector
             value={req.skill_id}
             onChange={id => onChange({ ...req, skill_id: id })}
-            domains={domains}
-            skills={skills}
+            domains={scopedDomains}
+            skills={scopedSkills}
           />
         </div>
         <select
@@ -522,11 +560,14 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
   const [open, setOpen] = useState(true)
   const store = useAppStore()
 
+  // Teams section visible from Scoping onwards (§4.5.2), confirmation strip in Scoping only
+  const showTeamsSection = (demandStatus === 'Scoping' || demandStatus === 'Submitted' || demandStatus === 'Parked') && !!demandId
   const isScoping = demandStatus === 'Scoping' && !!demandId
-  const phaseAssignments = isScoping
+  const phaseAssignments = showTeamsSection
     ? store.demandTeamAssignments.filter(a => a.demandId === demandId && a.phaseId === phase.id)
     : []
   const assignedTeamIds = new Set(phaseAssignments.map(a => a.teamId))
+  const assignedTeams = store.teams.filter(t => assignedTeamIds.has(t.id))
   const activeTeams = store.teams.filter(t => t.active)
 
   function handleTeamToggle(teamId: string) {
@@ -657,8 +698,8 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
           </div>
           <Input label="Funding Notes" value={phase.funding_notes} onChange={e => onChange({ ...phase, funding_notes: e.target.value })} placeholder="e.g. IS-2026-04" />
 
-          {/* Teams assigned — shown in Scoping status only */}
-          {isScoping && (
+          {/* Teams assigned — visible in Scoping, Submitted, Parked (§4.5.2) */}
+          {showTeamsSection && (
             <div className="border border-purple-200 rounded p-2.5 bg-purple-50/40">
               <span className="text-xs font-medium text-purple-700 uppercase tracking-wide block mb-2">Teams Assigned</span>
               {activeTeams.length === 0 ? (
@@ -689,8 +730,8 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
                   })}
                 </div>
               )}
-              {/* Confirm buttons for unconfirmed assignments */}
-              {phaseAssignments.filter(a => !a.confirmed).map(a => {
+              {/* Confirm buttons — Scoping only */}
+              {isScoping && phaseAssignments.filter(a => !a.confirmed).map(a => {
                 const team = store.teams.find(t => t.id === a.teamId)
                 return (
                   <div key={a.id} className="mt-2 flex items-center gap-2">
@@ -726,6 +767,7 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
                     req={req}
                     onChange={r => updateReq(req.id, r)}
                     onDelete={() => deleteReq(req.id)}
+                    assignedTeams={assignedTeams}
                   />
                 ) : (
                   <RequirementRow
@@ -734,6 +776,7 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
                     months={months}
                     onChange={r => updateReq(req.id, r)}
                     onDelete={() => deleteReq(req.id)}
+                    assignedTeams={assignedTeams}
                   />
                 )
               ))}

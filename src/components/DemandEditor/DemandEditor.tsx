@@ -7,7 +7,6 @@ import { Button } from '../ui/Button'
 import { StatusBadge, Badge } from '../ui/Badge'
 import { Modal } from '../ui/Modal'
 import type { DemandItem, DemandStatus, DemandTeamAssignment, Team } from '../../types'
-import { derivedPrimaryDomain } from '../../types'
 
 // ─── Submit-for-assessment dialog helpers ─────────────────────────────────────
 
@@ -284,7 +283,20 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
   const navigate = useNavigate()
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
 
-  const domain = derivedPrimaryDomain(item, store.domains, store.skills)
+  // Auto-derive distinct Functions from requirements
+  const functionsInvolved = (() => {
+    const fnIds = new Set<string>()
+    for (const phase of item.phases) {
+      for (const req of phase.requirements) {
+        const skill = store.skills.find(s => s.id === req.skill_id)
+        if (!skill) continue
+        const dom = store.domains.find(d => d.id === skill.domain_id)
+        if (!dom) continue
+        fnIds.add(dom.functionId)
+      }
+    }
+    return [...fnIds].map(id => store.functions.find(f => f.id === id)).filter(Boolean)
+  })()
   const project = item.project_id ? store.projects.find(p => p.id === item.project_id) : null
   const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
   const { finite: totalFiniteHours, indefiniteCount } = totalItemHours(item)
@@ -439,11 +451,19 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
             )
           })()}
 
-          {/* Primary Domain — read-only, auto-derived from requirement hours */}
-          <div className="text-xs">
-            <span className="text-gray-400">Primary Domain: </span>
-            <span>{domain?.name ?? 'Unassigned'}</span>
-          </div>
+          {/* Functions involved — auto-derived from requirements */}
+          {functionsInvolved.length > 0 && (
+            <div className="text-xs flex items-start gap-2">
+              <span className="text-gray-400 shrink-0 mt-0.5">Functions:</span>
+              <div className="flex flex-wrap gap-1">
+                {functionsInvolved.map(f => (
+                  <span key={f!.id} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                    {f!.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Project alignment */}
           {project ? (

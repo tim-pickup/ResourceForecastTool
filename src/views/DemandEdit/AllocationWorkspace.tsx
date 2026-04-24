@@ -3,7 +3,6 @@ import { Plus, Trash2, AlertTriangle, Lock } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAppStore } from '../../store/useAppStore'
 import type { AppState, DemandItem, SkillRequirement, NamedAllocation, Level, DemandStatus, Phase } from '../../types'
-import { derivedPrimaryDomain } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { formatMonthLabel, getPersonAvgAvailableForPhase, monthInRange } from '../../utils/capacity'
 import { generateId } from '../../utils/ids'
@@ -529,8 +528,20 @@ interface Props {
 
 export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRevise, onRevise }: Props) {
   const store = useAppStore()
-  const { domains } = store
-  const domain = derivedPrimaryDomain(draft, domains, store.skills)
+  // Auto-derive distinct Functions from requirements for Mode B top summary
+  const functionsInvolved = (() => {
+    const fnIds = new Set<string>()
+    for (const phase of draft.phases) {
+      for (const req of phase.requirements) {
+        const skill = store.skills.find(s => s.id === req.skill_id)
+        if (!skill) continue
+        const dom = store.domains.find(d => d.id === skill.domain_id)
+        if (!dom) continue
+        fnIds.add(dom.functionId)
+      }
+    }
+    return [...fnIds].map(id => store.functions.find(f => f.id === id)).filter(Boolean)
+  })()
   const project = draft.project_id ? store.projects.find(p => p.id === draft.project_id) : null
   const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
 
@@ -579,8 +590,16 @@ export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRev
           <span className="font-semibold text-near-black">{draft.name}</span>
           <span className="text-gray-400">·</span>
           <span className="text-gray-500">{draft.type}</span>
-          <span className="text-gray-400">·</span>
-          <span className="text-gray-500">{domain?.name}</span>
+          {functionsInvolved.length > 0 && <>
+            <span className="text-gray-400">·</span>
+            <span className="flex flex-wrap gap-1">
+              {functionsInvolved.map(f => (
+                <span key={f!.id} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                  {f!.name}
+                </span>
+              ))}
+            </span>
+          </>}
           {draft.owner && <><span className="text-gray-400">·</span><span className="text-gray-500">{draft.owner}</span></>}
         </div>
         {/* Project alignment — editable even in Mode B (§2.1.1 explicit exception) */}

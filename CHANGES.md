@@ -57,7 +57,7 @@ Tracks implementation progress against REQUIREMENTS.md v1.16. REQUIREMENTS.md is
 
 ## 8. Drawer and edit page corrections
 
-- [ ] Drawer header: remove Primary Domain. Drawer body: replace Primary Domain with "Functions involved" chips line. Drawer footer: Scoping row (Submit for capacity assessment / Revert to Draft / Park). Overflow: Scoping includes Close. Mode A: Teams-assigned picker per phase, per-team confirmation strip (Scoping only), owning-team field on internal requirements, DOMAIN > SKILL selector scoped to owning team's Function. Mode B top summary: replace "domain" with "Functions involved".
+- [x] Drawer header: remove Primary Domain. Drawer body: replace Primary Domain with "Functions involved" chips line. Drawer footer: Scoping row (Submit for capacity assessment / Revert to Draft / Park). Overflow: Scoping includes Close. Mode A: Teams-assigned picker per phase, per-team confirmation strip (Scoping only), owning-team field on internal requirements, DOMAIN > SKILL selector scoped to owning team's Function. Mode B top summary: replace "domain" with "Functions involved".
 - **Scope**: drawer + edit page in both modes
 - **Dependencies**: items 1, 2, 3
 - **Reference**: section 4.5.1 (drawer), section 4.5.2 (Mode A, Mode B), section 11.18 (Submit dialog), section 9 build step 7
