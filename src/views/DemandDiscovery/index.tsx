@@ -7,11 +7,11 @@ import { useAppStore } from '../../store/useAppStore'
 import { DemandDrawer } from '../../components/DemandEditor/DemandEditor'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
-import type { DemandItem, DemandStatus, DemandType } from '../../types'
-import { isValidTransition, derivedPrimaryDomain } from '../../types'
+import type { DemandItem, DemandStatus, DemandType, AppFunction } from '../../types'
+import { isValidTransition } from '../../types'
 import { clsx } from 'clsx'
 import { getCurrentMonth, generateMonths } from '../../utils/capacity'
-import { project_internal_hours, project_external_hours, project_external_hours_by_provider } from '../../lib/capacity'
+import { project_internal_hours, project_external_hours } from '../../lib/capacity'
 
 // Active statuses — Closed items live in Archive, not here
 const ACTIVE_STATUSES: DemandStatus[] = ['Draft', 'Scoping', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated', 'Parked']
@@ -36,7 +36,6 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: item.id })
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
   const store = useAppStore()
-  const domain = derivedPrimaryDomain(item, store.domains, store.skills)
   const project = item.project_id ? store.projects.find(p => p.id === item.project_id) : null
   const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
 
@@ -45,7 +44,6 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
     const assignments = store.demandTeamAssignments.filter(a => a.demandId === item.id)
     const byTeam = new Map<string, boolean>()
     for (const a of assignments) {
-      // A team is confirmed only if all its assignments are confirmed
       byTeam.set(a.teamId, (byTeam.get(a.teamId) ?? true) && a.confirmed)
     }
     return [...byTeam.entries()].map(([teamId, confirmed]) => ({
@@ -72,7 +70,6 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-near-black truncate">{item.name}</div>
           <div className="text-xs text-gray-500 mt-0.5">{item.type}</div>
-          {domain && <div className="text-xs text-gray-400">{domain.name}</div>}
           {programme && project ? (
             <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5">
               <GitMerge size={10} />{programme.name} › {project.name}
@@ -120,11 +117,43 @@ function DroppableColumn({ status, children }: { status: DemandStatus; children:
   )
 }
 
-function TableRow({ item, projectMap, programmeMap, phasesWithExt, onSelect }: {
+function FunctionsInvolvedChips({ item, functions, domains, skills }: {
+  item: DemandItem
+  functions: AppFunction[]
+  domains: { id: string; functionId: string }[]
+  skills: { id: string; domain_id: string }[]
+}) {
+  const fnIds = new Set<string>()
+  for (const phase of item.phases) {
+    for (const req of phase.requirements) {
+      const skill = skills.find(s => s.id === req.skill_id)
+      if (!skill) continue
+      const domain = domains.find(d => d.id === skill.domain_id)
+      if (!domain) continue
+      fnIds.add(domain.functionId)
+    }
+  }
+  const fns = [...fnIds].map(id => functions.find(f => f.id === id)).filter((f): f is AppFunction => !!f)
+  if (fns.length === 0) return <span className="text-gray-300 text-xs">—</span>
+  return (
+    <div className="flex flex-wrap gap-1">
+      {fns.map(f => (
+        <span key={f.id} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+          {f.name}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function TableRow({ item, projectMap, programmeMap, phasesWithExt, functions, domains, skills, onSelect }: {
   item: DemandItem
   projectMap: Map<string, { id: string; name: string; programme_id: string; active: boolean; description: string }>
   programmeMap: Map<string, { id: string; name: string; description: string; active: boolean }>
   phasesWithExt: Set<string>
+  functions: AppFunction[]
+  domains: { id: string; name: string; functionId: string }[]
+  skills: { id: string; domain_id: string }[]
   onSelect: (id: string) => void
 }) {
   const store = useAppStore()
@@ -140,7 +169,6 @@ function TableRow({ item, projectMap, programmeMap, phasesWithExt, onSelect }: {
     }, 0)
   return (
     <tr
-      key={item.id}
       onClick={() => onSelect(item.id)}
       className="border-b border-border/50 hover:bg-gray-50 cursor-pointer"
     >
@@ -150,9 +178,76 @@ function TableRow({ item, projectMap, programmeMap, phasesWithExt, onSelect }: {
       <td className="px-4 py-2.5 text-gray-600">{item.owner || '—'}</td>
       <td className="px-4 py-2.5 text-gray-500 text-xs">{programme?.name ?? <span className="text-gray-300">—</span>}</td>
       <td className="px-4 py-2.5 text-gray-500 text-xs">{project?.name ?? <span className="text-gray-300 italic">Unaligned</span>}</td>
-      <td className="px-4 py-2.5 text-gray-500 text-xs italic">{derivedPrimaryDomain(item, store.domains, store.skills)?.name ?? 'Unassigned'}</td>
+      <td className="px-4 py-2.5">
+        <FunctionsInvolvedChips item={item} functions={functions} domains={domains} skills={skills} />
+      </td>
       <td className="px-4 py-2.5 text-right text-xs text-amber-600">{extHrs > 0 ? `${Math.round(extHrs)}h` : <span className="text-gray-300">—</span>}</td>
     </tr>
+  )
+}
+
+// Multi-select domain dropdown
+function DomainMultiSelect({ domains, selected, onChange }: {
+  domains: { id: string; name: string }[]
+  selected: string[]
+  onChange: (ids: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const label = selected.length === 0
+    ? 'All Domains'
+    : selected.length === 1
+      ? domains.find(d => d.id === selected[0])?.name ?? '1 Domain'
+      : `${selected.length} Domains`
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="text-xs border border-border rounded px-2 py-1 bg-white flex items-center gap-1 hover:bg-gray-50"
+      >
+        {label}
+        <ChevronDown size={10} className="text-gray-400" />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 bg-white border border-border rounded shadow-lg z-20 p-2 min-w-[180px]">
+          {domains.length === 0 && (
+            <p className="text-xs text-gray-400 px-1 py-1">No domains in this Function</p>
+          )}
+          {domains.map(d => (
+            <label key={d.id} className="flex items-center gap-2 text-xs py-1 px-1 cursor-pointer hover:bg-gray-50 rounded">
+              <input
+                type="checkbox"
+                checked={selected.includes(d.id)}
+                onChange={() => onChange(
+                  selected.includes(d.id) ? selected.filter(id => id !== d.id) : [...selected, d.id]
+                )}
+                className="accent-brand"
+              />
+              {d.name}
+            </label>
+          ))}
+          {selected.length > 0 && (
+            <button
+              onClick={() => onChange([])}
+              className="text-xs text-gray-400 hover:text-red-500 mt-1 w-full text-left px-1"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -175,13 +270,14 @@ export default function DemandDiscovery() {
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType] = useState('')
-  const [filterDomain, setFilterDomain] = useState('')
+  const [filterDomains, setFilterDomains] = useState<string[]>([])
   const [filterProgramme, setFilterProgramme] = useState('')
   const [filterProject, setFilterProject] = useState('')
   const [filterHasExternal, setFilterHasExternal] = useState(false)
   const [groupBy, setGroupBy] = useState<GroupBy>('none')
   const [search, setSearch] = useState('')
   const [dragError, setDragError] = useState<string | null>(null)
+  const [switchToast, setSwitchToast] = useState<string | null>(null)
 
   // §11.17: reset Function-scoped filters and auto-close drawer on Function switch
   const activeFunctionId = store.activeFunctionId
@@ -191,7 +287,7 @@ export default function DemandDiscovery() {
     prevFnRef.current = activeFunctionId
 
     // Reset Function-scoped domain filter (§11.17)
-    setFilterDomain('')
+    setFilterDomains([])
 
     // §11.17 drawer auto-close: close if open demand doesn't touch new Function
     if (drawerId && activeFunctionId) {
@@ -217,11 +313,40 @@ export default function DemandDiscovery() {
   const phasesWithExt = useMemo(() => new Set(store.externalResourceRequirements.map(r => r.phase_id)), [store.externalResourceRequirements])
   const demandHasExternal = (item: DemandItem) => item.phases.some(p => phasesWithExt.has(p.id))
 
+  // Active Function lens — Domain/Skill sets for the currently active Function
+  const activeFnDomainIds = useMemo(() =>
+    new Set(store.domains.filter(d => d.functionId === activeFunctionId).map(d => d.id)),
+    [store.domains, activeFunctionId]
+  )
+  const activeFnSkillIds = useMemo(() =>
+    new Set(store.skills.filter(s => activeFnDomainIds.has(s.domain_id)).map(s => s.id)),
+    [store.skills, activeFnDomainIds]
+  )
+
+  // Domains for the active Function (populates Domain multi-select filter)
+  const activeFunctionDomains = useMemo(() =>
+    store.domains.filter(d => d.functionId === activeFunctionId),
+    [store.domains, activeFunctionId]
+  )
+
   // Active items only (exclude Closed)
   const activeItems = useMemo(() =>
     store.demandItems.filter(d => d.status !== 'Closed'),
     [store.demandItems]
   )
+
+  // §4.9 active-Function lens: show demands touching active Function's skills,
+  // or created-under the active Function if they have no requirements yet
+  const lensedItems = useMemo(() => {
+    if (!activeFunctionId) return activeItems
+    return activeItems.filter(item => {
+      const hasReqs = item.phases.some(ph => ph.requirements.length > 0)
+      if (hasReqs) {
+        return item.phases.some(ph => ph.requirements.some(r => activeFnSkillIds.has(r.skill_id)))
+      }
+      return item.createdUnderFunctionId === activeFunctionId
+    })
+  }, [activeItems, activeFunctionId, activeFnSkillIds])
 
   // Projects in selected Programme (for dependent dropdown)
   const availableProjects = useMemo(() =>
@@ -231,11 +356,21 @@ export default function DemandDiscovery() {
     [filterProgramme, store.projects]
   )
 
+  // Check if any filter is active (used for Board empty-state message)
+  const anyFilterActive = filterStatus || filterType || filterDomains.length > 0 || filterProgramme || filterProject || filterHasExternal
+
   const filtered = useMemo(() => {
-    let items = [...activeItems]
+    let items = [...lensedItems]
     if (filterStatus) items = items.filter(d => d.status === filterStatus)
     if (filterType) items = items.filter(d => d.type === filterType)
-    if (filterDomain) items = items.filter(d => derivedPrimaryDomain(d, store.domains, store.skills)?.id === filterDomain)
+    if (filterDomains.length > 0) {
+      items = items.filter(item =>
+        item.phases.some(ph => ph.requirements.some(r => {
+          const skill = store.skills.find(s => s.id === r.skill_id)
+          return skill ? filterDomains.includes(skill.domain_id) : false
+        }))
+      )
+    }
     if (filterProgramme) {
       const projIds = new Set(store.projects.filter(p => p.programme_id === filterProgramme).map(p => p.id))
       items = items.filter(d => d.project_id && projIds.has(d.project_id))
@@ -262,7 +397,7 @@ export default function DemandDiscovery() {
       return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
     })
     return items
-  }, [activeItems, filterStatus, filterType, filterDomain, filterProgramme, filterProject, filterHasExternal, search, sortKey, sortDir])
+  }, [lensedItems, filterStatus, filterType, filterDomains, filterProgramme, filterProject, filterHasExternal, search, sortKey, sortDir, store.skills])
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -272,6 +407,26 @@ export default function DemandDiscovery() {
   const SortIcon = ({ k }: { k: SortKey }) => {
     if (sortKey !== k) return null
     return sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+  }
+
+  // Helper: apply all non-status filters to an item (for Board mode)
+  function passesFilters(item: DemandItem): boolean {
+    if (filterStatus && item.status !== filterStatus) return false
+    if (filterType && item.type !== filterType) return false
+    if (filterDomains.length > 0) {
+      const touches = item.phases.some(ph => ph.requirements.some(r => {
+        const skill = store.skills.find(s => s.id === r.skill_id)
+        return skill ? filterDomains.includes(skill.domain_id) : false
+      }))
+      if (!touches) return false
+    }
+    if (filterProgramme) {
+      const projIds = new Set(store.projects.filter(p => p.programme_id === filterProgramme).map(p => p.id))
+      if (!item.project_id || !projIds.has(item.project_id)) return false
+    }
+    if (filterProject && item.project_id !== filterProject) return false
+    if (filterHasExternal && !demandHasExternal(item)) return false
+    return true
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -291,6 +446,12 @@ export default function DemandDiscovery() {
     const updates: Partial<DemandItem> = { status: newStatus }
     if (newStatus === 'Parked') updates.parked_reason = null
     store.updateDemandItem(itemId, updates)
+
+    // If the destination status is filtered out, show a toast
+    if (filterStatus && filterStatus !== newStatus) {
+      setSwitchToast(`"${item.name}" moved to ${newStatus}.`)
+      setTimeout(() => setSwitchToast(null), 3000)
+    }
   }
 
   return (
@@ -323,10 +484,11 @@ export default function DemandDiscovery() {
               <option value="">All Types</option>
               {(['Group Strategy Project', 'Plant Project', 'NPD Demand', 'BAU'] as DemandType[]).map(t => <option key={t}>{t}</option>)}
             </select>
-            <select value={filterDomain} onChange={e => setFilterDomain(e.target.value)} className="text-xs border border-border rounded px-2 py-1 bg-white">
-              <option value="">All Domains</option>
-              {store.domains.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
+            <DomainMultiSelect
+              domains={activeFunctionDomains}
+              selected={filterDomains}
+              onChange={setFilterDomains}
+            />
             <select value={filterProgramme} onChange={e => { setFilterProgramme(e.target.value); setFilterProject('') }} className="text-xs border border-border rounded px-2 py-1 bg-white">
               <option value="">All Programmes</option>
               {store.programmes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -377,6 +539,14 @@ export default function DemandDiscovery() {
         </div>
       )}
 
+      {/* Switch toast (card dragged to filtered-out status) */}
+      {switchToast && (
+        <div className="flex items-center gap-2 px-5 py-2 bg-blue-50 border-b border-blue-200 text-xs text-blue-700">
+          <span className="flex-1">{switchToast}</span>
+          <button onClick={() => setSwitchToast(null)}><X size={12} /></button>
+        </div>
+      )}
+
       {/* Table mode */}
       {mode === 'table' && (
         <div className="flex-1 overflow-auto">
@@ -392,7 +562,7 @@ export default function DemandDiscovery() {
                     <span className="flex items-center gap-1 capitalize">{k} <SortIcon k={k} /></span>
                   </th>
                 ))}
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Domain</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Functions involved</th>
                 <th className="px-4 py-2.5 text-right text-xs font-semibold text-amber-600 uppercase tracking-wide">Ext. hrs</th>
               </tr>
             </thead>
@@ -410,11 +580,10 @@ export default function DemandDiscovery() {
                 const appState = store
                 if (groupBy === 'none') {
                   return filtered.map(item => (
-                    <TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} onSelect={setDrawerId} />
+                    <TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />
                   ))
                 }
                 if (groupBy === 'project') {
-                  // Group by project_id (null = unaligned)
                   const groups = new Map<string | null, DemandItem[]>()
                   for (const item of filtered) {
                     const key = item.project_id ?? null
@@ -423,7 +592,6 @@ export default function DemandDiscovery() {
                     groups.set(key, arr)
                   }
                   const rows: React.ReactNode[] = []
-                  // Aligned projects first, then unaligned
                   for (const [projId, items] of groups) {
                     if (projId === null) continue
                     const proj = projectMap.get(projId)
@@ -444,7 +612,7 @@ export default function DemandDiscovery() {
                         </td>
                       </tr>
                     )
-                    items.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} onSelect={setDrawerId} />))
+                    items.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />))
                   }
                   const unaligned = groups.get(null) ?? []
                   if (unaligned.length > 0) {
@@ -455,7 +623,7 @@ export default function DemandDiscovery() {
                         </td>
                       </tr>
                     )
-                    unaligned.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} onSelect={setDrawerId} />))
+                    unaligned.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />))
                   }
                   return rows
                 }
@@ -472,7 +640,6 @@ export default function DemandDiscovery() {
                 for (const [progId, items] of groups) {
                   if (progId === null) continue
                   const prog = programmeMap.get(progId)
-                  // Sum across all projects in this programme
                   const projIds = store.projects.filter(p => p.programme_id === progId).map(p => p.id)
                   const intHrs = HORIZON.reduce((s, m) => s + projIds.reduce((ss, pid) => ss + project_internal_hours(pid, m, appState), 0), 0)
                   const extHrs = HORIZON.reduce((s, m) => s + projIds.reduce((ss, pid) => ss + project_external_hours(pid, m, appState), 0), 0)
@@ -488,7 +655,7 @@ export default function DemandDiscovery() {
                       </td>
                     </tr>
                   )
-                  items.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} onSelect={setDrawerId} />))
+                  items.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />))
                 }
                 const unaligned = groups.get(null) ?? []
                 if (unaligned.length > 0) {
@@ -499,7 +666,7 @@ export default function DemandDiscovery() {
                       </td>
                     </tr>
                   )
-                  unaligned.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} onSelect={setDrawerId} />))
+                  unaligned.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />))
                 }
                 return rows
               })()}
@@ -514,10 +681,8 @@ export default function DemandDiscovery() {
           <div className="flex-1 overflow-x-auto p-4">
             <div className="flex gap-3 h-full min-h-[400px]">
               {ACTIVE_STATUSES.map(status => {
-                const colItems = activeItems.filter(d => d.status === status &&
-                  (!filterDomain || derivedPrimaryDomain(d, store.domains, store.skills)?.id === filterDomain) &&
-                  (!filterType || d.type === filterType)
-                )
+                // Apply all active filters to board columns (§4.6)
+                const colItems = lensedItems.filter(d => d.status === status && passesFilters(d))
                 return (
                   <DroppableColumn key={status} status={status}>
                     <div className="flex items-center justify-between mb-1">
@@ -528,7 +693,9 @@ export default function DemandDiscovery() {
                       <DraggableCard key={item.id} item={item} onEdit={() => setDrawerId(item.id)} />
                     ))}
                     {colItems.length === 0 && (
-                      <p className="text-xs text-gray-400 italic text-center pt-4">No items</p>
+                      <p className="text-xs text-gray-400 italic text-center pt-4">
+                        {anyFilterActive ? 'No Demands match the current filters' : 'No items'}
+                      </p>
                     )}
                   </DroppableColumn>
                 )
@@ -558,7 +725,7 @@ export default function DemandDiscovery() {
                   <StatusBadge status={item.status} />
                   <span className="text-sm font-medium text-near-black">{item.name}</span>
                 </div>
-                <div className="text-xs text-gray-500">{item.type} · <span className="italic">{derivedPrimaryDomain(item, store.domains, store.skills)?.name ?? 'Unassigned'}</span> · {item.owner || 'No owner'}</div>
+                <div className="text-xs text-gray-500">{item.type} · {item.owner || 'No owner'}</div>
                 {item.description && <div className="text-xs text-gray-400 mt-1 line-clamp-2">{item.description}</div>}
               </div>
             ))}

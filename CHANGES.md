@@ -50,7 +50,7 @@ Tracks implementation progress against REQUIREMENTS.md v1.16. REQUIREMENTS.md is
 
 ## 7. Demand page corrections
 
-- [ ] Remove Primary Domain column and filter. Add "Functions involved" column and Domain (multi-select) filter. Add Scoping Kanban column. Fix filter behaviour — Programme, Project, Has-external-requirements must apply to Board mode. Apply active-Function lens to visible Demands.
+- [x] Remove Primary Domain column and filter. Add "Functions involved" column and Domain (multi-select) filter. Add Scoping Kanban column. Fix filter behaviour — Programme, Project, Has-external-requirements must apply to Board mode. Apply active-Function lens to visible Demands.
 - **Scope**: Demand page Table, Board, Search modes
 - **Dependencies**: items 1, 5
 - **Reference**: section 4.6 (all content), section 9 build step 6
