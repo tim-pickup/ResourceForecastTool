@@ -64,7 +64,7 @@ Tracks implementation progress against REQUIREMENTS.md v1.16. REQUIREMENTS.md is
 
 ## 9. Capacity Validation — remove Team filter, add Section D
 
-- [ ] Remove Team filter toolbar control and its dashed-line / tinted-stack logic. Scope every chart to active Function. Add Section D ("Show demand on other Functions") with D1 overview and D2 per-Function breakdowns with team drill-down. Update Section C scope rule to filter by active Function.
+- [x] Remove Team filter toolbar control and its dashed-line / tinted-stack logic. Scope every chart to active Function. Add Section D ("Show demand on other Functions") with D1 overview and D2 per-Function breakdowns with team drill-down. Update Section C scope rule to filter by active Function.
 - **Scope**: Capacity Validation view 1 chrome + charts
 - **Dependencies**: items 3, 4, 5
 - **Reference**: section 4 View 1 (full section, especially Section D), section 9 build step 8

@@ -12,7 +12,7 @@ import {
 import {
   domain_capacity, skill_capacity, team_capacity,
   demand_hours_for, grey_band, computeProjection, projection_shortfalls,
-  checkInvariants,
+  checkInvariants, crossFunctionDemandHours,
   type DemandTarget, type ProjectionResult,
 } from '../../lib/capacity'
 import { CapacityChart } from '../../components/CapacityChart'
@@ -25,8 +25,10 @@ import type { DemandStatus, Level, DemandItem } from '../../types'
 const HORIZONS = [6, 12, 24, 60] as const
 const COMMITTED_STATUSES = new Set<DemandStatus>(['Approved', 'PartiallyAllocated', 'Allocated'])
 
-// Section C: provider palette — distinct colours from DESIGN.md secondary palette
+// Section C: provider palette
 const EXT_COLORS = ['#7a3dff', '#ed52cb', '#ff6b00', '#00d722', '#ffae13', '#ee1d36', '#0891b2', '#146ef5']
+// Section D: distinct-hue palette for receiving Functions
+const D_COLORS = ['#7c3aed', '#0891b2', '#16a34a', '#ea580c', '#db2777', '#ca8a04', '#64748b', '#9333ea']
 // Same active-status set as capacity.ts: excludes only Parked and Closed
 const EXT_ACTIVE_STATUSES = new Set<DemandStatus>(['Draft', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated'])
 
@@ -408,6 +410,99 @@ function ExtC2Tooltip({ active, payload, providerName, demandItems }: {
   )
 }
 
+// ─── Section D tooltips ──────────────────────────────────────────────────────
+
+function D1Tooltip({ active, payload, functions }: {
+  active?: boolean
+  payload?: Array<{ dataKey: string; value: number; payload: { label: string } }>
+  functions: Array<{ id: string; name: string }>
+}) {
+  if (!active || !payload?.length) return null
+  const label = payload[0]?.payload?.label
+  const total = payload.reduce((s, p) => s + (p.value || 0), 0)
+  if (total === 0) return null
+  return (
+    <div className="bg-white border border-purple-200 rounded shadow-md p-3 text-xs min-w-[160px]">
+      <p className="font-semibold mb-2 text-near-black">{label}</p>
+      <div className="space-y-1">
+        {[...payload].reverse().filter(p => (p.value || 0) > 0).map(p => {
+          const fn = functions.find(f => f.id === p.dataKey)
+          return (
+            <div key={p.dataKey} className="flex justify-between gap-4">
+              <span className="text-gray-600">{fn?.name ?? p.dataKey}</span>
+              <span>{Math.round(p.value)}h</span>
+            </div>
+          )
+        })}
+        <div className="pt-1 border-t border-gray-100 flex justify-between gap-4 font-medium">
+          <span>Total outgoing</span><span>{Math.round(total)}h</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function D2Tooltip({ active, payload, demandItems }: {
+  active?: boolean
+  payload?: Array<{ dataKey: string; value: number; payload: { label: string } }>
+  demandItems: DemandItem[]
+}) {
+  if (!active || !payload?.length) return null
+  const label = payload[0]?.payload?.label
+  const total = payload.reduce((s, p) => s + (p.value || 0), 0)
+  if (total === 0) return null
+  return (
+    <div className="bg-white border border-purple-200 rounded shadow-md p-3 text-xs min-w-[160px]">
+      <p className="font-semibold mb-2 text-near-black">{label}</p>
+      <div className="space-y-1">
+        {[...payload].reverse().filter(p => (p.value || 0) > 0).map(p => {
+          const item = demandItems.find(d => d.id === p.dataKey)
+          return (
+            <div key={p.dataKey} className="flex justify-between gap-4">
+              <span className="text-gray-600 truncate max-w-[130px]">{item?.name ?? p.dataKey}</span>
+              <span>{Math.round(p.value)}h</span>
+            </div>
+          )
+        })}
+        <div className="pt-1 border-t border-gray-100 flex justify-between gap-4 font-medium">
+          <span>Total</span><span>{Math.round(total)}h</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function D2TeamTooltip({ active, payload, teams }: {
+  active?: boolean
+  payload?: Array<{ dataKey: string; value: number; payload: { label: string } }>
+  teams: Array<{ id: string; name: string }>
+}) {
+  if (!active || !payload?.length) return null
+  const label = payload[0]?.payload?.label
+  const total = payload.reduce((s, p) => s + (p.value || 0), 0)
+  if (total === 0) return null
+  return (
+    <div className="bg-white border border-purple-200 rounded shadow-md p-3 text-xs min-w-[160px]">
+      <p className="font-semibold mb-2 text-near-black">{label}</p>
+      <div className="space-y-1">
+        {[...payload].reverse().filter(p => (p.value || 0) > 0).map(p => {
+          const team = teams.find(t => t.id === p.dataKey)
+          const label = p.dataKey === '__unassigned__' ? 'Unassigned team' : (team?.name ?? p.dataKey)
+          return (
+            <div key={p.dataKey} className="flex justify-between gap-4">
+              <span className={clsx('truncate max-w-[130px]', p.dataKey === '__unassigned__' ? 'text-gray-400 italic' : 'text-gray-600')}>{label}</span>
+              <span>{Math.round(p.value)}h</span>
+            </div>
+          )
+        })}
+        <div className="pt-1 border-t border-gray-100 flex justify-between gap-4 font-medium">
+          <span>Total</span><span>{Math.round(total)}h</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main view ───────────────────────────────────────────────────────────────
 
 export default function CapacityValidation() {
@@ -426,9 +521,10 @@ export default function CapacityValidation() {
   // Programme/Project filter — affects demand stacks only, not capacity or grey band
   const [filterProgramme, setFilterProgramme] = useState('')
   const [filterProject, setFilterProject] = useState('')
-  // Team filter — scopes the dashed secondary capacity line and demand tint only
-  const [filterTeam, setFilterTeam] = useState('')
   const [showExternal, setShowExternal] = useState(false)
+  const [showSectionD, setShowSectionD] = useState(false)
+  // Section D: track which receiving Function's D2 chart is in team drill-down view
+  const [d2TeamViewFnId, setD2TeamViewFnId] = useState<string | null>(null)
 
   // Read URL query params for Model Impact deep-link
   useEffect(() => {
@@ -477,45 +573,21 @@ export default function CapacityValidation() {
   const modelImpactItem = modelImpactId ? store.demandItems.find(d => d.id === modelImpactId) : null
   const overlayItem = overlayId ? store.demandItems.find(d => d.id === overlayId) : null
 
-  const activeTeams = useMemo(() => store.teams.filter(t => t.active), [store.teams])
-  const selectedTeam = filterTeam ? activeTeams.find(t => t.id === filterTeam) : null
-
-  // Compute team-owned committed demand hours for a domain in a month
-  // (requirements where owningTeamId === filterTeam, in COMMITTED_STATUSES items)
-  function teamDemandForDomain(domainId: string, month: string): number {
-    if (!filterTeam) return 0
-    const domainSkillIds = new Set(store.skills.filter(s => s.domain_id === domainId).map(s => s.id))
-    let total = 0
-    for (const item of demandFilteredState.demandItems) {
-      if (!COMMITTED_STATUSES.has(item.status)) continue
-      for (const phase of item.phases) {
-        if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-        for (const req of phase.requirements) {
-          if (req.owningTeamId !== filterTeam) continue
-          if (!domainSkillIds.has(req.skill_id)) continue
-          total += phase.end_month === null ? (req.steady_state_hours ?? 0) : (req.hours_by_month[month] ?? 0)
-        }
-      }
-    }
-    return total
-  }
-
-  function teamDemandForSkill(skillId: string, month: string): number {
-    if (!filterTeam) return 0
-    let total = 0
-    for (const item of demandFilteredState.demandItems) {
-      if (!COMMITTED_STATUSES.has(item.status)) continue
-      for (const phase of item.phases) {
-        if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-        for (const req of phase.requirements) {
-          if (req.owningTeamId !== filterTeam) continue
-          if (req.skill_id !== skillId) continue
-          total += phase.end_month === null ? (req.steady_state_hours ?? 0) : (req.hours_by_month[month] ?? 0)
-        }
-      }
-    }
-    return total
-  }
+  // Active Function scope — used for Section B, C, and D scoping
+  const activeFunctionId = store.activeFunctionId
+  const activeFnDomainIds = useMemo(() =>
+    new Set(store.domains.filter(d => d.functionId === activeFunctionId).map(d => d.id)),
+    [store.domains, activeFunctionId]
+  )
+  const activeFnSkillIds = useMemo(() =>
+    new Set(store.skills.filter(s => activeFnDomainIds.has(s.domain_id)).map(s => s.id)),
+    [store.skills, activeFnDomainIds]
+  )
+  // Active Function's domains/skills for Section B
+  const activeFnDomains = useMemo(() =>
+    store.domains.filter(d => d.functionId === activeFunctionId),
+    [store.domains, activeFunctionId]
+  )
 
   const handleBackToDemand = () => {
     navigate('/demand', { state: { openDrawer: modelImpactId } })
@@ -552,11 +624,10 @@ export default function CapacityValidation() {
   const totalDemand = teamData.reduce((s, d) => s + d.bau + d.plant + d.npd + d.strategy, 0)
   const overMonths = teamData.filter(d => d.bau + d.plant + d.npd + d.strategy + d.overlay > d.capacity).length
 
-  // ── Section B: domain/skill charts ─────────────────────────────────────
-  const domainCharts = useMemo(() => store.domains.map(domain => {
+  // ── Section B: domain/skill charts — scoped to active Function ─────────────
+  const domainCharts = useMemo(() => activeFnDomains.map(domain => {
     const target: DemandTarget = { type: 'domain', id: domain.id }
     const data: ChartPoint[] = months.map(month => {
-      // demand stacks use filtered state; capacity and grey band use full store
       const committed = demand_hours_for(target, COMMITTED_STATUSES, month, demandFilteredState)
       const overlayDemand = overlayId
         ? demand_hours_for(target, EMPTY_STATUSES, month, demandFilteredState, overlayId)
@@ -564,27 +635,22 @@ export default function CapacityValidation() {
       return {
         month,
         label: formatMonthLabel(month),
-        capacity: domain_capacity(domain.id, month, store),  // full store, full pool
+        capacity: domain_capacity(domain.id, month, store),
         bau: committed.bau,
         plant: committed.plant,
         npd: committed.npd,
         strategy: committed.strategy,
         overlay: overlayDemand.bau + overlayDemand.plant + overlayDemand.npd + overlayDemand.strategy,
-        grey: grey_band(target, month, store, projResult),  // full store
-        ...(filterTeam ? {
-          teamCapacity: domain_capacity(domain.id, month, store, filterTeam),
-          teamDemand: teamDemandForDomain(domain.id, month),
-        } : {}),
+        grey: grey_band(target, month, store, projResult),
       }
     })
     return { domain, data }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [months, store, demandFilteredState, overlayId, EMPTY_STATUSES, projResult, filterTeam])
+  }), [months, store, activeFnDomains, demandFilteredState, overlayId, EMPTY_STATUSES, projResult])
 
-  const skillsForSectionB = useMemo(() =>
-    drillDomainId ? store.skills.filter(s => s.domain_id === drillDomainId) : store.skills,
-    [store.skills, drillDomainId]
-  )
+  const skillsForSectionB = useMemo(() => {
+    const activeFnSkills = store.skills.filter(s => activeFnDomainIds.has(s.domain_id))
+    return drillDomainId ? activeFnSkills.filter(s => s.domain_id === drillDomainId) : activeFnSkills
+  }, [store.skills, drillDomainId, activeFnDomainIds])
 
   const skillCharts = useMemo(() => skillsForSectionB.map(skill => {
     const target: DemandTarget = { type: 'skill', id: skill.id }
@@ -596,22 +662,17 @@ export default function CapacityValidation() {
       return {
         month,
         label: formatMonthLabel(month),
-        capacity: skill_capacity(skill.id, month, store),  // full store, full pool
+        capacity: skill_capacity(skill.id, month, store),
         bau: committed.bau,
         plant: committed.plant,
         npd: committed.npd,
         strategy: committed.strategy,
         overlay: overlayDemand.bau + overlayDemand.plant + overlayDemand.npd + overlayDemand.strategy,
-        grey: grey_band(target, month, store, projResult),  // full store
-        ...(filterTeam ? {
-          teamCapacity: skill_capacity(skill.id, month, store, filterTeam),
-          teamDemand: teamDemandForSkill(skill.id, month),
-        } : {}),
+        grey: grey_band(target, month, store, projResult),
       }
     })
     return { skill, domain: store.domains.find(t => t.id === skill.domain_id), data }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [months, store, demandFilteredState, skillsForSectionB, overlayId, EMPTY_STATUSES, projResult, filterTeam])
+  }), [months, store, demandFilteredState, skillsForSectionB, overlayId, EMPTY_STATUSES, projResult])
 
   const skillsByDomain = useMemo(() => {
     const groups = new Map<string, typeof skillCharts>()
@@ -623,13 +684,112 @@ export default function CapacityValidation() {
     return store.domains.map(t => ({ domain: t, skills: groups.get(t.id) ?? [] })).filter(g => g.skills.length > 0)
   }, [skillCharts, store.domains])
 
-  // ── Section C: external demand data ───────────────────────────────────
-  // Per-month breakdown by provider and by demand item, scoped to Programme/Project filter.
-  // Status set matches capacity.ts ACTIVE_FOR_EXTERNAL_STATUSES (excludes Parked + Closed only).
+  // ── Section D: cross-Function demand data ─────────────────────────────
+  const sectionDData = useMemo(() => {
+    if (!activeFunctionId) return null
+
+    // Skill → owning Function mapping
+    const skillFnMap = new Map<string, string>()
+    for (const s of store.skills) {
+      const fnId = store.domains.find(d => d.id === s.domain_id)?.functionId ?? ''
+      skillFnMap.set(s.id, fnId)
+    }
+
+    // Qualifying demands: touch active Function in committed statuses, scoped to prog/proj filter
+    const qualifying = demandFilteredState.demandItems.filter(item =>
+      COMMITTED_STATUSES.has(item.status) &&
+      item.phases.some(ph => ph.requirements.some(r => activeFnSkillIds.has(r.skill_id)))
+    )
+
+    // Collect receiving Function IDs and demand IDs per Function
+    const receivingFnIds = new Set<string>()
+    const demandIdsPerFn = new Map<string, Set<string>>()
+
+    for (const item of qualifying) {
+      for (const phase of item.phases) {
+        for (const req of phase.requirements) {
+          const fnId = skillFnMap.get(req.skill_id)
+          if (!fnId || fnId === activeFunctionId) continue
+          receivingFnIds.add(fnId)
+          if (!demandIdsPerFn.has(fnId)) demandIdsPerFn.set(fnId, new Set())
+          demandIdsPerFn.get(fnId)!.add(item.id)
+        }
+      }
+    }
+
+    // D1 chart data: per month × receiving Function
+    const d1Data: any[] = months.map(month => {
+      const raw = crossFunctionDemandHours(activeFunctionId, month, { by: 'function' }, { ...store, demandItems: demandFilteredState.demandItems })
+      const entry: Record<string, number | string> = { label: formatMonthLabel(month) }
+      for (const fnId of receivingFnIds) entry[fnId] = raw[fnId] ?? 0
+      return entry
+    })
+
+    // D2 data: per receiving Function — use any[] for chart data (Recharts loosely typed)
+    const d2ByFn = new Map<string, {
+      demandIds: string[]
+      byDemand: any[]
+      byTeam: any[]
+      visibleTeamIds: string[]
+    }>()
+
+    for (const fnId of receivingFnIds) {
+      const demandIds = [...(demandIdsPerFn.get(fnId) ?? [])]
+      const teamIdsSet = new Set<string>()
+
+      // Initialise per-month entries
+      const byDemand: any[] = months.map(month => {
+        const entry: Record<string, number | string> = { label: formatMonthLabel(month) }
+        demandIds.forEach(did => { entry[did] = 0 })
+        return entry
+      })
+      const byTeam: any[] = months.map(month => ({ label: formatMonthLabel(month) }))
+
+      months.forEach((month, mi) => {
+        for (const item of qualifying) {
+          if (!demandIds.includes(item.id)) continue
+          for (const phase of item.phases) {
+            if (!monthInRange(month, phase.start_month, phase.end_month)) continue
+            for (const req of phase.requirements) {
+              if (skillFnMap.get(req.skill_id) !== fnId) continue
+              const hrs = phase.end_month === null
+                ? (req.steady_state_hours ?? 0)
+                : (req.hours_by_month[month] ?? 0)
+              if (hrs <= 0) continue
+              byDemand[mi][item.id] = ((byDemand[mi][item.id] as number) ?? 0) + hrs
+              const teamKey = req.owningTeamId ?? '__unassigned__'
+              if (req.owningTeamId) teamIdsSet.add(req.owningTeamId)
+              byTeam[mi][teamKey] = ((byTeam[mi][teamKey] as number) ?? 0) + hrs
+            }
+          }
+        }
+      })
+
+      const visibleTeamIds = [
+        ...[...teamIdsSet].filter(tid => byTeam.some(m => ((m[tid] as number) ?? 0) > 0)),
+        ...(byTeam.some(m => ((m['__unassigned__'] as number) ?? 0) > 0) ? ['__unassigned__'] : []),
+      ]
+
+      d2ByFn.set(fnId, { demandIds, byDemand, byTeam, visibleTeamIds })
+    }
+
+    const receivingFunctions = [...receivingFnIds]
+      .map(fnId => store.functions.find(f => f.id === fnId))
+      .filter((f): f is typeof store.functions[0] => !!f)
+
+    return { d1Data, d2ByFn, receivingFunctions, receivingFnIds }
+  }, [months, store, demandFilteredState.demandItems, activeFunctionId, activeFnSkillIds, COMMITTED_STATUSES])
+
+  // ── Section C: external demand data — scoped to active Function ────────
   const extDataByMonth = useMemo(() => {
     const phaseToItem = new Map<string, DemandItem>()
     for (const item of demandFilteredState.demandItems) {
       if (!EXT_ACTIVE_STATUSES.has(item.status)) continue
+      // §4 View 1 Section C scope: only demands touching the active Function (§4.9)
+      if (activeFunctionId) {
+        const touchesActiveFn = item.phases.some(ph => ph.requirements.some(r => activeFnSkillIds.has(r.skill_id)))
+        if (!touchesActiveFn) continue
+      }
       for (const phase of item.phases) {
         phaseToItem.set(phase.id, item)
       }
@@ -655,7 +815,7 @@ export default function CapacityValidation() {
       }
       return { month, label: formatMonthLabel(month), byProvider, byProviderByDemand }
     })
-  }, [months, demandFilteredState.demandItems, store.externalResourceRequirements])
+  }, [months, demandFilteredState.demandItems, store.externalResourceRequirements, activeFunctionId, activeFnSkillIds])
 
   const extActiveProviders = useMemo(() => {
     const seen = new Set<string>()
@@ -840,16 +1000,6 @@ export default function CapacityValidation() {
           )}
         </div>
 
-        {/* Team filter — shows dashed secondary capacity line + demand tint */}
-        <select
-          value={filterTeam}
-          onChange={e => setFilterTeam(e.target.value)}
-          className="text-xs border border-border rounded px-2 py-1 bg-white"
-        >
-          <option value="">All Teams</option>
-          {activeTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
-
         <div className="flex-1" />
 
         {/* Show external resource toggle */}
@@ -861,6 +1011,17 @@ export default function CapacityValidation() {
             className="accent-brand"
           />
           Show external resource
+        </label>
+
+        {/* Show demand on other Functions toggle */}
+        <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showSectionD}
+            onChange={e => setShowSectionD(e.target.checked)}
+            className="accent-brand"
+          />
+          Show demand on other Functions
         </label>
 
         {/* Single-item overlay selector */}
@@ -929,7 +1090,6 @@ export default function CapacityValidation() {
                     data={data}
                     compact
                     onClick={() => handleDomainClick(domain.id)}
-                    teamName={selectedTeam?.name}
                   />
                 </div>
               ))}
@@ -951,7 +1111,6 @@ export default function CapacityValidation() {
                           data={data}
                           compact
                           onClick={() => handleSkillClick(skill.id)}
-                          teamName={selectedTeam?.name}
                         />
                       </div>
                     ))}
@@ -1080,6 +1239,178 @@ export default function CapacityValidation() {
                   })}
                 </div>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Section D: Demand on Other Functions */}
+        {showSectionD && sectionDData && (
+          <div className="mt-8 bg-purple-50/40 border border-purple-200 rounded-lg p-5">
+            <div className="flex items-start gap-2 mb-5">
+              <div>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-purple-700 mb-1">
+                  Demand on Other Functions
+                </h2>
+                <p className="flex items-center gap-1.5 text-xs text-purple-600 italic">
+                  <Info size={11} className="shrink-0" />
+                  Internal skill demand placed on other Functions by Demands my Function is involved in. These hours consume other Functions' capacity — not this page's.
+                </p>
+              </div>
+            </div>
+
+            {sectionDData.receivingFunctions.length === 0 ? (
+              <p className="text-xs text-purple-500 italic py-6 text-center">
+                No cross-Function demand in the visible horizon for the active Function.
+              </p>
+            ) : (
+              <>
+                {/* D1: Overview chart — stacked by receiving Function */}
+                <div className="mb-6 bg-white border border-purple-200 rounded-lg p-4">
+                  <h3 className="text-xs font-semibold text-purple-700 mb-3">Overview — All Functions</h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <ComposedChart data={sectionDData.d1Data} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3e8ff" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                      <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickFormatter={v => `${v}h`} />
+                      <Tooltip content={<D1Tooltip functions={sectionDData.receivingFunctions} />} />
+                      {sectionDData.receivingFunctions.map((fn, i) => (
+                        <Area
+                          key={fn.id}
+                          type="monotone"
+                          dataKey={fn.id}
+                          name={fn.name}
+                          stackId="d1"
+                          fill={D_COLORS[i % D_COLORS.length]}
+                          stroke="none"
+                          fillOpacity={0.75}
+                          isAnimationActive={false}
+                          onClick={() => setD2TeamViewFnId(null)}
+                        />
+                      ))}
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap gap-3 mt-3 justify-end">
+                    {sectionDData.receivingFunctions.map((fn, i) => (
+                      <span key={fn.id} className="flex items-center gap-1 text-[10px] text-gray-500">
+                        <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: D_COLORS[i % D_COLORS.length], opacity: 0.75 }} />
+                        {fn.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* D2: Per-Function breakdown with team drill-down */}
+                <div>
+                  <h3 className="text-xs font-semibold text-purple-700 mb-3">Per-Function Breakdown</h3>
+                  <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))' }}>
+                    {sectionDData.receivingFunctions.map((fn, fi) => {
+                      const d2 = sectionDData.d2ByFn.get(fn.id)
+                      if (!d2) return null
+                      const isTeamView = d2TeamViewFnId === fn.id
+                      const activeDemandItems = d2.demandIds
+                        .map(did => store.demandItems.find(d => d.id === did))
+                        .filter((d): d is DemandItem => !!d)
+                      const fnTeams = store.teams.filter(t => t.functionId === fn.id)
+
+                      return (
+                        <div key={fn.id} className="bg-white border border-purple-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-xs font-semibold text-purple-700">{fn.name}</h4>
+                            {isTeamView ? (
+                              <button
+                                onClick={() => setD2TeamViewFnId(null)}
+                                className="flex items-center gap-1 text-[10px] text-purple-500 hover:text-purple-700"
+                              >
+                                <X size={10} /> Back to Demands
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-purple-400 italic">Click to drill into teams</span>
+                            )}
+                          </div>
+                          {isTeamView ? (
+                            <>
+                              <ResponsiveContainer width="100%" height={180}>
+                                <ComposedChart data={d2.byTeam} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#f3e8ff" vertical={false} />
+                                  <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                                  <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickFormatter={v => `${v}h`} />
+                                  <Tooltip content={<D2TeamTooltip teams={fnTeams} />} />
+                                  {d2.visibleTeamIds.map((tid, i) => (
+                                    <Area
+                                      key={tid}
+                                      type="monotone"
+                                      dataKey={tid}
+                                      stackId="d2t"
+                                      fill={tid === '__unassigned__' ? '#d1d5db' : D_COLORS[(fi + i) % D_COLORS.length]}
+                                      stroke="none"
+                                      fillOpacity={0.75}
+                                      isAnimationActive={false}
+                                    />
+                                  ))}
+                                </ComposedChart>
+                              </ResponsiveContainer>
+                              {d2.visibleTeamIds.length > 1 && (
+                                <div className="flex flex-wrap gap-2 mt-2 justify-end">
+                                  {d2.visibleTeamIds.map((tid, i) => {
+                                    const team = fnTeams.find(t => t.id === tid)
+                                    const label = tid === '__unassigned__' ? 'Unassigned' : (team?.name ?? tid)
+                                    return (
+                                      <span key={tid} className="flex items-center gap-1 text-[10px] text-gray-500">
+                                        <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: tid === '__unassigned__' ? '#d1d5db' : D_COLORS[(fi + i) % D_COLORS.length], opacity: 0.75 }} />
+                                        {label}
+                                      </span>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <ResponsiveContainer width="100%" height={180}>
+                                <ComposedChart data={d2.byDemand} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#f3e8ff" vertical={false} />
+                                  <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                                  <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickFormatter={v => `${v}h`} />
+                                  <Tooltip content={<D2Tooltip demandItems={activeDemandItems} />} />
+                                  {d2.demandIds.map((did, i) => (
+                                    <Area
+                                      key={did}
+                                      type="monotone"
+                                      dataKey={did}
+                                      stackId="d2d"
+                                      fill={D_COLORS[(fi + i) % D_COLORS.length]}
+                                      stroke="none"
+                                      fillOpacity={0.75}
+                                      isAnimationActive={false}
+                                      onClick={() => setD2TeamViewFnId(fn.id)}
+                                    />
+                                  ))}
+                                </ComposedChart>
+                              </ResponsiveContainer>
+                              {activeDemandItems.length > 1 && (
+                                <div className="flex flex-wrap gap-2 mt-2 justify-end">
+                                  {activeDemandItems.map((item, i) => (
+                                    <span key={item.id} className="flex items-center gap-1 text-[10px] text-gray-500">
+                                      <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: D_COLORS[(fi + i) % D_COLORS.length], opacity: 0.75 }} />
+                                      {item.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              <button
+                                onClick={() => setD2TeamViewFnId(fn.id)}
+                                className="mt-2 text-[10px] text-purple-500 hover:text-purple-700 w-full text-right"
+                              >
+                                Drill into teams →
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
             )}
           </div>
         )}
