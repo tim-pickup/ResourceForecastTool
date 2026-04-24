@@ -78,16 +78,28 @@ export default function TeamActivity() {
     [store.demandItems]
   )
 
+  // Active Function's team IDs (for scoping people and team grouping)
+  const activeFnTeamIds = useMemo(() =>
+    new Set(store.teams.filter(t => t.functionId === activeFunctionId && t.active).map(t => t.id)),
+    [store.teams, activeFunctionId]
+  )
+
+  // §4 View 2: Rows are the active Function's People
   const people = useMemo(() =>
     store.people.filter(p =>
       p.active &&
+      activeFnTeamIds.has(p.teamId) &&
       (!filterDomain || p.primary_domain_id === filterDomain) &&
       (!filterPerson || p.id === filterPerson)
     ),
-    [store.people, filterDomain, filterPerson]
+    [store.people, filterDomain, filterPerson, activeFnTeamIds]
   )
 
-  const domains = useMemo(() => store.domains, [store.domains])
+  // §4 View 2: Group-by-Domain uses active Function's Domains
+  const domains = useMemo(() =>
+    store.domains.filter(d => d.functionId === activeFunctionId),
+    [store.domains, activeFunctionId]
+  )
 
   function getHoursByType(personId: string, month: string): HoursByType {
     const r: HoursByType = { bau: 0, npd: 0, plant: 0, strategy: 0 }
@@ -184,12 +196,13 @@ export default function TeamActivity() {
     [people, domains]
   )
 
+  // §4 View 2: Group-by-Team uses active Function's Teams
   const groupedByTeam = useMemo(() =>
     store.teams
-      .filter(t => t.active)
+      .filter(t => t.active && t.functionId === activeFunctionId)
       .map(team => ({ team, rows: people.filter(p => p.teamId === team.id) }))
       .filter(g => g.rows.length > 0),
-    [people, store.teams]
+    [people, store.teams, activeFunctionId]
   )
 
   const drillItems = useMemo(() => {
@@ -327,12 +340,15 @@ export default function TeamActivity() {
         <select value={filterDomain} onChange={e => { setFilterDomain(e.target.value); setFilterPerson('') }}
           className="text-xs border border-border rounded px-2 py-1 bg-white">
           <option value="">All Domains</option>
-          {store.domains.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          {domains.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
         <select value={filterPerson} onChange={e => setFilterPerson(e.target.value)}
           className="text-xs border border-border rounded px-2 py-1 bg-white">
           <option value="">All People</option>
-          {store.people.filter(p => !filterDomain || p.primary_domain_id === filterDomain).map(p =>
+          {store.people.filter(p =>
+            p.active && activeFnTeamIds.has(p.teamId) &&
+            (!filterDomain || p.primary_domain_id === filterDomain)
+          ).map(p =>
             <option key={p.id} value={p.id}>{p.name}</option>
           )}
         </select>

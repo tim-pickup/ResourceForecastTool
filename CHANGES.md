@@ -71,7 +71,7 @@ Tracks implementation progress against REQUIREMENTS.md v1.16. REQUIREMENTS.md is
 
 ## 10. Team Activity — active-Function scope
 
-- [ ] Restrict rows to the active Function's People. Group-by-Domain uses the active Function's Domains; Group-by-Team uses the active Function's Teams.
+- [x] Restrict rows to the active Function's People. Group-by-Domain uses the active Function's Domains; Group-by-Team uses the active Function's Teams.
 - **Scope**: Team Activity view 2
 - **Dependencies**: items 3, 5
 - **Reference**: section 4 View 2, section 9 build step 9
