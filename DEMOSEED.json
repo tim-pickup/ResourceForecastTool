@@ -10,6 +10,12 @@
       "name": "Digital Manufacturing",
       "description": "Digital manufacturing capability spanning MOM, MI&V and MBM domains across all plants.",
       "active": true
+    },
+    {
+      "id": "func_002",
+      "name": "Group IT Enterprise Solutions",
+      "description": "Enterprise IT capability covering infrastructure, applications, and data integration for the group.",
+      "active": true
     }
   ],
   "teams": [

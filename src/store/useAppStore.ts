@@ -11,7 +11,10 @@ import seedRaw from '../../DEMOSEED.json'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeSeed(raw: any): AppState {
   const items: any[] = raw.demand_items || []
+  const activeFns: AppFunction[] = (raw.functions || []).filter((f: any) => f.active)
+  activeFns.sort((a, b) => a.name.localeCompare(b.name))
   return {
+    activeFunctionId: activeFns[0]?.id ?? null,
     functions: (raw.functions || []) as AppFunction[],
     teams: (raw.teams || []) as Team[],
     demandTeamAssignments: (raw.demand_team_assignments || []) as DemandTeamAssignment[],
@@ -59,6 +62,8 @@ function normalizeSeed(raw: any): AppState {
 const SEED: AppState = normalizeSeed(seedRaw as Record<string, unknown>)
 
 interface Store extends AppState {
+  setActiveFunctionId: (id: string) => void
+
   addFunction: (f: Omit<AppFunction, 'id'>) => void
   updateFunction: (id: string, f: Partial<AppFunction>) => void
   deleteFunction: (id: string) => void
@@ -111,6 +116,8 @@ export const useAppStore = create<Store>()(
   persist(
     (set, get) => ({
       ...SEED,
+
+      setActiveFunctionId: (id) => set({ activeFunctionId: id }),
 
       addFunction: f => set(s => ({ functions: [...s.functions, { ...f, id: generateId('fnc') }] })),
       updateFunction: (id, f) => set(s => ({ functions: s.functions.map(x => x.id === id ? { ...x, ...f } : x) })),
@@ -188,10 +195,16 @@ export const useAppStore = create<Store>()(
     }),
     {
       name: 'resource-forecast-v1',
-      version: 9,
+      version: 10,
       migrate: (_state, version) => {
-        // On schema version mismatch, discard persisted state and reseed
         if (version < 9) return SEED
+        if (version < 10) {
+          // v9 → v10: add activeFunctionId derived from persisted functions
+          const s = _state as Omit<Store, 'activeFunctionId'>
+          const activeFns = (s.functions || []).filter((f: AppFunction) => f.active)
+            .sort((a: AppFunction, b: AppFunction) => a.name.localeCompare(b.name))
+          return { ...s, activeFunctionId: activeFns[0]?.id ?? null } as Store
+        }
         return _state as Store
       },
     }

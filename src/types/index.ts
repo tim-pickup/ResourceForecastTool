@@ -144,6 +144,7 @@ export interface ExternalResourceRequirement {
 // ─── App state ────────────────────────────────────────────────────────────────
 
 export interface AppState {
+  activeFunctionId: string | null
   functions: AppFunction[]
   teams: Team[]
   demandTeamAssignments: DemandTeamAssignment[]

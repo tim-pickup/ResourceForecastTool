@@ -22,7 +22,7 @@ Tracks implementation progress against REQUIREMENTS.md v1.16. REQUIREMENTS.md is
 
 ## 3. Multi-Function store support
 
-- [ ] Allow multiple Function records. Seed creates Digital Manufacturing and Group IT Enterprise Solutions. Every Function-scoped record carries valid `functionId`. Add `activeFunctionId` state slice persisted to localStorage and mirrored to URL hash.
+- [x] Allow multiple Function records. Seed creates Digital Manufacturing and Group IT Enterprise Solutions. Every Function-scoped record carries valid `functionId`. Add `activeFunctionId` state slice persisted to localStorage and mirrored to URL hash.
 - **Scope**: store structure, seed data, URL routing
 - **Dependencies**: item 1
 - **Reference**: section 2.1 (Function), section 6 (Seed data), section 7 (Technology — routing), section 4.9 (persistence), section 9 build step 3

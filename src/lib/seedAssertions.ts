@@ -32,6 +32,11 @@ function buildSeedState(): AppState {
   const raw = seedRaw as Record<string, any>
   const items: Record<string, unknown>[] = raw.demand_items || []
   return {
+    activeFunctionId: (() => {
+      const fns = (raw.functions || []).filter((f: Record<string, unknown>) => f.active)
+      fns.sort((a: Record<string, unknown>, b: Record<string, unknown>) => (a.name as string).localeCompare(b.name as string))
+      return (fns[0]?.id ?? null) as string | null
+    })(),
     functions: raw.functions || [],
     teams: raw.teams || [],
     demandTeamAssignments: raw.demand_team_assignments || [],
