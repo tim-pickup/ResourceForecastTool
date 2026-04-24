@@ -78,7 +78,7 @@ Tracks implementation progress against REQUIREMENTS.md v1.16. REQUIREMENTS.md is
 
 ## 11. Seed data rewrite
 
-- [ ] Add Group IT Enterprise Solutions Function with 3 Domains, 9 Skills, 2 Teams, 5–7 People. Add cross-Function Demand (Plant C MES Platform Migration with Group IT requirements). Migrate Scoping seed item to have one DM team and one Group IT team assigned. Verify all seed assertions pass.
+- [x] Add Group IT Enterprise Solutions Function with 3 Domains, 9 Skills, 2 Teams, 5–7 People. Add cross-Function Demand (Plant C MES Platform Migration with Group IT requirements). Migrate Scoping seed item to have one DM team and one Group IT team assigned. Verify all seed assertions pass.
 - **Scope**: seed.json rewrite
 - **Dependencies**: items 1, 2, 3, 6
 - **Reference**: section 6 (full section), section 9 build step 10

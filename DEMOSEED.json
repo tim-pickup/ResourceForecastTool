@@ -42,6 +42,22 @@
       "functionId": "func_001",
       "type": "Plant",
       "active": true
+    },
+    {
+      "id": "team_004",
+      "name": "Infrastructure Team",
+      "description": "Group IT infrastructure and platform services — cloud, network, and platform engineering.",
+      "functionId": "func_002",
+      "type": "Central",
+      "active": true
+    },
+    {
+      "id": "team_005",
+      "name": "Applications Team",
+      "description": "Group IT enterprise applications and data integration — ERP, CRM, data engineering.",
+      "functionId": "func_002",
+      "type": "Central",
+      "active": true
     }
   ],
   "domains": [
@@ -62,6 +78,18 @@
       "name": "MBM",
       "description": "Model-Based Manufacturing — simulation, digital twins, process modelling.",
       "functionId": "func_001"
+    },
+    {
+      "id": "thm_git_infra",
+      "name": "Infrastructure & Platforms",
+      "description": "Cloud infrastructure, network engineering, and platform services for the enterprise.",
+      "functionId": "func_002"
+    },
+    {
+      "id": "thm_git_apps",
+      "name": "Enterprise Applications",
+      "description": "ERP, CRM, and enterprise application configuration and development.",
+      "functionId": "func_002"
     },
     {
       "id": "thm_git_data",
@@ -145,6 +173,46 @@
       "id": "skl_git_data_eng",
       "domain_id": "thm_git_data",
       "name": "Data Engineering"
+    },
+    {
+      "id": "skl_git_data_int_arch",
+      "domain_id": "thm_git_data",
+      "name": "Integration Architecture"
+    },
+    {
+      "id": "skl_git_data_platform",
+      "domain_id": "thm_git_data",
+      "name": "Data Platform Administration"
+    },
+    {
+      "id": "skl_git_infra_cloud",
+      "domain_id": "thm_git_infra",
+      "name": "Cloud Architecture"
+    },
+    {
+      "id": "skl_git_infra_network",
+      "domain_id": "thm_git_infra",
+      "name": "Network Engineering"
+    },
+    {
+      "id": "skl_git_infra_platform",
+      "domain_id": "thm_git_infra",
+      "name": "Platform Engineering"
+    },
+    {
+      "id": "skl_git_apps_erp",
+      "domain_id": "thm_git_apps",
+      "name": "ERP Configuration"
+    },
+    {
+      "id": "skl_git_apps_crm",
+      "domain_id": "thm_git_apps",
+      "name": "CRM Development"
+    },
+    {
+      "id": "skl_git_apps_support",
+      "domain_id": "thm_git_apps",
+      "name": "Enterprise Application Support"
     }
   ],
   "people": [
@@ -418,6 +486,93 @@
           "skill_id": "skl_mbm_modelling",
           "level": "Basic"
         }
+      ]
+    },
+    {
+      "id": "per_013",
+      "name": "Thomas Richards",
+      "primary_domain_id": "thm_git_infra",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "teamId": "team_004",
+      "skills": [
+        { "skill_id": "skl_git_infra_cloud", "level": "Specialist" },
+        { "skill_id": "skl_git_infra_network", "level": "Advanced" },
+        { "skill_id": "skl_git_infra_platform", "level": "Basic" }
+      ]
+    },
+    {
+      "id": "per_014",
+      "name": "Mei Tanaka",
+      "primary_domain_id": "thm_git_infra",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "teamId": "team_004",
+      "skills": [
+        { "skill_id": "skl_git_infra_platform", "level": "Specialist" },
+        { "skill_id": "skl_git_infra_cloud", "level": "Advanced" }
+      ]
+    },
+    {
+      "id": "per_015",
+      "name": "Luis Fernandez",
+      "primary_domain_id": "thm_git_apps",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "teamId": "team_005",
+      "skills": [
+        { "skill_id": "skl_git_apps_erp", "level": "Specialist" },
+        { "skill_id": "skl_git_apps_crm", "level": "Advanced" },
+        { "skill_id": "skl_git_apps_support", "level": "Advanced" }
+      ]
+    },
+    {
+      "id": "per_016",
+      "name": "Yuki Watanabe",
+      "primary_domain_id": "thm_git_apps",
+      "contracted_hours_per_month": 122,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "teamId": "team_005",
+      "skills": [
+        { "skill_id": "skl_git_apps_crm", "level": "Specialist" },
+        { "skill_id": "skl_git_apps_erp", "level": "Advanced" }
+      ]
+    },
+    {
+      "id": "per_017",
+      "name": "Anya Petrov",
+      "primary_domain_id": "thm_git_data",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "teamId": "team_005",
+      "skills": [
+        { "skill_id": "skl_git_data_eng", "level": "Specialist" },
+        { "skill_id": "skl_git_data_int_arch", "level": "Advanced" },
+        { "skill_id": "skl_git_data_platform", "level": "Advanced" }
+      ]
+    },
+    {
+      "id": "per_018",
+      "name": "Henrik Sørensen",
+      "primary_domain_id": "thm_git_data",
+      "contracted_hours_per_month": 152,
+      "available_from": "2026-08",
+      "available_to": null,
+      "active": true,
+      "teamId": "team_005",
+      "skills": [
+        { "skill_id": "skl_git_data_int_arch", "level": "Specialist" },
+        { "skill_id": "skl_git_data_eng", "level": "Advanced" }
       ]
     }
   ],
@@ -2072,7 +2227,21 @@
                 "2026-07": 60,
                 "2026-08": 60
               },
-              "owningTeamId": null,
+              "owningTeamId": "team_005",
+              "allocations": []
+            },
+            {
+              "id": "req_stress001_4",
+              "shape": "skill",
+              "skill_id": "skl_git_data_int_arch",
+              "level": "Advanced",
+              "notes": "Integration architecture for MES to enterprise data layer",
+              "hours_by_month": {
+                "2026-06": 40,
+                "2026-07": 40,
+                "2026-08": 40
+              },
+              "owningTeamId": "team_005",
               "allocations": []
             }
           ]
@@ -2389,7 +2558,7 @@
       "id": "dta_002",
       "demandId": "dmd_scoping_001",
       "phaseId": "phs_scoping_001",
-      "teamId": "team_002",
+      "teamId": "team_005",
       "confirmed": false,
       "confirmedBy": null,
       "confirmedAt": null
