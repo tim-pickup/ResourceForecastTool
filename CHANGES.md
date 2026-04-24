@@ -43,7 +43,7 @@ Tracks implementation progress against REQUIREMENTS.md v1.16. REQUIREMENTS.md is
 
 ## 6. Admin surfaces — multi-Function
 
-- [ ] Functions admin full CRUD. Domains / Skills / Teams / People admin scoped to active Function. Drop Lead picker from Team admin. Programmes / Projects / Providers admin remains global.
+- [x] Functions admin full CRUD. Domains / Skills / Teams / People admin scoped to active Function. Drop Lead picker from Team admin. Programmes / Projects / Providers admin remains global.
 - **Scope**: admin UI changes + CRUD actions
 - **Dependencies**: items 3, 5
 - **Reference**: section 5 (all bullets), section 9 build step 5

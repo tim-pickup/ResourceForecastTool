@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Plus, Trash2, Edit2, Check, X, AlertTriangle, RefreshCw, ToggleLeft, ToggleRight } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
-import type { Domain, Skill, Person, Level, PersonSkill, Team } from '../../types'
+import type { AppFunction, Domain, Skill, Person, Level, PersonSkill, Team } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { Input, Select } from '../../components/ui/FormFields'
 import { DomainSkillSelector } from '../../components/DomainSkillSelector'
@@ -9,7 +9,7 @@ import { clsx } from 'clsx'
 
 const LEVELS: Level[] = ['Basic', 'Advanced', 'Specialist']
 const TEAM_TYPES: Team['type'][] = ['Plant', 'Central', 'Specialist', 'Other']
-const TABS = ['Function', 'Teams', 'Domains & Skills', 'People', 'Programmes', 'Projects', 'Providers', 'Reset'] as const
+const TABS = ['Functions', 'Teams', 'Domains & Skills', 'People', 'Programmes', 'Projects', 'Providers', 'Reset'] as const
 type Tab = typeof TABS[number]
 
 function derivedPersonDomain(personSkills: PersonSkill[], skills: Skill[], domains: Domain[]): Domain | null {
@@ -24,46 +24,157 @@ function derivedPersonDomain(personSkills: PersonSkill[], skills: Skill[], domai
   return domains.find(d => d.id === topId) ?? null
 }
 
-// ---- Function ----
-function FunctionPanel() {
-  const store = useAppStore()
-  const fn = store.functions[0]
-  const [editing, setEditing] = useState(false)
-  const [editForm, setEditForm] = useState({ name: fn?.name ?? '', description: fn?.description ?? '' })
+// ─── Functions (full CRUD) ─────────────────────────────────────────────────
 
-  if (!fn) return <p className="text-xs text-gray-400 italic">No Function record found.</p>
+function FunctionsPanel() {
+  const store = useAppStore()
+  const [editId, setEditId] = useState<string | null>(null)
+  const [showNew, setShowNew] = useState(false)
+  const [newForm, setNewForm] = useState({ name: '', description: '' })
+  const [editForm, setEditForm] = useState({ name: '', description: '' })
+  const [blockId, setBlockId] = useState<string | null>(null)
+
+  const activeFns = store.functions.filter(f => f.active)
+
+  function domainCount(fnId: string) { return store.domains.filter(d => d.functionId === fnId).length }
+  function teamCount(fnId: string) { return store.teams.filter(t => t.functionId === fnId).length }
+  function peopleCount(fnId: string) {
+    const teamIds = new Set(store.teams.filter(t => t.functionId === fnId).map(t => t.id))
+    return store.people.filter(p => teamIds.has(p.teamId)).length
+  }
+
+  function handleDeactivate(fn: AppFunction) {
+    if (fn.active && activeFns.length <= 1) {
+      alert('Cannot deactivate — at least one active Function is required.')
+      return
+    }
+    store.updateFunction(fn.id, { active: !fn.active })
+    // If we're deactivating the currently-active Function, fall back to next alphabetical
+    if (fn.active && store.activeFunctionId === fn.id) {
+      const next = store.functions
+        .filter(f => f.active && f.id !== fn.id)
+        .sort((a, b) => a.name.localeCompare(b.name))[0]
+      if (next) store.setActiveFunctionId(next.id)
+    }
+  }
+
+  function handleDelete(fn: AppFunction) {
+    const dc = domainCount(fn.id)
+    const tc = teamCount(fn.id)
+    const pc = peopleCount(fn.id)
+    if (dc > 0 || tc > 0 || pc > 0) {
+      setBlockId(fn.id)
+      return
+    }
+    if (store.activeFunctionId === fn.id) {
+      const next = store.functions.filter(f => f.active && f.id !== fn.id)
+        .sort((a, b) => a.name.localeCompare(b.name))[0]
+      if (next) store.setActiveFunctionId(next.id)
+    }
+    store.deleteFunction(fn.id)
+  }
+
+  function startEdit(fn: AppFunction) {
+    setEditId(fn.id)
+    setEditForm({ name: fn.name, description: fn.description })
+  }
 
   return (
-    <div className="max-w-lg">
-      <h3 className="text-sm font-semibold text-near-black mb-3">Function</h3>
-      <div className="border border-border rounded-md p-4">
-        {editing ? (
-          <div className="flex flex-col gap-2">
-            <Input label="Name" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
-            <Input label="Description" value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
-            <div className="flex gap-2">
-              <Button size="sm" variant="primary" onClick={() => { store.updateFunction(fn.id, editForm); setEditing(false) }}>Save</Button>
-              <Button size="sm" variant="ghost" onClick={() => { setEditForm({ name: fn.name, description: fn.description }); setEditing(false) }}>Cancel</Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-sm font-medium text-near-black">{fn.name}</div>
-              {fn.description && <p className="text-xs text-gray-500 mt-1">{fn.description}</p>}
-            </div>
-            <button onClick={() => { setEditForm({ name: fn.name, description: fn.description }); setEditing(true) }} className="text-gray-400 hover:text-near-black">
-              <Edit2 size={13} />
-            </button>
-          </div>
-        )}
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-near-black">Functions ({store.functions.length})</h3>
+        <Button size="sm" variant="secondary" onClick={() => { setNewForm({ name: '', description: '' }); setShowNew(true) }}>
+          <Plus size={12} /> Add Function
+        </Button>
       </div>
-      <p className="text-xs text-gray-400 mt-2 italic">No add or delete in v1 — one Function only.</p>
+
+      {blockId && (() => {
+        const fn = store.functions.find(f => f.id === blockId)!
+        const dc = domainCount(blockId), tc = teamCount(blockId), pc = peopleCount(blockId)
+        return (
+          <div className="border border-red-300 rounded-md p-3 mb-3 bg-red-50 flex flex-col gap-2">
+            <p className="text-xs font-medium text-red-700">
+              Cannot delete <strong>{fn?.name}</strong> — it still has{' '}
+              {[dc > 0 && `${dc} domain(s)`, tc > 0 && `${tc} team(s)`, pc > 0 && `${pc} person/people`].filter(Boolean).join(', ')}.
+              Move or delete them first.
+            </p>
+            <Button size="sm" variant="ghost" onClick={() => setBlockId(null)}>Dismiss</Button>
+          </div>
+        )
+      })()}
+
+      {showNew && (
+        <div className="border border-brand rounded-md p-3 mb-3 bg-blue-50/30 flex flex-col gap-2">
+          <Input label="Name (required, unique)" value={newForm.name} onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))} />
+          <Input label="Description" value={newForm.description} onChange={e => setNewForm(f => ({ ...f, description: e.target.value }))} />
+          <div className="flex gap-2">
+            <Button size="sm" variant="primary" onClick={() => {
+              if (!newForm.name.trim()) return
+              const dupe = store.functions.some(f => f.name.toLowerCase() === newForm.name.trim().toLowerCase())
+              if (dupe) { alert('A Function with that name already exists.'); return }
+              store.addFunction({ name: newForm.name.trim(), description: newForm.description, active: true })
+              setShowNew(false)
+            }}>Save</Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowNew(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {[...store.functions].sort((a, b) => a.name.localeCompare(b.name)).map(fn => {
+          const dc = domainCount(fn.id), tc = teamCount(fn.id), pc = peopleCount(fn.id)
+          const isActive = store.activeFunctionId === fn.id
+          return (
+            <div key={fn.id} className={clsx('border rounded-md px-3 py-2.5', isActive ? 'border-brand bg-blue-50/20' : 'border-border')}>
+              {editId === fn.id ? (
+                <div className="flex flex-col gap-2">
+                  <Input label="Name" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+                  <Input label="Description" value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="primary" onClick={() => {
+                      if (!editForm.name.trim()) return
+                      const dupe = store.functions.some(f => f.id !== fn.id && f.name.toLowerCase() === editForm.name.trim().toLowerCase())
+                      if (dupe) { alert('Name collision.'); return }
+                      store.updateFunction(fn.id, { name: editForm.name.trim(), description: editForm.description })
+                      setEditId(null)
+                    }}>Save</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{fn.name}</span>
+                      {!fn.active && <span className="text-xs text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">Inactive</span>}
+                      {isActive && <span className="text-xs text-brand bg-blue-50 border border-brand/30 rounded px-1.5 py-0.5">Active lens</span>}
+                    </div>
+                    {fn.description && <p className="text-xs text-gray-500 mt-0.5">{fn.description}</p>}
+                    <div className="text-xs text-gray-400 mt-1">{dc} domain(s) · {tc} team(s) · {pc} person/people</div>
+                  </div>
+                  <div className="flex gap-1 items-center">
+                    <button
+                      onClick={() => handleDeactivate(fn)}
+                      className={clsx('p-1 transition-colors', fn.active ? 'text-gray-400 hover:text-brand' : 'text-gray-300 hover:text-brand')}
+                      title={fn.active ? (activeFns.length <= 1 ? 'Cannot deactivate last active Function' : 'Deactivate') : 'Activate'}
+                    >
+                      {fn.active ? <ToggleRight size={15} /> : <ToggleLeft size={15} />}
+                    </button>
+                    <button onClick={() => startEdit(fn)} className="text-gray-400 hover:text-near-black p-1"><Edit2 size={13} /></button>
+                    <button onClick={() => handleDelete(fn)} className="text-gray-300 hover:text-accent-red p-1"><Trash2 size={13} /></button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
 
-// ---- Teams ----
+// ─── Teams (scoped to active Function) ───────────────────────────────────────
+
 function TeamsPanel() {
   const store = useAppStore()
   const [editId, setEditId] = useState<string | null>(null)
@@ -72,8 +183,10 @@ function TeamsPanel() {
   const [editForm, setEditForm] = useState<{ name: string; type: Team['type'] }>({ name: '', type: 'Plant' })
   const [blockId, setBlockId] = useState<string | null>(null)
 
-  const fnId = store.functions[0]?.id ?? 'func_001'
-  const fnName = store.functions[0]?.name ?? 'Digital Manufacturing'
+  const activeFunctionId = store.activeFunctionId ?? store.functions[0]?.id ?? ''
+  const activeFnName = store.functions.find(f => f.id === activeFunctionId)?.name ?? ''
+  // §5: show only active Function's Teams
+  const scopedTeams = store.teams.filter(t => t.functionId === activeFunctionId)
 
   function memberCount(teamId: string) { return store.people.filter(p => p.teamId === teamId).length }
 
@@ -91,7 +204,9 @@ function TeamsPanel() {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-near-black">Teams ({store.teams.length})</h3>
+        <h3 className="text-sm font-semibold text-near-black">
+          Teams — {activeFnName} ({scopedTeams.length})
+        </h3>
         <Button size="sm" variant="secondary" onClick={() => { setNewForm({ name: '', type: 'Plant' }); setShowNew(true) }}>
           <Plus size={12} /> Add Team
         </Button>
@@ -119,11 +234,11 @@ function TeamsPanel() {
               {TEAM_TYPES.map(t => <option key={t}>{t}</option>)}
             </Select>
           </div>
-          <div className="text-xs text-gray-400">Function: {fnName} (locked in v1)</div>
+          <div className="text-xs text-gray-400">Function: {activeFnName} (derived from active Function)</div>
           <div className="flex gap-2">
             <Button size="sm" variant="primary" onClick={() => {
               if (!newForm.name.trim()) return
-              store.addTeam({ name: newForm.name.trim(), description: '', functionId: fnId, type: newForm.type, active: true })
+              store.addTeam({ name: newForm.name.trim(), description: '', functionId: activeFunctionId, type: newForm.type, active: true })
               setShowNew(false)
             }}>Save</Button>
             <Button size="sm" variant="ghost" onClick={() => setShowNew(false)}>Cancel</Button>
@@ -132,7 +247,7 @@ function TeamsPanel() {
       )}
 
       <div className="flex flex-col gap-2">
-        {store.teams.map(team => {
+        {scopedTeams.map(team => {
           const count = memberCount(team.id)
           return (
             <div key={team.id} className="border border-border rounded-md px-3 py-2.5">
@@ -177,12 +292,16 @@ function TeamsPanel() {
             </div>
           )
         })}
+        {scopedTeams.length === 0 && (
+          <p className="text-xs text-gray-400 italic">No teams in this Function yet.</p>
+        )}
       </div>
     </div>
   )
 }
 
-// ---- Domains & Skills ----
+// ─── Domains & Skills (scoped to active Function) ────────────────────────────
+
 function DomainsSkillsPanel() {
   const store = useAppStore()
   const [editDomainId, setEditDomainId] = useState<string | null>(null)
@@ -192,11 +311,18 @@ function DomainsSkillsPanel() {
   const [showNewSkillFor, setShowNewSkillFor] = useState<string | null>(null)
   const [newSkill, setNewSkill] = useState({ name: '', domain_id: '' })
 
+  const activeFunctionId = store.activeFunctionId ?? store.functions[0]?.id ?? ''
+  // §5: show only active Function's Domains
+  const scopedDomains = store.domains.filter(d => d.functionId === activeFunctionId)
+  const activeFnName = store.functions.find(f => f.id === activeFunctionId)?.name ?? ''
+
   return (
     <div className="flex flex-col gap-6">
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-near-black">Domains</h3>
+          <h3 className="text-sm font-semibold text-near-black">
+            Domains & Skills — {activeFnName} ({scopedDomains.length} domains)
+          </h3>
           <Button size="sm" variant="secondary" onClick={() => setShowNewDomain(true)}>
             <Plus size={12} /> Add Domain
           </Button>
@@ -205,14 +331,23 @@ function DomainsSkillsPanel() {
           <div className="border border-brand rounded-md p-3 mb-3 bg-blue-50/30 flex flex-col gap-2">
             <Input label="Domain Name" value={newDomain.name} onChange={e => setNewDomain(n => ({ ...n, name: e.target.value }))} />
             <Input label="Description" value={newDomain.description} onChange={e => setNewDomain(n => ({ ...n, description: e.target.value }))} />
+            <div className="text-xs text-gray-400">Function: {activeFnName} (derived from active Function)</div>
             <div className="flex gap-2">
-              <Button size="sm" variant="primary" onClick={() => { store.addDomain({ ...newDomain, functionId: store.functions[0]?.id ?? 'func_001' }); setNewDomain({ name: '', description: '' }); setShowNewDomain(false) }}>Save</Button>
+              <Button size="sm" variant="primary" onClick={() => {
+                if (!newDomain.name.trim()) return
+                store.addDomain({ ...newDomain, functionId: activeFunctionId })
+                setNewDomain({ name: '', description: '' })
+                setShowNewDomain(false)
+              }}>Save</Button>
               <Button size="sm" variant="ghost" onClick={() => setShowNewDomain(false)}>Cancel</Button>
             </div>
           </div>
         )}
+        {scopedDomains.length === 0 && (
+          <p className="text-xs text-gray-400 italic">No domains in this Function yet.</p>
+        )}
         <div className="flex flex-col gap-2">
-          {store.domains.map(domain => {
+          {scopedDomains.map(domain => {
             const domainSkills = store.skills.filter(s => s.domain_id === domain.id)
             return (
               <div key={domain.id} className="border border-border rounded-md overflow-hidden">
@@ -298,19 +433,28 @@ function InlineEdit({ value, onSave, onCancel }: { value: string; onSave: (v: st
   )
 }
 
-// ---- People ----
-function PersonForm({ person, onSave, onCancel }: { person?: Person; onSave: (p: any) => void; onCancel: () => void }) {
+// ─── People (scoped to active Function) ──────────────────────────────────────
+
+function PersonForm({ person, activeFunctionId, onSave, onCancel }: {
+  person?: Person
+  activeFunctionId: string
+  onSave: (p: any) => void
+  onCancel: () => void
+}) {
   const store = useAppStore()
   const [form, setForm] = useState<Omit<Person, 'id'>>(person ?? {
     name: '', primary_domain_id: '', contracted_hours_per_month: 152,
     available_from: null, available_to: null, active: true, skills: [], teamId: ''
   })
 
+  // §5: Team dropdown scoped to active Function's active Teams
+  const scopedTeams = store.teams.filter(t => t.functionId === activeFunctionId && t.active)
+
   // Scope skills picker to person's function (via their team)
   const personTeam = store.teams.find(t => t.id === form.teamId)
   const scopedDomains = personTeam
     ? store.domains.filter(d => d.functionId === personTeam.functionId)
-    : store.domains
+    : store.domains.filter(d => d.functionId === activeFunctionId)
   const scopedSkills = store.skills.filter(s => scopedDomains.some(d => d.id === s.domain_id))
 
   const derivedDomain = derivedPersonDomain(form.skills, store.skills, store.domains)
@@ -325,7 +469,7 @@ function PersonForm({ person, onSave, onCancel }: { person?: Person; onSave: (p:
         <Input label="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
         <Select label="Team (required)" value={form.teamId} onChange={e => setForm(f => ({ ...f, teamId: e.target.value }))}>
           <option value="">— select team —</option>
-          {store.teams.filter(t => t.active).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          {scopedTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </Select>
       </div>
       <div className="text-xs text-gray-500 bg-gray-50 border border-border rounded px-2 py-1.5">
@@ -379,6 +523,14 @@ function PeoplePanel() {
   const store = useAppStore()
   const [editId, setEditId] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
+
+  const activeFunctionId = store.activeFunctionId ?? store.functions[0]?.id ?? ''
+  const activeFnName = store.functions.find(f => f.id === activeFunctionId)?.name ?? ''
+
+  // §5: scope to active Function's people (via team membership)
+  const activeFnTeamIds = new Set(store.teams.filter(t => t.functionId === activeFunctionId).map(t => t.id))
+  const scopedPeople = store.people.filter(p => activeFnTeamIds.has(p.teamId) || (!p.teamId && false))
+
   const teamMap = new Map(store.teams.map(t => [t.id, t.name]))
   const skillMap = new Map(store.skills.map(s => [s.id, { name: s.name, domain_id: s.domain_id }]))
   const domainMap = new Map(store.domains.map(t => [t.id, t.name]))
@@ -386,20 +538,22 @@ function PeoplePanel() {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-near-black">People ({store.people.length})</h3>
+        <h3 className="text-sm font-semibold text-near-black">
+          People — {activeFnName} ({scopedPeople.length})
+        </h3>
         <Button size="sm" variant="secondary" onClick={() => setShowNew(true)}><Plus size={12} /> Add Person</Button>
       </div>
       {showNew && (
         <div className="mb-3">
-          <PersonForm onSave={p => { store.addPerson(p); setShowNew(false) }} onCancel={() => setShowNew(false)} />
+          <PersonForm activeFunctionId={activeFunctionId} onSave={p => { store.addPerson(p); setShowNew(false) }} onCancel={() => setShowNew(false)} />
         </div>
       )}
       <div className="flex flex-col gap-2">
-        {store.people.map(person => (
+        {scopedPeople.map(person => (
           <div key={person.id} className="border border-border rounded-md overflow-hidden">
             {editId === person.id ? (
               <div className="p-3">
-                <PersonForm person={person} onSave={p => { store.updatePerson(person.id, p); setEditId(null) }} onCancel={() => setEditId(null)} />
+                <PersonForm person={person} activeFunctionId={activeFunctionId} onSave={p => { store.updatePerson(person.id, p); setEditId(null) }} onCancel={() => setEditId(null)} />
               </div>
             ) : (
               <>
@@ -447,12 +601,16 @@ function PeoplePanel() {
             )}
           </div>
         ))}
+        {scopedPeople.length === 0 && (
+          <p className="text-xs text-gray-400 italic">No people in this Function yet.</p>
+        )}
       </div>
     </div>
   )
 }
 
-// ---- Reset ----
+// ─── Reset ────────────────────────────────────────────────────────────────────
+
 function ResetPanel() {
   const store = useAppStore()
   const [confirm, setConfirm] = useState(false)
@@ -488,7 +646,7 @@ function ResetPanel() {
   )
 }
 
-// ─── Programmes ──────────────────────────────────────────────────────────────
+// ─── Programmes (global — unchanged) ─────────────────────────────────────────
 
 function ProgrammesPanel() {
   const store = useAppStore()
@@ -581,7 +739,7 @@ function ProgrammesPanel() {
   )
 }
 
-// ─── Projects ─────────────────────────────────────────────────────────────────
+// ─── Projects (global — unchanged) ───────────────────────────────────────────
 
 function ProjectsPanel() {
   const store = useAppStore()
@@ -682,7 +840,7 @@ function ProjectsPanel() {
   )
 }
 
-// ─── Providers ────────────────────────────────────────────────────────────────
+// ─── Providers (global — unchanged) ──────────────────────────────────────────
 
 function ProvidersPanel() {
   const store = useAppStore()
@@ -796,8 +954,10 @@ function ProvidersPanel() {
   )
 }
 
+// ─── Admin shell ──────────────────────────────────────────────────────────────
+
 export default function Admin() {
-  const [tab, setTab] = useState<Tab>('Function')
+  const [tab, setTab] = useState<Tab>('Functions')
 
   return (
     <div className="flex h-full">
@@ -816,14 +976,14 @@ export default function Admin() {
         ))}
       </div>
       <div className="flex-1 overflow-y-auto p-6">
-        {tab === 'Function'       && <FunctionPanel />}
-        {tab === 'Teams'          && <TeamsPanel />}
+        {tab === 'Functions'        && <FunctionsPanel />}
+        {tab === 'Teams'            && <TeamsPanel />}
         {tab === 'Domains & Skills' && <DomainsSkillsPanel />}
-        {tab === 'People'         && <PeoplePanel />}
-        {tab === 'Programmes'     && <ProgrammesPanel />}
-        {tab === 'Projects'       && <ProjectsPanel />}
-        {tab === 'Providers'      && <ProvidersPanel />}
-        {tab === 'Reset'          && <ResetPanel />}
+        {tab === 'People'           && <PeoplePanel />}
+        {tab === 'Programmes'       && <ProgrammesPanel />}
+        {tab === 'Projects'         && <ProjectsPanel />}
+        {tab === 'Providers'        && <ProvidersPanel />}
+        {tab === 'Reset'            && <ResetPanel />}
       </div>
     </div>
   )
