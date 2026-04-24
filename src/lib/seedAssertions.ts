@@ -20,6 +20,7 @@ import {
   project_internal_hours,
   project_external_hours,
   project_external_hours_by_provider,
+  crossFunctionDemandHours,
   type DemandTarget,
 } from './capacity'
 import { generateMonths, getCurrentMonth } from '../utils/capacity'
@@ -209,6 +210,25 @@ export function runSeedAssertions(): void {
     )
   }
 
+  // ── §4 Section D — crossFunctionDemandHours renderability invariant ────────
+  // With Digital Manufacturing (func_001) active, at least one month in the
+  // 18-month horizon must show non-zero hours for Group IT (func_002).
+  // Driven by dmd_stress_001 (Approved) having a Data Engineering requirement
+  // on phs_stress001_1 (Jun–Aug 2026).
+  const dmFunctionId = 'func_001'
+  const groupItFunctionId = 'func_002'
+  let cfNonZero = false
+  for (const m of months) {
+    const cf = crossFunctionDemandHours(dmFunctionId, m, { by: 'function' }, state)
+    if ((cf[groupItFunctionId] ?? 0) > 0) { cfNonZero = true; break }
+  }
+  if (!cfNonZero) {
+    console.error(
+      '[SeedAssertion FAIL] crossFunctionDemandHours(func_001, *, {by:function}) returned zero for func_002 across all months — ' +
+      'seed is missing a cross-Function demand or the function has a bug'
+    )
+  }
+
   // All passed
   const allOk =
     bandMomMes > 0 &&
@@ -217,7 +237,8 @@ export function runSeedAssertions(): void {
     !!mivShortfall &&
     projInternal > 0 &&
     projExternal > 0 &&
-    providerCount >= 2
+    providerCount >= 2 &&
+    cfNonZero
   if (allOk) {
     console.info('[SeedAssertions] All §2.4.8 + §2.4.9 renderability invariants passed ✓')
   }

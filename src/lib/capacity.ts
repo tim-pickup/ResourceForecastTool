@@ -624,6 +624,85 @@ export function unaligned_demand_hours(
   return total
 }
 
+// ─── §2.4.9 crossFunctionDemandHours ─────────────────────────────────────────
+// Returns internal skill-shaped requirement hours placed on *other* Functions
+// by Demands that touch the active Function, for a given month.
+//
+// Scope (per spec §4 View 1 Section D):
+//   - Only Demands in Approved / PartiallyAllocated / Allocated status
+//   - A Demand qualifies if it has ≥1 requirement targeting any skill in the
+//     active Function's Domain taxonomy (across any phase, any month)
+//   - Returns only requirements targeting Skills in OTHER Functions
+//   - External requirements are excluded (§2.6 — they are Section C's concern)
+//
+// opts.by = 'function'  → keyed by receiving functionId
+// opts.by = 'team'      → keyed by owningTeamId of the requirement
+//                         (null owningTeamId → '__unassigned__')
+//                         Only requirements whose owningTeam belongs to the
+//                         receiving Function are grouped by team; others go to
+//                         '__unassigned__'.
+
+export type CrossFunctionDemandGroup = Record<string, number>
+
+export function crossFunctionDemandHours(
+  activeFunctionId: string,
+  month: string,
+  opts: { by: 'function' | 'team' },
+  state: AppState
+): CrossFunctionDemandGroup {
+  // Build active-Function skill set
+  const activeDomainIds = new Set(
+    state.domains.filter(d => d.functionId === activeFunctionId).map(d => d.id)
+  )
+  const activeSkillIds = new Set(
+    state.skills.filter(s => activeDomainIds.has(s.domain_id)).map(s => s.id)
+  )
+
+  // Skill → owning-Function mapping
+  const domainFnMap = new Map(state.domains.map(d => [d.id, d.functionId]))
+  const skillFnMap = new Map(
+    state.skills.map(s => [s.id, domainFnMap.get(s.domain_id) ?? ''])
+  )
+
+  // Team → owning-Function mapping
+  const teamFnMap = new Map(state.teams.map(t => [t.id, t.functionId]))
+
+  const result: CrossFunctionDemandGroup = {}
+
+  for (const item of state.demandItems) {
+    if (!REAL_STATUSES.has(item.status)) continue
+
+    // Demand must touch active Function in at least one requirement (any phase)
+    const touchesActive = item.phases.some(ph =>
+      ph.requirements.some(req => activeSkillIds.has(req.skill_id))
+    )
+    if (!touchesActive) continue
+
+    for (const phase of item.phases) {
+      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
+      for (const req of phase.requirements) {
+        const reqFnId = skillFnMap.get(req.skill_id)
+        if (!reqFnId || reqFnId === activeFunctionId) continue  // skip active-Function skills
+        const hours = reqHoursForMonth(req, phase, month)
+        if (hours <= 0) continue
+
+        if (opts.by === 'function') {
+          result[reqFnId] = (result[reqFnId] ?? 0) + hours
+        } else {
+          const teamId = req.owningTeamId
+          if (teamId && teamFnMap.get(teamId) === reqFnId) {
+            result[teamId] = (result[teamId] ?? 0) + hours
+          } else {
+            result['__unassigned__'] = (result['__unassigned__'] ?? 0) + hours
+          }
+        }
+      }
+    }
+  }
+
+  return result
+}
+
 // ─── Runtime invariant checker (dev mode) ────────────────────────────────────
 // Call from a debug panel or the browser console to verify correctness.
 

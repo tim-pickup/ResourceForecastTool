@@ -29,7 +29,7 @@ Tracks implementation progress against REQUIREMENTS.md v1.16. REQUIREMENTS.md is
 
 ## 4. New `crossFunctionDemandHours` aggregation function
 
-- [ ] Add `crossFunctionDemandHours(activeFunctionId, month, {by: 'function' | 'team'})` to the shared aggregation module. Add renderability invariant (non-zero for Group IT in at least one visible month when DM active on fresh seed).
+- [x] Add `crossFunctionDemandHours(activeFunctionId, month, {by: 'function' | 'team'})` to the shared aggregation module. Add renderability invariant (non-zero for Group IT in at least one visible month when DM active on fresh seed).
 - **Scope**: aggregation module + dev-mode assertion
 - **Dependencies**: items 1, 3
 - **Reference**: section 2.4.8 (invariants pattern), section 2.4.9 (aggregation scope), section 4 View 1 Section D, section 9 build step 3
