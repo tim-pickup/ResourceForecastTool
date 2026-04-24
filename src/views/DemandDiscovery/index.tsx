@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, Search, LayoutGrid, List, GripVertical, ChevronUp, ChevronDown, X, GitMerge } from 'lucide-react'
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
@@ -168,7 +168,6 @@ export default function DemandDiscovery() {
     const state = location.state as { openDrawer?: string } | null
     if (state?.openDrawer) {
       setDrawerId(state.openDrawer)
-      // Clear the state so it doesn't re-trigger on future renders
       navigate(location.pathname, { replace: true, state: {} })
     }
   }, [location.state])
@@ -183,6 +182,31 @@ export default function DemandDiscovery() {
   const [groupBy, setGroupBy] = useState<GroupBy>('none')
   const [search, setSearch] = useState('')
   const [dragError, setDragError] = useState<string | null>(null)
+
+  // §11.17: reset Function-scoped filters and auto-close drawer on Function switch
+  const activeFunctionId = store.activeFunctionId
+  const prevFnRef = useRef<string | null>(activeFunctionId)
+  useEffect(() => {
+    if (prevFnRef.current === activeFunctionId) return
+    prevFnRef.current = activeFunctionId
+
+    // Reset Function-scoped domain filter (§11.17)
+    setFilterDomain('')
+
+    // §11.17 drawer auto-close: close if open demand doesn't touch new Function
+    if (drawerId && activeFunctionId) {
+      const item = store.demandItems.find(d => d.id === drawerId)
+      if (item) {
+        const newFnDomainIds = new Set(store.domains.filter(d => d.functionId === activeFunctionId).map(d => d.id))
+        const newFnSkillIds = new Set(store.skills.filter(s => newFnDomainIds.has(s.domain_id)).map(s => s.id))
+        const touchesNewFn = item.phases.some(ph => ph.requirements.some(r => newFnSkillIds.has(r.skill_id)))
+        const hasAnyReqs = item.phases.some(ph => ph.requirements.length > 0)
+        const shouldClose = hasAnyReqs ? !touchesNewFn : item.createdUnderFunctionId !== activeFunctionId
+        if (shouldClose) setDrawerId(null)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFunctionId])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 

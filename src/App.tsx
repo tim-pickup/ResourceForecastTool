@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { HashRouter, Routes, Route, Navigate, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { ChevronDown, Check } from 'lucide-react'
 import CapacityValidation from './views/CapacityValidation'
 import SkillDetail from './views/CapacityValidation/SkillDetail'
 import TeamActivity from './views/TeamActivity'
@@ -16,7 +17,86 @@ const navItems = [
   { to: '/admin', label: 'Admin' },
 ]
 
-// Inner component that has access to router hooks
+// ─── Function selector ────────────────────────────────────────────────────────
+// §4.9: dropdown when 2+ active Functions; static label when only one.
+
+function FunctionSelector() {
+  const activeFunctionId = useAppStore(s => s.activeFunctionId)
+  const functions = useAppStore(s => s.functions)
+  const setActiveFunctionId = useAppStore(s => s.setActiveFunctionId)
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const activeFns = useMemo(
+    () => [...functions].filter(f => f.active).sort((a, b) => a.name.localeCompare(b.name)),
+    [functions]
+  )
+  const activeFunction = activeFns.find(f => f.id === activeFunctionId) ?? activeFns[0]
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  if (activeFns.length === 0) return null
+
+  // §4.9: single Function → static label, no chevron, no interaction
+  if (activeFns.length === 1) {
+    return (
+      <div className="ml-auto flex items-center gap-1 text-xs text-gray-500 select-none">
+        <span className="text-gray-400">Function:</span>
+        <span className="font-medium text-near-black">{activeFunction?.name}</span>
+      </div>
+    )
+  }
+
+  // Multi-Function: interactive dropdown
+  return (
+    <div className="relative ml-auto" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border border-border hover:border-brand hover:text-brand transition-colors"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className="text-gray-400">Function:</span>
+        <span className="font-medium text-near-black">{activeFunction?.name}</span>
+        <ChevronDown size={11} className="text-gray-400" />
+      </button>
+
+      {open && (
+        <div
+          className="absolute right-0 top-full mt-1 min-w-[200px] bg-white border border-border rounded shadow-card z-50"
+          role="listbox"
+        >
+          {activeFns.map(fn => (
+            <button
+              key={fn.id}
+              role="option"
+              aria-selected={fn.id === activeFunctionId}
+              onClick={() => {
+                if (fn.id !== activeFunctionId) setActiveFunctionId(fn.id)
+                setOpen(false)
+              }}
+              className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 flex items-center justify-between gap-3 ${
+                fn.id === activeFunctionId ? 'text-brand font-medium' : 'text-near-black'
+              }`}
+            >
+              {fn.name}
+              {fn.id === activeFunctionId && <Check size={11} className="text-brand shrink-0" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── AppShell (inside HashRouter — has access to router hooks) ─────────────
+
 function AppShell() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -24,7 +104,9 @@ function AppShell() {
   const functions = useAppStore(s => s.functions)
   const setActiveFunctionId = useAppStore(s => s.setActiveFunctionId)
 
-  // On mount: if URL has ?fn=..., use it to override the persisted store value
+  const [toast, setToast] = useState<string | null>(null)
+
+  // On mount: if URL has ?fn=..., override the persisted store value
   const didInit = useRef(false)
   useEffect(() => {
     if (didInit.current) return
@@ -38,7 +120,6 @@ function AppShell() {
         return
       }
     }
-    // No valid URL param: ensure URL reflects current store value
     if (activeFunctionId) {
       const current = new URLSearchParams(location.search)
       if (current.get('fn') !== activeFunctionId) {
@@ -49,10 +130,9 @@ function AppShell() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Keep URL in sync when activeFunctionId changes after mount
+  // Keep URL in sync when activeFunctionId changes
   useEffect(() => {
     if (!activeFunctionId) return
-    // Read current URL params without adding to the dependency array (stale-ref pattern)
     const hash = window.location.hash
     const qIdx = hash.indexOf('?')
     const searchPart = qIdx >= 0 ? hash.slice(qIdx) : ''
@@ -63,6 +143,27 @@ function AppShell() {
       window.history.replaceState(null, '', '#' + pathPart + '?' + params.toString())
     }
   }, [activeFunctionId])
+
+  // Show toast on user-driven Function switch (not on initial load)
+  const prevFnRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (prevFnRef.current === null) {
+      prevFnRef.current = activeFunctionId
+      return
+    }
+    if (prevFnRef.current !== activeFunctionId) {
+      const fn = functions.find(f => f.id === activeFunctionId)
+      if (fn) setToast(`Switched to ${fn.name}. Some filters reset.`)
+      prevFnRef.current = activeFunctionId
+    }
+  }, [activeFunctionId, functions])
+
+  // Auto-dismiss toast after 3s
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(t)
+  }, [toast])
 
   return (
     <div className="min-h-screen bg-white text-near-black flex flex-col">
@@ -87,6 +188,7 @@ function AppShell() {
               </NavLink>
             ))}
           </nav>
+          <FunctionSelector />
         </div>
       </header>
       <main className="flex-1 overflow-hidden">
@@ -102,6 +204,13 @@ function AppShell() {
           <Route path="/admin/*" element={<Admin />} />
         </Routes>
       </main>
+
+      {/* §4.9 / §11.17 toast: confirms Function switch and filter reset */}
+      {toast && (
+        <div className="fixed bottom-4 right-4 z-[60] bg-near-black text-white text-xs px-4 py-2.5 rounded-md shadow-lg pointer-events-none">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }

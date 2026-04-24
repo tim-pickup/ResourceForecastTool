@@ -36,7 +36,7 @@ Tracks implementation progress against REQUIREMENTS.md v1.16. REQUIREMENTS.md is
 
 ## 5. Function selector UI
 
-- [ ] Global header dropdown with the behaviour in section 4.9: single-Function-degrades-to-label, lens-switch re-renders, filter reset on switch, drawer auto-close if Demand has no requirements touching the new Function, URL hash update.
+- [x] Global header dropdown with the behaviour in section 4.9: single-Function-degrades-to-label, lens-switch re-renders, filter reset on switch, drawer auto-close if Demand has no requirements touching the new Function, URL hash update.
 - **Scope**: new global header component + store wiring
 - **Dependencies**: items 3, 4
 - **Reference**: section 4.9 (full spec), section 11.17 (implementation guidance), section 9 build step 4

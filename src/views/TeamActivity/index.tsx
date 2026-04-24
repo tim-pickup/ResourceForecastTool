@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment } from 'react'
+import { useState, useMemo, useEffect, useRef, Fragment } from 'react'
 import { X } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import {
@@ -54,6 +54,17 @@ export default function TeamActivity() {
   const [filterDomain, setFilterDomain] = useState('')
   const [filterPerson, setFilterPerson] = useState('')
   const [groupBy, setGroupBy] = useState<'domain' | 'team'>('domain')
+
+  // §11.17: reset Function-scoped filters on Function switch
+  const activeFunctionId = store.activeFunctionId
+  const prevFnRef = useRef<string | null>(activeFunctionId)
+  useEffect(() => {
+    if (prevFnRef.current === activeFunctionId) return
+    prevFnRef.current = activeFunctionId
+    setFilterDomain('')
+    setFilterPerson('')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFunctionId])
   const [editorId, setEditorId] = useState<string | null>(null)
   const [drillCell, setDrillCell] = useState<DrillCell | null>(null)
 
