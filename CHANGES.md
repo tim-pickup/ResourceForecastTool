@@ -89,8 +89,8 @@ Tracks implementation progress against REQUIREMENTS.md v1.16. REQUIREMENTS.md is
 
 Run the seed-assertion checks from section 6 on a fresh load of the app:
 
-- [ ] Programme/Project roll-up visibility invariant passes
-- [ ] Scoping column visible with mixed confirmation strip
-- [ ] **Cross-Function Demand visible** (Section D non-zero for Group IT when DM active)
-- [ ] **Function switch effect visible** (Domain charts change, Demand list changes)
-- [ ] Grey band renderability invariants (from v1.12) still pass
+- [x] Programme/Project roll-up visibility invariant passes
+- [x] Scoping column visible with mixed confirmation strip
+- [x] **Cross-Function Demand visible** (Section D non-zero for Group IT when DM active)
+- [x] **Function switch effect visible** (Domain charts change, Demand list changes)
+- [x] Grey band renderability invariants (from v1.12) still pass
