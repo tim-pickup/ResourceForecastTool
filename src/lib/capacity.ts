@@ -6,7 +6,7 @@
  * Section reference: REQUIREMENTS.md §2.4
  */
 
-import type { AppState, DemandItem, DemandStatus, Level, Phase, Requirement, SkillRequirement } from '../types'
+import type { AppState, DemandItem, DemandStatus, FundingSource, Level, Phase, Requirement, SkillRequirement } from '../types'
 import { monthInRange } from '../utils/capacity'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -701,6 +701,187 @@ export function crossFunctionDemandHours(
   }
 
   return result
+}
+
+// ─── §2.4.9 v1.17 — programme/project demand-by-funding / demand-by-team ─────
+// Added for the new Demand view (§4.10). These differ from the existing roll-up
+// family: status_set is configurable; internal + external combine into one
+// number per stack key; they return decompositions for direct chart rendering.
+
+export type DemandByFundingResult = Record<FundingSource, number>
+
+export interface DemandByTeamEntry {
+  key: string                    // 'team:<id>' | 'team:unassigned' | 'provider:<id>'
+  hours: number
+  label: string
+  parent_function_label: string  // Function name, 'External', or 'Unassigned'
+  source: 'internal' | 'external'
+}
+
+export function project_demand_by_funding(
+  project_id: string,
+  month: string,
+  opts: { status_set: ReadonlySet<DemandStatus> },
+  state: AppState
+): DemandByFundingResult {
+  const result: DemandByFundingResult = {
+    'Investment Scheme': 0,
+    'Plant/Sector Allocation': 0,
+    'Mixed': 0,
+  }
+
+  // Internal hours: only Demands whose status is in status_set
+  for (const item of state.demandItems) {
+    if (item.project_id !== project_id) continue
+    if (!opts.status_set.has(item.status)) continue
+    for (const phase of item.phases) {
+      if (!phaseContainsMonth(phase, month)) continue
+      for (const req of phase.requirements) {
+        result[phase.funding_source] += reqHoursForMonth(req, phase, month)
+      }
+    }
+  }
+
+  // External hours: non-Parked, non-Closed regardless of status_set
+  const phaseMap = new Map<string, { phase: Phase; item: DemandItem }>()
+  for (const item of state.demandItems) {
+    if (item.project_id !== project_id) continue
+    for (const phase of item.phases) phaseMap.set(phase.id, { phase, item })
+  }
+  for (const ext of state.externalResourceRequirements) {
+    const entry = phaseMap.get(ext.phase_id)
+    if (!entry) continue
+    const { phase, item } = entry
+    if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
+    if (!phaseContainsMonth(phase, month)) continue
+    result[phase.funding_source] += extHoursForMonth(ext, phase, month)
+  }
+
+  return result
+}
+
+export function project_demand_by_team(
+  project_id: string,
+  month: string,
+  opts: { status_set: ReadonlySet<DemandStatus> },
+  state: AppState
+): DemandByTeamEntry[] {
+  const acc = new Map<string, DemandByTeamEntry>()
+  const teamMap = new Map(state.teams.map(t => [t.id, t]))
+  const fnMap = new Map(state.functions.map(f => [f.id, f]))
+  const providerMap = new Map(state.providers.map(p => [p.id, p]))
+
+  function getOrCreateTeam(teamId: string | null): DemandByTeamEntry {
+    if (teamId === null) {
+      if (!acc.has('team:unassigned')) {
+        acc.set('team:unassigned', { key: 'team:unassigned', hours: 0, label: 'Unassigned', parent_function_label: 'Unassigned', source: 'internal' })
+      }
+      return acc.get('team:unassigned')!
+    }
+    const k = `team:${teamId}`
+    if (!acc.has(k)) {
+      const team = teamMap.get(teamId)
+      const fn = team ? fnMap.get(team.functionId) : undefined
+      acc.set(k, { key: k, hours: 0, label: team?.name ?? teamId, parent_function_label: fn?.name ?? 'Unknown', source: 'internal' })
+    }
+    return acc.get(k)!
+  }
+
+  function getOrCreateProvider(providerId: string): DemandByTeamEntry {
+    const k = `provider:${providerId}`
+    if (!acc.has(k)) {
+      const provider = providerMap.get(providerId)
+      acc.set(k, { key: k, hours: 0, label: provider?.name ?? providerId, parent_function_label: 'External', source: 'external' })
+    }
+    return acc.get(k)!
+  }
+
+  // Internal hours
+  for (const item of state.demandItems) {
+    if (item.project_id !== project_id) continue
+    if (!opts.status_set.has(item.status)) continue
+    for (const phase of item.phases) {
+      if (!phaseContainsMonth(phase, month)) continue
+      for (const req of phase.requirements) {
+        const h = reqHoursForMonth(req, phase, month)
+        if (h > 0) getOrCreateTeam(req.owningTeamId).hours += h
+      }
+    }
+  }
+
+  // External hours: non-Parked, non-Closed regardless of status_set
+  const phaseMap = new Map<string, { phase: Phase; item: DemandItem }>()
+  for (const item of state.demandItems) {
+    if (item.project_id !== project_id) continue
+    for (const phase of item.phases) phaseMap.set(phase.id, { phase, item })
+  }
+  for (const ext of state.externalResourceRequirements) {
+    const entry = phaseMap.get(ext.phase_id)
+    if (!entry) continue
+    const { phase, item } = entry
+    if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
+    if (!phaseContainsMonth(phase, month)) continue
+    const h = extHoursForMonth(ext, phase, month)
+    if (h > 0) getOrCreateProvider(ext.provider_id).hours += h
+  }
+
+  const sortOrder = (e: DemandByTeamEntry) =>
+    e.parent_function_label === 'External' ? 2 : e.parent_function_label === 'Unassigned' ? 1 : 0
+
+  return [...acc.values()]
+    .filter(e => e.hours > 0)
+    .sort((a, b) => {
+      const ao = sortOrder(a), bo = sortOrder(b)
+      if (ao !== bo) return ao - bo
+      const pfCmp = a.parent_function_label.localeCompare(b.parent_function_label)
+      if (pfCmp !== 0) return pfCmp
+      return a.label.localeCompare(b.label)
+    })
+}
+
+export function programme_demand_by_funding(
+  programme_id: string,
+  month: string,
+  opts: { status_set: ReadonlySet<DemandStatus> },
+  state: AppState
+): DemandByFundingResult {
+  const result: DemandByFundingResult = { 'Investment Scheme': 0, 'Plant/Sector Allocation': 0, 'Mixed': 0 }
+  for (const project of state.projects.filter(p => p.programme_id === programme_id && p.active)) {
+    const pr = project_demand_by_funding(project.id, month, opts, state)
+    result['Investment Scheme'] += pr['Investment Scheme']
+    result['Plant/Sector Allocation'] += pr['Plant/Sector Allocation']
+    result['Mixed'] += pr['Mixed']
+  }
+  return result
+}
+
+export function programme_demand_by_team(
+  programme_id: string,
+  month: string,
+  opts: { status_set: ReadonlySet<DemandStatus> },
+  state: AppState
+): DemandByTeamEntry[] {
+  const acc = new Map<string, DemandByTeamEntry>()
+  for (const project of state.projects.filter(p => p.programme_id === programme_id && p.active)) {
+    for (const entry of project_demand_by_team(project.id, month, opts, state)) {
+      if (acc.has(entry.key)) {
+        acc.get(entry.key)!.hours += entry.hours
+      } else {
+        acc.set(entry.key, { ...entry })
+      }
+    }
+  }
+
+  const sortOrder = (e: DemandByTeamEntry) =>
+    e.parent_function_label === 'External' ? 2 : e.parent_function_label === 'Unassigned' ? 1 : 0
+
+  return [...acc.values()].sort((a, b) => {
+    const ao = sortOrder(a), bo = sortOrder(b)
+    if (ao !== bo) return ao - bo
+    const pfCmp = a.parent_function_label.localeCompare(b.parent_function_label)
+    if (pfCmp !== 0) return pfCmp
+    return a.label.localeCompare(b.label)
+  })
 }
 
 // ─── Runtime invariant checker (dev mode) ────────────────────────────────────

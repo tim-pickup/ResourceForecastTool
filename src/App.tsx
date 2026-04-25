@@ -4,16 +4,21 @@ import { ChevronDown, Check } from 'lucide-react'
 import CapacityValidation from './views/CapacityValidation'
 import SkillDetail from './views/CapacityValidation/SkillDetail'
 import TeamActivity from './views/TeamActivity'
+import ProgrammeDemand from './views/ProgrammeDemand'
 import DemandDiscovery from './views/DemandDiscovery'
 import DemandEdit from './views/DemandEdit'
 import Admin from './views/Admin'
 import Archive from './views/Archive'
 import { useAppStore } from './store/useAppStore'
 
+// §11.19: Navigation order — Capacity Validation, Demand (new), Team Activity,
+// Manage Demand, Archive, Admin
 const navItems = [
-  { to: '/capacity', label: 'Capacity' },
-  { to: '/team', label: 'Team Activity' },
+  { to: '/capacity', label: 'Capacity Validation' },
   { to: '/demand', label: 'Demand' },
+  { to: '/team', label: 'Team Activity' },
+  { to: '/manage-demand', label: 'Manage Demand' },
+  { to: '/archive', label: 'Archive' },
   { to: '/admin', label: 'Admin' },
 ]
 
@@ -197,9 +202,13 @@ function AppShell() {
           <Route path="/capacity" element={<CapacityValidation />} />
           <Route path="/capacity/skill/:skillId" element={<SkillDetail />} />
           <Route path="/team" element={<TeamActivity />} />
-          <Route path="/demand" element={<DemandDiscovery />} />
-          <Route path="/demand/new" element={<DemandEdit />} />
-          <Route path="/demand/:id/edit" element={<DemandEdit />} />
+          {/* §4.10: New Demand view — Programme-level demand shape */}
+          <Route path="/demand" element={<ProgrammeDemand />} />
+          <Route path="/demand/programme/:programmeId" element={<ProgrammeDemand />} />
+          {/* §4.6: Manage Demand — individual Demand-item lifecycle (renamed from /demand) */}
+          <Route path="/manage-demand" element={<DemandDiscovery />} />
+          <Route path="/manage-demand/new" element={<DemandEdit />} />
+          <Route path="/manage-demand/:id/edit" element={<DemandEdit />} />
           <Route path="/archive" element={<Archive />} />
           <Route path="/admin/*" element={<Admin />} />
         </Routes>

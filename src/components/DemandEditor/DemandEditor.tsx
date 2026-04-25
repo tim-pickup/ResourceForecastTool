@@ -345,8 +345,8 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
 
   function handleDelete() { store.deleteDemandItem(demandId); onClose() }
   function handleDuplicate() { store.duplicateDemandItem(demandId); onClose() }
-  function handleEdit() { onClose(); navigate(`/demand/${demandId}/edit`) }
-  function handleAllocate() { onClose(); navigate(`/demand/${demandId}/edit`) }
+  function handleEdit() { onClose(); navigate(`/manage-demand/${demandId}/edit`) }
+  function handleAllocate() { onClose(); navigate(`/manage-demand/${demandId}/edit`) }
   function handleModelImpact() { onClose(); navigate(`/capacity?overlay=${demandId}&from=demand`) }
 
   function handleConfirmSubmit() {

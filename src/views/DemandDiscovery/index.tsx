@@ -458,7 +458,7 @@ export default function DemandDiscovery() {
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border bg-white flex-wrap">
-        <span className="text-sm font-semibold text-near-black">Demand</span>
+        <span className="text-sm font-semibold text-near-black">Manage Demand</span>
         <div className="h-4 w-px bg-border" />
 
         <div className="flex items-center gap-0.5 border border-border rounded overflow-hidden">
@@ -526,7 +526,7 @@ export default function DemandDiscovery() {
 
         <div className="flex-1" />
         <Button size="sm" variant="ghost" onClick={() => navigate('/archive')}>Archive</Button>
-        <Button size="sm" variant="primary" onClick={() => navigate('/demand/new')}>
+        <Button size="sm" variant="primary" onClick={() => navigate('/manage-demand/new')}>
           <Plus size={12} /> New Demand
         </Button>
       </div>
@@ -570,7 +570,7 @@ export default function DemandDiscovery() {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={9} className="text-center py-12 text-gray-400">
-                    No demand items found. <button className="text-brand underline" onClick={() => navigate('/demand/new')}>Create one.</button>
+                    No demand items found. <button className="text-brand underline" onClick={() => navigate('/manage-demand/new')}>Create one.</button>
                   </td>
                 </tr>
               )}

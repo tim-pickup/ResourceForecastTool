@@ -590,7 +590,7 @@ export default function CapacityValidation() {
   )
 
   const handleBackToDemand = () => {
-    navigate('/demand', { state: { openDrawer: modelImpactId } })
+    navigate('/manage-demand', { state: { openDrawer: modelImpactId } })
   }
 
   // ── Projection (single pass for all charts) ──────────────────────────

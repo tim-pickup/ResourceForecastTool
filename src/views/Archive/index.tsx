@@ -36,7 +36,7 @@ export default function Archive() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border bg-white">
-        <button onClick={() => navigate('/demand')} className="text-gray-400 hover:text-near-black transition-colors">
+        <button onClick={() => navigate('/manage-demand')} className="text-gray-400 hover:text-near-black transition-colors">
           <ArrowLeft size={16} />
         </button>
         <span className="text-sm font-semibold text-near-black">Archive</span>

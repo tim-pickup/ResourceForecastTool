@@ -128,12 +128,12 @@ export default function DemandEdit() {
     }
 
     setIsDirty(false)
-    navigate('/demand')
+    navigate('/manage-demand')
   }
 
   const handleCancel = () => {
     if (isDirty && !window.confirm('Discard unsaved changes?')) return
-    navigate('/demand')
+    navigate('/manage-demand')
   }
 
   const handleStatusChange = (next: DemandStatus) => {
@@ -145,7 +145,7 @@ export default function DemandEdit() {
         closed_at: new Date().toISOString().slice(0, 10),
       }
       if (!isNew && id) store.updateDemandItem(id, updates)
-      navigate('/demand')
+      navigate('/manage-demand')
       return
     }
 
@@ -240,7 +240,7 @@ export default function DemandEdit() {
             </Button>
           ))}
           {!isNew && (
-            <Button size="sm" variant="ghost" onClick={() => { store.duplicateDemandItem(id!); navigate('/demand') }}>
+            <Button size="sm" variant="ghost" onClick={() => { store.duplicateDemandItem(id!); navigate('/manage-demand') }}>
               <Copy size={12} /> Duplicate
             </Button>
           )}
