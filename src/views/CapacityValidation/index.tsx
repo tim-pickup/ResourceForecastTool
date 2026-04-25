@@ -1039,7 +1039,7 @@ export default function CapacityValidation() {
         {/* Section A */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Overall Team Capacity</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Overall Function Capacity</h2>
           </div>
           <div className="bg-white border border-border rounded-lg p-5">
             <div className="flex gap-8 mb-4">
