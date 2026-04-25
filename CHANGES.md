@@ -48,7 +48,7 @@ Order matters: changes are listed in dependency order. Earlier items have no dep
 - Change 2 (the Demand workflow tidy) is the largest behavioural change and touches Mode A heavily. The Teams Assigned picker redesign is the most user-visible part — get the picker pattern right early so it can be reused if Mode B's read-only summary needs it.
 - Change 4 should come last because it adds a new view and depends on the v1.17 aggregation function additions being in place. The new view has no allocation logic — it reads existing Demands, Phases, Requirements, and Providers and computes new decompositions over them.
 
-## [ ] Testing
+## [x] Testing
 
 After all four changes are shipped and ticked, run the seed renderability assertions in § 6 and confirm:
 1. Capacity page Section A heading reads "Overall Function Capacity" and re-renders on Function switch.

@@ -10,7 +10,17 @@
       "Bash(git commit *)",
       "Bash(git push *)",
       "Bash(git mv *)",
-      "Bash(node -e \"const s=require\\('./DEMOSEED.json'\\); console.log\\('functions:', JSON.stringify\\(s.functions\\)\\); console.log\\('teams:', JSON.stringify\\(s.teams?.map\\(t=>\\({id:t.id,name:t.name,type:t.type}\\)\\)\\)\\)\")"
+      "Bash(node -e \"const s=require\\('./DEMOSEED.json'\\); console.log\\('functions:', JSON.stringify\\(s.functions\\)\\); console.log\\('teams:', JSON.stringify\\(s.teams?.map\\(t=>\\({id:t.id,name:t.name,type:t.type}\\)\\)\\)\\)\")",
+      "Bash(git rm *)",
+      "Bash(node *)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(file 'a.name.localeCompare\\(b.name\\)\\),' '{,+')",
+      "Bash(git restore *)",
+      "Bash(python -c \"import json; json.load\\(open\\('DEMOSEED.json'\\)\\); print\\('JSON valid'\\)\")",
+      "WebFetch(domain:localhost)",
+      "Bash(curl -s http://localhost:5173/ResourceForecastTool/)",
+      "Bash(pkill -f \"vite --port 5173\")",
+      "Bash(curl -s http://localhost:5174/ResourceForecastTool/)"
     ]
   },
   "enableAllProjectMcpServers": true,
