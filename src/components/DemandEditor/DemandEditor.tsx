@@ -53,7 +53,7 @@ interface FooterButton {
   variant?: 'primary' | 'secondary' | 'danger'
   kind: 'transitional' | 'navigational'
   next?: DemandStatus   // for transitional
-  action?: string       // 'allocate' | 'model-impact'
+  action?: string       // 'allocate' | 'model-capacity'
 }
 
 function footerButtons(status: DemandStatus): FooterButton[] {
@@ -70,7 +70,7 @@ function footerButtons(status: DemandStatus): FooterButton[] {
       return [
         { label: 'Park', kind: 'transitional', next: 'Parked', variant: 'secondary' },
         { label: 'Revert to Draft', kind: 'transitional', next: 'Draft', variant: 'secondary' },
-        { label: 'Model Impact', kind: 'navigational', action: 'model-impact', variant: 'secondary' },
+        { label: 'Model Capacity', kind: 'navigational', action: 'model-capacity', variant: 'secondary' },
         { label: 'Approve', kind: 'transitional', next: 'Approved', variant: 'primary' },
       ]
     case 'Approved':
@@ -303,6 +303,17 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
   const pct = coveragePct(item)
   const footerBtns = footerButtons(item.status)
 
+  // ── Submit for Scoping gating (§3, §4.5.1 v1.17) ─────────────────────────
+  const submitForScopingHint = item.status === 'Draft' ? (() => {
+    if (item.phases.length === 0) return 'Add at least one phase first.'
+    const missing = item.phases.filter(phase =>
+      store.demandTeamAssignments.filter(a => a.demandId === demandId && a.phaseId === phase.id).length === 0
+    )
+    if (missing.length > 0)
+      return `${missing.length} phase${missing.length !== 1 ? 's' : ''} need${missing.length === 1 ? 's' : ''} at least one team assigned.`
+    return null
+  })() : null
+
   // ── Status transition handlers ────────────────────────────────────────────
 
   function handleTransition(next: DemandStatus | undefined) {
@@ -352,7 +363,7 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
       handleTransition(btn.next)
     } else {
       if (btn.action === 'allocate') handleAllocate()
-      if (btn.action === 'model-impact') handleModelImpact()
+      if (btn.action === 'model-capacity') handleModelImpact()
       if (btn.action === 'submit-for-assessment') setShowSubmitDialog(true)
     }
   }
@@ -564,19 +575,25 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
 
         {/* ── Zone 4: Footer (empty on Allocated) ────────────────────────── */}
         {footerBtns.length > 0 && (
-          <div className="border-t border-border px-5 py-3 flex items-center justify-end gap-2">
-            {footerBtns.map(btn => (
-              <Button
-                key={btn.label}
-                size="sm"
-                variant={btn.variant ?? 'secondary'}
-                onClick={() => handleFooterAction(btn)}
-              >
-                {btn.label === 'Allocate' && <GitMerge size={12} />}
-                {btn.label === 'Model Impact' && <ExternalLink size={12} />}
-                {btn.label}
-              </Button>
-            ))}
+          <div className="border-t border-border px-5 py-3 flex flex-col gap-2">
+            {submitForScopingHint && (
+              <p className="text-xs text-amber-600 text-right">{submitForScopingHint}</p>
+            )}
+            <div className="flex items-center justify-end gap-2">
+              {footerBtns.map(btn => (
+                <Button
+                  key={btn.label}
+                  size="sm"
+                  variant={btn.variant ?? 'secondary'}
+                  disabled={btn.label === 'Submit for Scoping' && !!submitForScopingHint}
+                  onClick={() => handleFooterAction(btn)}
+                >
+                  {btn.label === 'Allocate' && <GitMerge size={12} />}
+                  {btn.label === 'Model Capacity' && <ExternalLink size={12} />}
+                  {btn.label}
+                </Button>
+              ))}
+            </div>
           </div>
         )}
       </div>

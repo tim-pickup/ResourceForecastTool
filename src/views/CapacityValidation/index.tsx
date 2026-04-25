@@ -32,9 +32,9 @@ const D_COLORS = ['#7c3aed', '#0891b2', '#16a34a', '#ea580c', '#db2777', '#ca8a0
 // Same active-status set as capacity.ts: excludes only Parked and Closed
 const EXT_ACTIVE_STATUSES = new Set<DemandStatus>(['Draft', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated'])
 
-// ─── Model Impact banner ──────────────────────────────────────────────────────
+// ─── Model Capacity banner ────────────────────────────────────────────────────
 
-function ModelImpactBanner({
+function ModelCapacityBanner({
   demandName,
   onBack,
   onDismiss,
@@ -526,7 +526,7 @@ export default function CapacityValidation() {
   // Section D: track which receiving Function's D2 chart is in team drill-down view
   const [d2TeamViewFnId, setD2TeamViewFnId] = useState<string | null>(null)
 
-  // Read URL query params for Model Impact deep-link
+  // Read URL query params for Model Capacity deep-link
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const overlayParam = params.get('overlay')
@@ -942,9 +942,9 @@ export default function CapacityValidation() {
   return (
     <div className="flex flex-col h-full overflow-auto bg-gray-50">
 
-      {/* Model Impact banner */}
+      {/* Model Capacity banner */}
       {bannerVisible && modelImpactItem && (
-        <ModelImpactBanner
+        <ModelCapacityBanner
           demandName={modelImpactItem.name}
           onBack={handleBackToDemand}
           onDismiss={() => setBannerVisible(false)}

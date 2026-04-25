@@ -258,7 +258,7 @@ export default function DemandDiscovery() {
   const [mode, setMode] = useState<ViewMode>('board')
   const [drawerId, setDrawerId] = useState<string | null>(null)
 
-  // Re-open drawer when navigating back from Model Impact
+  // Re-open drawer when navigating back from Model Capacity
   useEffect(() => {
     const state = location.state as { openDrawer?: string } | null
     if (state?.openDrawer) {

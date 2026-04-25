@@ -189,6 +189,18 @@ export default function DemandEdit() {
   }
 
   const trans = pageTransitions(draft.status as DemandStatus, isNew)
+
+  // Submit for Scoping gating (§3, §4.5.2 v1.17)
+  const submitForScopingHint = draft.status === 'Draft' && !isNew ? (() => {
+    if (draft.phases.length === 0) return 'Add at least one phase first.'
+    const missing = draft.phases.filter(phase =>
+      store.demandTeamAssignments.filter(a => a.demandId === id && a.phaseId === phase.id).length === 0
+    )
+    if (missing.length > 0)
+      return `${missing.length} phase${missing.length !== 1 ? 's' : ''} need${missing.length === 1 ? 's' : ''} at least one team assigned.`
+    return null
+  })() : null
+
   const updatePhase = (phaseId: string, p: typeof draft.phases[0]) =>
     update(d => ({ ...d, phases: d.phases.map(x => x.id === phaseId ? p : x) }))
   const deletePhase = (phaseId: string) =>
@@ -213,11 +225,15 @@ export default function DemandEdit() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {submitForScopingHint && (
+            <span className="text-xs text-amber-600">{submitForScopingHint}</span>
+          )}
           {!isNew && trans.map(t => (
             <Button
               key={t.label}
               size="sm"
               variant={t.isSubmitAction ? 'primary' : (t.variant ?? 'secondary')}
+              disabled={t.label === 'Submit for Scoping' && !!submitForScopingHint}
               onClick={() => t.isSubmitAction ? setShowSubmitDialog(true) : handleStatusChange(t.next)}
             >
               {t.label}
