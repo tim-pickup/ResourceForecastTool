@@ -476,18 +476,6 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
             </div>
           )}
 
-          {/* Project alignment */}
-          {project ? (
-            <div className="flex items-center gap-2 text-xs">
-              <GitMerge size={12} className="text-gray-400" />
-              <span className="text-gray-400">{programme?.name} › {project.name}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-xs text-gray-400 italic">
-              <GitMerge size={12} /> Unaligned — not associated with a Project
-            </div>
-          )}
-
           {item.status === 'Parked' && item.parked_reason && (
             <div className="flex items-start gap-2 bg-orange-50 border border-orange-200 rounded p-2.5 text-xs text-orange-700">
               <AlertTriangle size={13} className="mt-0.5 shrink-0" />

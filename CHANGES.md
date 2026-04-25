@@ -26,7 +26,7 @@ Order matters: changes are listed in dependency order. Earlier items have no dep
 
 ## Change 3 — Drawer body: remove duplicate Programme > Project label
 
-- [ ] **Description**: Remove the Project alignment block from the drawer body zone. The header zone already shows "Programme › Project" (or "Unaligned — Not Associated To A Project"); the body's repeat of the same affordance is the duplicate at the XPath the user flagged. Re-alignment of a Demand to a different Project moves to the Edit page only (Mode A's Project alignment field, which already exists). Update the drawer's "Read-only apart from..." caveat to reflect that the drawer is now fully read-only apart from action buttons.
+- [x] **Description**: Remove the Project alignment block from the drawer body zone. The header zone already shows "Programme › Project" (or "Unaligned — Not Associated To A Project"); the body's repeat of the same affordance is the duplicate at the XPath the user flagged. Re-alignment of a Demand to a different Project moves to the Edit page only (Mode A's Project alignment field, which already exists). Update the drawer's "Read-only apart from..." caveat to reflect that the drawer is now fully read-only apart from action buttons.
 - **Scope**: Section 4.5.1 (body zone bullet list, behaviour bullet).
 - **Dependencies**: None. Pure removal.
 - **Read**: REQUIREMENTS.md § 4.5.1 — "Body zone" (item 3) and the "Behaviour" bullet list at end of 4.5.1.
