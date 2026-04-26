@@ -269,8 +269,6 @@ export default function DemandEdit() {
               draft={draft}
               demandItemId={id}
               onChange={d => { setDraft(d); setIsDirty(true) }}
-              onParkToRevise={() => {}}
-              onRevise={() => {}}
             />
           )}
 

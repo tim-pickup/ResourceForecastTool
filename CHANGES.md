@@ -69,7 +69,7 @@ This file directs Claude Code to the work items for the v1.18 spec revision. Eac
 
 ## Change 4 — State machines (Project, Demand, spawn rule)
 
-- [ ] Implement the two state machines and the spawn rule (Project Scoping → Submitted creates child Demands atomically). Implement Project status auto-transitions from child Demand statuses. Implement Delete cascade rules.
+- [x] Implement the two state machines and the spawn rule (Project Scoping → Submitted creates child Demands atomically). Implement Project status auto-transitions from child Demand statuses. Implement Delete cascade rules.
 
 **Scope**:
 - Project state machine: Draft → Scoping → Submitted → Approved → Allocated. Submit-for-Scoping gate (phases-and-teams-assigned). Submit Project executes the spawn rule.

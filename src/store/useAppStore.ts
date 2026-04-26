@@ -15,6 +15,16 @@ function migrateDemandStatus(s: string): DemandStatus {
   return s as DemandStatus
 }
 
+// §3 Project auto-transition: compute Project status from child Demand statuses.
+// Called after any child Demand status change; only applies to post-spawn Projects
+// (Submitted / Approved / Allocated).
+function computeProjectAutoStatusFromDemands(childDemands: DemandItem[]): ProjectStatus {
+  if (childDemands.length === 0) return 'Submitted'
+  if (childDemands.every(d => d.status === 'Allocated')) return 'Allocated'
+  if (childDemands.every(d => (['Approved', 'PartiallyAllocated', 'Allocated'] as DemandStatus[]).includes(d.status))) return 'Approved'
+  return 'Submitted'
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeSeed(raw: any): AppState {
   const items: any[] = raw.demand_items || []
@@ -177,6 +187,9 @@ interface Store extends AppState {
   addProject: (p: Omit<Project, 'id'>) => void
   updateProject: (id: string, p: Partial<Project>) => void
   deleteProject: (id: string) => void
+  // §3 Project state machine actions
+  submitProjectForScoping: (projectId: string) => string | null
+  submitProject: (projectId: string) => string | null
 
   addProvider: (p: Omit<Provider, 'id'>) => void
   updateProvider: (id: string, p: Partial<Provider>) => void
@@ -229,8 +242,40 @@ export const useAppStore = create<Store>()(
       deletePerson: id => set(s => ({ people: s.people.filter(x => x.id !== id) })),
 
       addDemandItem: d => set(s => ({ demandItems: [...s.demandItems, { ...d, id: generateId('dmd') }] })),
-      updateDemandItem: (id, d) => set(s => ({ demandItems: s.demandItems.map(x => x.id === id ? { ...x, ...d } : x) })),
-      deleteDemandItem: id => set(s => ({ demandItems: s.demandItems.filter(x => x.id !== id) })),
+      updateDemandItem: (id, d) => set(s => {
+        const newItems = s.demandItems.map(x => x.id === id ? { ...x, ...d } : x)
+        // §3 Project auto-transition: when a child Demand's status changes, recompute parent Project status
+        if ('status' in d) {
+          const updatedItem = newItems.find(x => x.id === id)
+          const projectId = updatedItem?.parent_project_id
+          if (projectId) {
+            const project = s.projects.find(p => p.id === projectId)
+            if (project && (['Submitted', 'Approved', 'Allocated'] as ProjectStatus[]).includes(project.status)) {
+              const childDemands = newItems.filter(x => x.parent_project_id === projectId)
+              const newProjectStatus = computeProjectAutoStatusFromDemands(childDemands)
+              if (project.status !== newProjectStatus) {
+                return {
+                  demandItems: newItems,
+                  projects: s.projects.map(p => p.id === projectId ? { ...p, status: newProjectStatus } : p),
+                }
+              }
+            }
+          }
+        }
+        return { demandItems: newItems }
+      }),
+      deleteDemandItem: (id) => set(s => {
+        const demand = s.demandItems.find(d => d.id === id)
+        if (!demand) return {}
+        // §3 cascade: delete external requirements for this demand's phases (direct Demands only)
+        const phaseIds = new Set(demand.phases.map(p => p.id))
+        return {
+          demandItems: s.demandItems.filter(d => d.id !== id),
+          externalResourceRequirements: phaseIds.size > 0
+            ? s.externalResourceRequirements.filter(e => !phaseIds.has(e.phase_id))
+            : s.externalResourceRequirements,
+        }
+      }),
 
       addProgramme: p => set(s => ({ programmes: [...s.programmes, { ...p, id: generateId('prg') }] })),
       updateProgramme: (id, p) => set(s => ({ programmes: s.programmes.map(x => x.id === id ? { ...x, ...p } : x) })),
@@ -238,7 +283,79 @@ export const useAppStore = create<Store>()(
 
       addProject: p => set(s => ({ projects: [...s.projects, { ...p, id: generateId('prj') }] })),
       updateProject: (id, p) => set(s => ({ projects: s.projects.map(x => x.id === id ? { ...x, ...p } : x) })),
-      deleteProject: id => set(s => ({ projects: s.projects.filter(x => x.id !== id) })),
+      // §3 cascade: delete child demands, their allocations (embedded), external reqs, and PTAs
+      deleteProject: (id) => set(s => {
+        const project = s.projects.find(p => p.id === id)
+        const projectPhaseIds = new Set((project?.phases ?? []).map(ph => ph.id))
+        return {
+          projects: s.projects.filter(p => p.id !== id),
+          demandItems: s.demandItems.filter(d => d.parent_project_id !== id),
+          projectTeamAssignments: s.projectTeamAssignments.filter(a => a.projectId !== id),
+          externalResourceRequirements: projectPhaseIds.size > 0
+            ? s.externalResourceRequirements.filter(e => !projectPhaseIds.has(e.phase_id))
+            : s.externalResourceRequirements,
+        }
+      }),
+      // §3 Project state machine — Submit for Scoping (Draft → Scoping)
+      submitProjectForScoping: (projectId) => {
+        let error: string | null = null
+        set(s => {
+          const project = s.projects.find(p => p.id === projectId)
+          if (!project) { error = 'Project not found.'; return {} }
+          if (project.status !== 'Draft') { error = 'Project must be in Draft status.'; return {} }
+          if (project.phases.length === 0) { error = 'Add at least one phase before submitting for scoping.'; return {} }
+          const phasesWithoutTeams = project.phases.filter(ph =>
+            !s.projectTeamAssignments.some(pta => pta.projectId === projectId && pta.phaseId === ph.id)
+          )
+          if (phasesWithoutTeams.length > 0) {
+            error = `${phasesWithoutTeams.length} phase(s) have no team assigned. Assign at least one team to each phase.`
+            return {}
+          }
+          return { projects: s.projects.map(p => p.id === projectId ? { ...p, status: 'Scoping' as ProjectStatus } : p) }
+        })
+        return error
+      },
+      // §3 Project state machine — Submit Project (Scoping → Submitted) + spawn Demands
+      submitProject: (projectId) => {
+        let error: string | null = null
+        set(s => {
+          const project = s.projects.find(p => p.id === projectId)
+          if (!project) { error = 'Project not found.'; return {} }
+          if (project.status !== 'Scoping') { error = 'Project must be in Scoping status.'; return {} }
+          // Compute Functions involved from project phase requirements
+          const domFn = new Map(s.domains.map(d => [d.id, d.functionId]))
+          const sklFn = new Map(s.skills.map(sk => [sk.id, domFn.get(sk.domain_id) ?? '']))
+          const functionsInvolved = new Set<string>()
+          for (const phase of project.phases) {
+            for (const req of phase.requirements) {
+              const fnId = sklFn.get(req.skill_id)
+              if (fnId) functionsInvolved.add(fnId)
+            }
+          }
+          if (functionsInvolved.size === 0) { error = 'Project has no requirements — cannot spawn Demands.'; return {} }
+          // Spawn one Demand per Function involved
+          const newDemands: DemandItem[] = []
+          for (const fnId of functionsInvolved) {
+            const fn = s.functions.find(f => f.id === fnId)
+            newDemands.push({
+              id: generateId('dmd'),
+              function_id: fnId,
+              parent_project_id: project.id,
+              name: `${project.name} — ${fn?.name ?? fnId}`,
+              type: project.type,
+              owner: project.owner,
+              description: project.description,
+              status: 'Submitted' as DemandStatus,
+              phases: [],  // Project-spawned Demands derive phases from the parent Project
+            })
+          }
+          return {
+            demandItems: [...s.demandItems, ...newDemands],
+            projects: s.projects.map(p => p.id === projectId ? { ...p, status: 'Submitted' as ProjectStatus } : p),
+          }
+        })
+        return error
+      },
 
       addProvider: p => set(s => ({ providers: [...s.providers, { ...p, id: generateId('prv') }] })),
       updateProvider: (id, p) => set(s => ({ providers: s.providers.map(x => x.id === id ? { ...x, ...p } : x) })),

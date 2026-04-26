@@ -3,7 +3,6 @@ import { Plus, Trash2, AlertTriangle, Lock } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAppStore } from '../../store/useAppStore'
 import type { AppState, DemandItem, SkillRequirement, NamedAllocation, Level, DemandStatus, Phase } from '../../types'
-import { Button } from '../../components/ui/Button'
 import { formatMonthLabel, getPersonAvgAvailableForPhase, monthInRange } from '../../utils/capacity'
 import { generateId } from '../../utils/ids'
 import { getMonths, PhaseGantt } from './ModeAEditor'
@@ -522,11 +521,9 @@ interface Props {
   draft: Omit<DemandItem, 'id'>
   demandItemId?: string
   onChange: (d: Omit<DemandItem, 'id'>) => void
-  onParkToRevise: () => void
-  onRevise?: () => void
 }
 
-export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRevise, onRevise }: Props) {
+export function AllocationWorkspace({ draft, demandItemId, onChange }: Props) {
   const store = useAppStore()
   // Auto-derive distinct Functions from requirements for Mode B top summary
   const functionsInvolved = (() => {
@@ -649,17 +646,7 @@ export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRev
       {/* Lock banner */}
       <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded p-2.5 text-xs text-amber-700">
         <Lock size={12} className="shrink-0" />
-        <span className="flex-1">Demand definition is locked.
-          {draft.status === 'Approved'
-            ? ' Use Revise to return to Submitted and edit phases or requirements (allocations preserved).'
-            : ' To edit phases or requirements, park and revive this item.'
-          }
-        </span>
-        {draft.status === 'Approved' && onRevise ? (
-          <Button size="sm" variant="secondary" onClick={onRevise}>Revise</Button>
-        ) : (
-          <Button size="sm" variant="secondary" onClick={onParkToRevise}>Park &amp; Revise</Button>
-        )}
+        <span>Definition is locked. To change phases or requirements, delete this item and recreate it.</span>
       </div>
 
       {/* Phase cards */}
@@ -720,7 +707,7 @@ export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRev
                         </div>
                       )
                     })}
-                    <p className="text-[10px] text-amber-500 italic mt-1">To edit external requirements, use Park &amp; Revise or Revise (from Approved).</p>
+                    <p className="text-[10px] text-amber-500 italic mt-1">External requirements are locked. Delete and recreate the demand to change them.</p>
                   </div>
                 )
               })()}
