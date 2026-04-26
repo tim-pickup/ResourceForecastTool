@@ -151,7 +151,7 @@ This file directs Claude Code to the work items for the v1.18 spec revision. Eac
 
 ## Change 8 — Demand view (4.10) Function-lensed with toggles
 
-- [ ] Apply Function lens. Replace Stacking selector with funding-source-only. Add "Show external resource" and "Show demand on other Functions" toggles. Replace hatched-overlay Submitted with merged-bucket Submitted. Add Direct Demands and Unaligned Projects virtual cards.
+- [x] Apply Function lens. Replace Stacking selector with funding-source-only. Add "Show external resource" and "Show demand on other Functions" toggles. Replace hatched-overlay Submitted with merged-bucket Submitted. Add Direct Demands and Unaligned Projects virtual cards.
 
 **Scope**:
 - Wire the Function lens via `function_id` parameter on `programme_demand_by_funding`, `project_demand_by_funding`, `direct_demand_by_funding`.

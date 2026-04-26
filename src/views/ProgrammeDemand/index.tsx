@@ -1,19 +1,24 @@
 /**
  * §4.10 Demand view — Programme-level demand shape.
- * Deliberately ignores the active Function lens (§11.17).
+ * v1.18: Function lens now applies (reversing v1.17 exception).
+ * Toolbar: By Funding Source only (By Team removed). Two new toggles.
+ * Include Submitted: merged bucket, no visual differentiation.
+ * Virtual cards: Direct Demands + Unaligned Projects.
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { ArrowLeft, ChevronRight, Info, X } from 'lucide-react'
+import { ArrowLeft, ChevronRight, X } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import {
   programme_demand_by_funding,
   project_demand_by_funding,
+  direct_demand_by_funding,
   type DemandByFundingResult,
+  type DemandByFundingOpts,
 } from '../../lib/capacity'
 import { generateMonths, getCurrentMonth, formatMonthLabel } from '../../utils/capacity'
 import { DemandDrawer } from '../../components/DemandEditor/DemandEditor'
@@ -34,13 +39,17 @@ const FUNDING_COLORS: Record<FundingSource, string> = {
   'Mixed': '#f59e0b',
 }
 
-// ─── Shared toolbar ───────────────────────────────────────────────────────────
+// ─── Toolbar ──────────────────────────────────────────────────────────────────
 
 interface ToolbarProps {
   horizon: HorizonMonths
   onHorizonChange: (h: HorizonMonths) => void
   includeSubmitted: boolean
   onIncludeSubmittedChange: (v: boolean) => void
+  showExternal: boolean
+  onShowExternalChange: (v: boolean) => void
+  showOtherFunctions: boolean
+  onShowOtherFunctionsChange: (v: boolean) => void
   programmes?: Programme[]
   filterProgrammeId?: string | null
   onFilterProgrammeChange?: (id: string | null) => void
@@ -49,6 +58,8 @@ interface ToolbarProps {
 function Toolbar({
   horizon, onHorizonChange,
   includeSubmitted, onIncludeSubmittedChange,
+  showExternal, onShowExternalChange,
+  showOtherFunctions, onShowOtherFunctionsChange,
   programmes, filterProgrammeId, onFilterProgrammeChange,
 }: ToolbarProps) {
   return (
@@ -60,9 +71,7 @@ function Toolbar({
             key={h}
             onClick={() => onHorizonChange(h)}
             className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-              horizon === h
-                ? 'bg-brand text-white'
-                : 'text-gray-500 hover:bg-gray-50'
+              horizon === h ? 'bg-brand text-white' : 'text-gray-500 hover:bg-gray-50'
             }`}
           >
             {h}mo
@@ -72,15 +81,22 @@ function Toolbar({
 
       <div className="h-4 w-px bg-border" />
 
-      {/* Include Submitted toggle */}
+      {/* Include Submitted — v1.18: no visual differentiation, just expands status_set */}
       <label className="flex items-center gap-1.5 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={includeSubmitted}
-          onChange={e => onIncludeSubmittedChange(e.target.checked)}
-          className="accent-brand"
-        />
+        <input type="checkbox" checked={includeSubmitted} onChange={e => onIncludeSubmittedChange(e.target.checked)} className="accent-brand" />
         <span className="text-xs text-gray-600">Include Submitted</span>
+      </label>
+
+      {/* Show external resource toggle (§4.10.4) */}
+      <label className="flex items-center gap-1.5 cursor-pointer select-none">
+        <input type="checkbox" checked={showExternal} onChange={e => onShowExternalChange(e.target.checked)} className="accent-brand" />
+        <span className="text-xs text-gray-600">Show external resource</span>
+      </label>
+
+      {/* Show demand on other Functions toggle (§4.10.4) */}
+      <label className="flex items-center gap-1.5 cursor-pointer select-none">
+        <input type="checkbox" checked={showOtherFunctions} onChange={e => onShowOtherFunctionsChange(e.target.checked)} className="accent-brand" />
+        <span className="text-xs text-gray-600">Show demand on other Functions</span>
       </label>
 
       {/* Programme filter (landing only) */}
@@ -93,9 +109,7 @@ function Toolbar({
             className="text-xs border border-border rounded px-2 py-1 text-gray-600 bg-white"
           >
             <option value="">All Programmes</option>
-            {programmes.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
+            {programmes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </>
       )}
@@ -103,45 +117,32 @@ function Toolbar({
   )
 }
 
-// ─── Stacked area chart for a Programme or Project (By Funding Source only) ───
+// ─── Stacked area chart ────────────────────────────────────────────────────────
+// v1.18: single getData() — Include Submitted merged into buckets, no differentiation.
 
 interface DemandChartProps {
   months: string[]
-  includeSubmitted: boolean
-  getFundingData: (month: string, statusSet: ReadonlySet<DemandStatus>) => DemandByFundingResult
+  getData: (month: string) => DemandByFundingResult
   height?: number
   onMonthClick?: (month: string) => void
 }
 
-function DemandChart({
-  months, includeSubmitted,
-  getFundingData,
-  height = 200, onMonthClick,
-}: DemandChartProps) {
+function DemandChart({ months, getData, height = 200, onMonthClick }: DemandChartProps) {
   const chartData = useMemo(() => months.map(month => {
     const label = formatMonthLabel(month)
-    const base = getFundingData(month, BASE_STATUS_SET)
-    if (includeSubmitted) {
-      const total = getFundingData(month, WITH_SUBMITTED_SET)
-      const point: Record<string, number | string> = { label, month }
-      for (const k of FUNDING_KEYS) {
-        point[`${k}_c`] = base[k]
-        point[`${k}_s`] = Math.max(0, total[k] - base[k])
-      }
-      return point
-    }
+    const data = getData(month)
     const point: Record<string, number | string> = { label, month }
-    for (const k of FUNDING_KEYS) point[k] = base[k]
+    for (const k of FUNDING_KEYS) point[k] = data[k]
     return point
-  }), [months, includeSubmitted, getFundingData])
+  }), [months, getData])
 
   const hasData = chartData.some(d =>
-    Object.entries(d).some(([k, v]) => k !== 'label' && k !== 'month' && (v as number) > 0)
+    FUNDING_KEYS.some(k => (d[k] as number) > 0)
   )
 
   if (!hasData) {
     return (
-      <div className="flex items-center justify-center h-20 text-xs text-gray-400 italic">
+      <div className="flex items-center justify-center h-16 text-xs text-gray-400 italic">
         No demand in the visible horizon
       </div>
     )
@@ -161,36 +162,20 @@ function DemandChart({
           <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
           <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickFormatter={v => `${v}h`} />
           <RechartTooltip
-            formatter={(value: number, name: string) => {
-              const clean = name.replace(/_c$/, '').replace(/_s$/, ' (Submitted)')
-              return [`${value}h`, clean]
-            }}
+            formatter={(value: number, name: string) => [`${value}h`, name]}
             labelStyle={{ fontWeight: 600, fontSize: 11 }}
             contentStyle={{ fontSize: 11 }}
           />
           {FUNDING_KEYS.map(k => (
             <Area
-              key={`${k}_c`}
+              key={k}
               type="monotone"
-              dataKey={includeSubmitted ? `${k}_c` : k}
+              dataKey={k}
               name={k}
               stackId="main"
               fill={FUNDING_COLORS[k]}
               stroke="none"
               fillOpacity={0.8}
-              isAnimationActive={false}
-            />
-          ))}
-          {includeSubmitted && FUNDING_KEYS.map(k => (
-            <Area
-              key={`${k}_s`}
-              type="monotone"
-              dataKey={`${k}_s`}
-              name={`${k} (Submitted)`}
-              stackId="main"
-              fill={FUNDING_COLORS[k]}
-              stroke="none"
-              fillOpacity={0.35}
               isAnimationActive={false}
             />
           ))}
@@ -208,15 +193,13 @@ function DemandChart({
   )
 }
 
-// ─── Roll-up summary line ─────────────────────────────────────────────────────
+// ─── Roll-up summary ──────────────────────────────────────────────────────────
 
 function rollupSummary(
   months: string[],
   computeFn: (month: string) => number
 ): { peak: number; peakMonth: string; total: number } {
-  let peak = 0
-  let peakMonth = months[0] ?? ''
-  let total = 0
+  let peak = 0, peakMonth = months[0] ?? '', total = 0
   for (const m of months) {
     const v = computeFn(m)
     total += v
@@ -232,37 +215,40 @@ interface SidePanelState {
   scopeLabel: string
   programmeId?: string
   projectId?: string
+  isDirect?: boolean  // for Direct Demands virtual card
 }
 
 function SidePanel({
-  state: panelState,
-  statusSet,
-  onClose,
-  onOpenDrawer,
+  state: panelState, statusSet, activeFunctionId, onClose, onOpenDrawer,
 }: {
   state: SidePanelState
   statusSet: ReadonlySet<DemandStatus>
+  activeFunctionId: string | null
   onClose: () => void
   onOpenDrawer: (id: string) => void
 }) {
-  const demandItems = useAppStore(s => s.demandItems)
-  const projects = useAppStore(s => s.projects)
-  const programmes = useAppStore(s => s.programmes)
+  const store = useAppStore()
 
   const qualifying = useMemo(() => {
-    return demandItems.filter(item => {
-      if (!statusSet.has(item.status) && item.status !== 'Submitted') return false
-      if (panelState.projectId && item.parent_project_id !== panelState.projectId) return false
-      if (panelState.programmeId && !panelState.projectId) {
-        const project = projects.find(p => p.id === item.parent_project_id)
-        if (!project || project.programme_id !== panelState.programmeId) return false
+    return store.demandItems.filter(item => {
+      if (!statusSet.has(item.status)) return false
+      // Function lens: only active-Function demands
+      if (activeFunctionId && item.function_id !== activeFunctionId) return false
+      if (panelState.isDirect) return item.parent_project_id === null
+      if (panelState.projectId) return item.parent_project_id === panelState.projectId
+      if (panelState.programmeId) {
+        if (item.parent_project_id === null) return false
+        const project = store.projects.find(p => p.id === item.parent_project_id)
+        return project?.programme_id === panelState.programmeId
       }
-      return item.phases.some(ph => {
+      return false
+    }).filter(item =>
+      item.phases.some(ph => {
         const m = panelState.month
         return m >= ph.start_month && (ph.end_month === null || m <= ph.end_month)
       })
-    })
-  }, [panelState, statusSet, demandItems, projects])
+    )
+  }, [panelState, statusSet, activeFunctionId, store.demandItems, store.projects])
 
   return (
     <div className="fixed inset-y-0 right-0 w-80 bg-white border-l border-border shadow-lg z-50 flex flex-col">
@@ -271,9 +257,7 @@ function SidePanel({
           <div className="text-xs font-semibold text-near-black">{formatMonthLabel(panelState.month)}</div>
           <div className="text-[10px] text-gray-400">{panelState.scopeLabel}</div>
         </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-near-black">
-          <X size={14} />
-        </button>
+        <button onClick={onClose} className="text-gray-400 hover:text-near-black"><X size={14} /></button>
       </div>
       <div className="flex-1 overflow-y-auto">
         {qualifying.length === 0 ? (
@@ -281,8 +265,10 @@ function SidePanel({
         ) : (
           <ul className="divide-y divide-border">
             {qualifying.map(item => {
-              const project = projects.find(p => p.id === item.parent_project_id)
-              const programme = project?.programme_id ? programmes.find(pr => pr.id === project.programme_id) : null
+              const project = item.parent_project_id ? store.projects.find(p => p.id === item.parent_project_id) : null
+              const programme = project?.programme_id ? store.programmes.find(pr => pr.id === project.programme_id) : null
+              const fn = store.functions.find(f => f.id === item.function_id)
+              const isProjectSpawned = item.parent_project_id !== null
               return (
                 <li key={item.id}>
                   <button
@@ -290,6 +276,17 @@ function SidePanel({
                     className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
                   >
                     <div className="text-xs font-medium text-near-black">{item.name}</div>
+                    {/* §4.10.3 segment-click: origin + Function chip */}
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${isProjectSpawned ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {isProjectSpawned ? 'Project-spawned' : 'Direct'}
+                      </span>
+                      {fn && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">
+                          {fn.name}
+                        </span>
+                      )}
+                    </div>
                     {programme && project && (
                       <div className="text-[10px] text-gray-400 mt-0.5">{programme.name} › {project.name}</div>
                     )}
@@ -307,40 +304,27 @@ function SidePanel({
   )
 }
 
-// ─── Unaligned card (virtual) ─────────────────────────────────────────────────
+// ─── Direct Demands virtual card (§4.10.1) ────────────────────────────────────
 
-function UnalignedCard({
-  months, includeSubmitted,
+function DirectDemandsCard({
+  months, opts, onMonthClick,
 }: {
   months: string[]
-  includeSubmitted: boolean
+  opts: DemandByFundingOpts
+  onMonthClick: (month: string) => void
 }) {
-  const demandItems = useAppStore(s => s.demandItems)
-  const statusSet = includeSubmitted ? WITH_SUBMITTED_SET : BASE_STATUS_SET
-  const hasUnaligned = useMemo(() =>
-    demandItems.some(d => d.parent_project_id === null),
-    [demandItems]
+  const store = useAppStore()
+  // Check if there are any active-Function direct demands
+  const hasDirectDemands = useMemo(() =>
+    store.demandItems.some(d =>
+      d.parent_project_id === null && d.function_id === opts.function_id
+    ),
+    [store.demandItems, opts.function_id]
   )
-  if (!hasUnaligned) return null
-
-  const getUnalignedFunding = (month: string, ss: ReadonlySet<DemandStatus>): DemandByFundingResult => {
-    const result: DemandByFundingResult = { 'Investment Scheme': 0, 'Plant/Sector Allocation': 0, 'Mixed': 0 }
-    for (const item of demandItems) {
-      if (item.parent_project_id !== null) continue
-      if (!ss.has(item.status)) continue
-      for (const phase of item.phases) {
-        if (!(month >= phase.start_month && (phase.end_month === null || month <= phase.end_month))) continue
-        for (const req of phase.requirements) {
-          const h = phase.end_month === null ? (req.steady_state_hours ?? 0) : (req.hours_by_month[month] ?? 0)
-          result[phase.funding_source] += h
-        }
-      }
-    }
-    return result
-  }
+  if (!hasDirectDemands) return null
 
   const summary = rollupSummary(months, (m) => {
-    const r = getUnalignedFunding(m, statusSet)
+    const r = direct_demand_by_funding(m, opts, store)
     return r['Investment Scheme'] + r['Plant/Sector Allocation'] + r['Mixed']
   })
 
@@ -348,18 +332,76 @@ function UnalignedCard({
     <div className="bg-gray-50/80 border border-dashed border-gray-300 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <span className="text-sm font-semibold text-gray-500 italic">Unaligned Demand</span>
-          <span className="text-xs text-gray-400 ml-2">Not associated to any Project</span>
+          <span className="text-sm font-semibold text-gray-500 italic">Direct Demands</span>
+          <span className="text-xs text-gray-400 ml-2">Not attached to any Project</span>
         </div>
       </div>
       <DemandChart
         months={months}
-        includeSubmitted={includeSubmitted}
-        getFundingData={getUnalignedFunding}
+        getData={(m) => direct_demand_by_funding(m, opts, store)}
         height={140}
+        onMonthClick={onMonthClick}
       />
       <p className="text-[10px] text-gray-400 mt-2">
-        Peak demand: {summary.peak.toLocaleString()} hrs/mo ({formatMonthLabel(summary.peakMonth)}) · 12-month total: {summary.total.toLocaleString()} hrs
+        Peak demand: {summary.peak.toLocaleString()} hrs/mo ({formatMonthLabel(summary.peakMonth)}) · Total: {summary.total.toLocaleString()} hrs
+      </p>
+    </div>
+  )
+}
+
+// ─── Unaligned Projects virtual card (§4.10.1) ───────────────────────────────
+
+function UnalignedProjectsCard({
+  months, opts, onMonthClick,
+}: {
+  months: string[]
+  opts: DemandByFundingOpts
+  onMonthClick: (month: string) => void
+}) {
+  const store = useAppStore()
+
+  // Find Projects with no Programme that have at least one active-Function Demand
+  const unalignedProjects = useMemo(() =>
+    store.projects.filter(p =>
+      p.active &&
+      p.programme_id === null &&
+      store.demandItems.some(d => d.parent_project_id === p.id && d.function_id === opts.function_id)
+    ),
+    [store.projects, store.demandItems, opts.function_id]
+  )
+
+  if (unalignedProjects.length === 0) return null
+
+  const getData = (month: string): DemandByFundingResult => {
+    const result: DemandByFundingResult = { 'Investment Scheme': 0, 'Plant/Sector Allocation': 0, 'Mixed': 0 }
+    for (const project of unalignedProjects) {
+      const r = project_demand_by_funding(project.id, month, opts, store)
+      for (const k of FUNDING_KEYS) result[k] += r[k]
+    }
+    return result
+  }
+
+  const summary = rollupSummary(months, (m) => {
+    const r = getData(m)
+    return r['Investment Scheme'] + r['Plant/Sector Allocation'] + r['Mixed']
+  })
+
+  return (
+    <div className="bg-gray-50/80 border border-dashed border-gray-300 rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <span className="text-sm font-semibold text-gray-500 italic">Unaligned Projects</span>
+          <span className="text-xs text-gray-400 ml-2">{unalignedProjects.length} project{unalignedProjects.length !== 1 ? 's' : ''} with no Programme</span>
+        </div>
+      </div>
+      <DemandChart
+        months={months}
+        getData={getData}
+        height={140}
+        onMonthClick={onMonthClick}
+      />
+      <p className="text-[10px] text-gray-400 mt-2">
+        Peak demand: {summary.peak.toLocaleString()} hrs/mo ({formatMonthLabel(summary.peakMonth)}) · Total: {summary.total.toLocaleString()} hrs
       </p>
     </div>
   )
@@ -368,17 +410,18 @@ function UnalignedCard({
 // ─── Landing page ─────────────────────────────────────────────────────────────
 
 function ProgrammeLanding({
-  months, includeSubmitted, filterProgrammeId,
-  onNavigateToDrillDown, onMonthClick,
+  months, opts, filterProgrammeId,
+  onNavigateToDrillDown, onMonthClick, onDirectMonthClick, onUnalignedMonthClick,
 }: {
   months: string[]
-  includeSubmitted: boolean
+  opts: DemandByFundingOpts
   filterProgrammeId: string | null
   onNavigateToDrillDown: (programmeId: string) => void
   onMonthClick: (programmeId: string, month: string) => void
+  onDirectMonthClick: (month: string) => void
+  onUnalignedMonthClick: (month: string) => void
 }) {
   const store = useAppStore()
-  const statusSet = includeSubmitted ? WITH_SUBMITTED_SET : BASE_STATUS_SET
 
   const programmes = useMemo(
     () => store.programmes.filter(p => p.active && (!filterProgrammeId || p.id === filterProgrammeId)),
@@ -399,31 +442,28 @@ function ProgrammeLanding({
   return (
     <div className="flex-1 overflow-y-auto p-5 space-y-4">
       {programmes.map(programme => {
-        const projectCount = store.projects.filter(p => p.programme_id === programme.id && p.active).length
-        const demandCount = store.demandItems.filter(d => {
+        // Active-Function scoped counts
+        const fnDemands = store.demandItems.filter(d => {
+          if (d.function_id !== opts.function_id) return false
+          if (d.parent_project_id === null) return false
           const project = store.projects.find(p => p.id === d.parent_project_id)
           return project?.programme_id === programme.id
-        }).length
+        })
+        const fnProjectIds = new Set(fnDemands.map(d => d.parent_project_id).filter(Boolean))
 
         const summary = rollupSummary(months, (m) => {
-          const r = programme_demand_by_funding(programme.id, m, { status_set: statusSet }, store)
+          const r = programme_demand_by_funding(programme.id, m, opts, store)
           return r['Investment Scheme'] + r['Plant/Sector Allocation'] + r['Mixed']
         })
 
         return (
-          <div
-            key={programme.id}
-            className="bg-white border border-border rounded-lg p-4 hover:border-brand/40 transition-colors"
-          >
-            <button
-              className="w-full text-left"
-              onClick={() => onNavigateToDrillDown(programme.id)}
-            >
+          <div key={programme.id} className="bg-white border border-border rounded-lg p-4 hover:border-brand/40 transition-colors">
+            <button className="w-full text-left" onClick={() => onNavigateToDrillDown(programme.id)}>
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <span className="text-sm font-semibold text-near-black">{programme.name}</span>
                   <span className="text-xs text-gray-400 ml-2">
-                    {projectCount} Project{projectCount !== 1 ? 's' : ''} · {demandCount} Demand{demandCount !== 1 ? 's' : ''}
+                    {fnProjectIds.size} Project{fnProjectIds.size !== 1 ? 's' : ''} · {fnDemands.length} Demand{fnDemands.length !== 1 ? 's' : ''}
                   </span>
                 </div>
                 <ChevronRight size={14} className="text-gray-400 shrink-0" />
@@ -432,8 +472,7 @@ function ProgrammeLanding({
 
             <DemandChart
               months={months}
-              includeSubmitted={includeSubmitted}
-              getFundingData={(m, ss) => programme_demand_by_funding(programme.id, m, { status_set: ss }, store)}
+              getData={(m) => programme_demand_by_funding(programme.id, m, opts, store)}
               height={180}
               onMonthClick={(m) => onMonthClick(programme.id, m)}
             />
@@ -445,10 +484,11 @@ function ProgrammeLanding({
         )
       })}
 
-      <UnalignedCard
-        months={months}
-        includeSubmitted={includeSubmitted}
-      />
+      {/* Unaligned Projects virtual card (§4.10.1) */}
+      <UnalignedProjectsCard months={months} opts={opts} onMonthClick={onUnalignedMonthClick} />
+
+      {/* Direct Demands virtual card (§4.10.1) */}
+      <DirectDemandsCard months={months} opts={opts} onMonthClick={onDirectMonthClick} />
     </div>
   )
 }
@@ -456,16 +496,15 @@ function ProgrammeLanding({
 // ─── Drill-down page ──────────────────────────────────────────────────────────
 
 function ProgrammeDrillDown({
-  programmeId, months, includeSubmitted, onBack, onMonthClick,
+  programmeId, months, opts, onBack, onMonthClick,
 }: {
   programmeId: string
   months: string[]
-  includeSubmitted: boolean
+  opts: DemandByFundingOpts
   onBack: () => void
   onMonthClick: (projectId: string, month: string) => void
 }) {
   const store = useAppStore()
-  const statusSet = includeSubmitted ? WITH_SUBMITTED_SET : BASE_STATUS_SET
   const programme = store.programmes.find(p => p.id === programmeId)
   if (!programme) return <div className="p-5 text-sm text-gray-400">Programme not found.</div>
 
@@ -475,19 +514,20 @@ function ProgrammeDrillDown({
     [store.projects, programmeId]
   )
 
-  const demandCount = store.demandItems.filter(d => {
+  // Active-Function scoped demand count
+  const fnDemandCount = store.demandItems.filter(d => {
+    if (d.function_id !== opts.function_id) return false
     const project = store.projects.find(p => p.id === d.parent_project_id)
     return project?.programme_id === programme.id
   }).length
 
   const programmeSummary = rollupSummary(months, (m) => {
-    const r = programme_demand_by_funding(programmeId, m, { status_set: statusSet }, store)
+    const r = programme_demand_by_funding(programmeId, m, opts, store)
     return r['Investment Scheme'] + r['Plant/Sector Allocation'] + r['Mixed']
   })
 
   return (
     <div className="flex-1 overflow-y-auto p-5">
-      {/* Header */}
       <div className="flex items-center gap-2 mb-4">
         <button onClick={onBack} className="text-gray-400 hover:text-near-black transition-colors">
           <ArrowLeft size={15} />
@@ -495,7 +535,7 @@ function ProgrammeDrillDown({
         <div>
           <h2 className="text-sm font-semibold text-near-black">{programme.name}</h2>
           <p className="text-xs text-gray-400">
-            {projects.length} Project{projects.length !== 1 ? 's' : ''} · {demandCount} Demand{demandCount !== 1 ? 's' : ''}
+            {projects.length} Project{projects.length !== 1 ? 's' : ''} · {fnDemandCount} Demand{fnDemandCount !== 1 ? 's' : ''}
             {programme.description ? ` · ${programme.description}` : ''}
           </p>
         </div>
@@ -506,8 +546,7 @@ function ProgrammeDrillDown({
         <h3 className="text-xs font-semibold text-gray-600 mb-3">Programme Total — {programme.name}</h3>
         <DemandChart
           months={months}
-          includeSubmitted={includeSubmitted}
-          getFundingData={(m, ss) => programme_demand_by_funding(programmeId, m, { status_set: ss }, store)}
+          getData={(m) => programme_demand_by_funding(programmeId, m, opts, store)}
           height={200}
           onMonthClick={(m) => onMonthClick('', m)}
         />
@@ -519,10 +558,12 @@ function ProgrammeDrillDown({
       {/* Per-Project cards */}
       <div className="space-y-3">
         {projects.map(project => {
-          const projectDemandCount = store.demandItems.filter(d => d.parent_project_id === project.id).length
+          const projectFnDemandCount = store.demandItems.filter(
+            d => d.parent_project_id === project.id && d.function_id === opts.function_id
+          ).length
 
           const projectSummary = rollupSummary(months, (m) => {
-            const r = project_demand_by_funding(project.id, m, { status_set: statusSet }, store)
+            const r = project_demand_by_funding(project.id, m, opts, store)
             return r['Investment Scheme'] + r['Plant/Sector Allocation'] + r['Mixed']
           })
 
@@ -531,7 +572,7 @@ function ProgrammeDrillDown({
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <span className="text-sm font-medium text-near-black">{project.name}</span>
-                  <span className="text-xs text-gray-400 ml-2">{projectDemandCount} Demand{projectDemandCount !== 1 ? 's' : ''}</span>
+                  <span className="text-xs text-gray-400 ml-2">{projectFnDemandCount} Demand{projectFnDemandCount !== 1 ? 's' : ''}</span>
                 </div>
                 <a
                   href={`#/manage-demand?project=${project.id}`}
@@ -543,8 +584,7 @@ function ProgrammeDrillDown({
               </div>
               <DemandChart
                 months={months}
-                includeSubmitted={includeSubmitted}
-                getFundingData={(m, ss) => project_demand_by_funding(project.id, m, { status_set: ss }, store)}
+                getData={(m) => project_demand_by_funding(project.id, m, opts, store)}
                 height={160}
                 onMonthClick={(m) => onMonthClick(project.id, m)}
               />
@@ -567,13 +607,34 @@ export default function ProgrammeDemand() {
 
   const [horizon, setHorizon] = useState<HorizonMonths>(12)
   const [includeSubmitted, setIncludeSubmitted] = useState(false)
+  const [showExternal, setShowExternal] = useState(false)
+  const [showOtherFunctions, setShowOtherFunctions] = useState(false)
   const [filterProgrammeId, setFilterProgrammeId] = useState<string | null>(null)
   const [sidePanel, setSidePanel] = useState<SidePanelState | null>(null)
   const [drawerDemandId, setDrawerDemandId] = useState<string | null>(null)
 
   const store = useAppStore()
+  const activeFunctionId = store.activeFunctionId
+
+  // §11.17: reset filter state on Function switch
+  const prevFnRef = useRef<string | null>(activeFunctionId)
+  useEffect(() => {
+    if (prevFnRef.current === activeFunctionId) return
+    prevFnRef.current = activeFunctionId
+    setSidePanel(null)
+    setFilterProgrammeId(null)
+  }, [activeFunctionId])
+
   const months = useMemo(() => generateMonths(getCurrentMonth(), horizon), [horizon])
   const statusSet = includeSubmitted ? WITH_SUBMITTED_SET : BASE_STATUS_SET
+
+  // §4.10.6 opts object passed to every aggregation call
+  const opts = useMemo((): DemandByFundingOpts => ({
+    status_set: statusSet,
+    function_id: activeFunctionId ?? undefined,
+    include_external: showExternal,
+    include_other_functions: showOtherFunctions,
+  }), [statusSet, activeFunctionId, showExternal, showOtherFunctions])
 
   const activeProgammes = useMemo(
     () => store.programmes.filter(p => p.active),
@@ -600,16 +661,14 @@ export default function ProgrammeDemand() {
       {/* Page heading */}
       <div className="flex items-center gap-3 px-5 py-2.5 border-b border-border bg-white">
         <span className="text-sm font-semibold text-near-black">Demand</span>
-        <span className="flex items-center gap-1 text-xs text-gray-400 italic">
-          <Info size={11} />
-          Function lens does not apply on this view.
-        </span>
       </div>
 
       {/* Toolbar */}
       <Toolbar
         horizon={horizon} onHorizonChange={setHorizon}
         includeSubmitted={includeSubmitted} onIncludeSubmittedChange={setIncludeSubmitted}
+        showExternal={showExternal} onShowExternalChange={setShowExternal}
+        showOtherFunctions={showOtherFunctions} onShowOtherFunctionsChange={setShowOtherFunctions}
         programmes={programmeId ? undefined : activeProgammes}
         filterProgrammeId={programmeId ? undefined : filterProgrammeId}
         onFilterProgrammeChange={programmeId ? undefined : setFilterProgrammeId}
@@ -620,17 +679,19 @@ export default function ProgrammeDemand() {
         <ProgrammeDrillDown
           programmeId={programmeId}
           months={months}
-          includeSubmitted={includeSubmitted}
+          opts={opts}
           onBack={() => navigate('/demand')}
           onMonthClick={handleDrillDownMonthClick}
         />
       ) : (
         <ProgrammeLanding
           months={months}
-          includeSubmitted={includeSubmitted}
+          opts={opts}
           filterProgrammeId={filterProgrammeId}
           onNavigateToDrillDown={(id) => navigate(`/demand/programme/${id}`)}
           onMonthClick={handleLandingMonthClick}
+          onDirectMonthClick={(month) => setSidePanel({ month, scopeLabel: 'Direct Demands', isDirect: true })}
+          onUnalignedMonthClick={(month) => setSidePanel({ month, scopeLabel: 'Unaligned Projects' })}
         />
       )}
 
@@ -639,6 +700,7 @@ export default function ProgrammeDemand() {
         <SidePanel
           state={sidePanel}
           statusSet={statusSet}
+          activeFunctionId={activeFunctionId}
           onClose={() => setSidePanel(null)}
           onOpenDrawer={(id) => { setDrawerDemandId(id); setSidePanel(null) }}
         />
