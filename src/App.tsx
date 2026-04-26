@@ -7,6 +7,7 @@ import TeamActivity from './views/TeamActivity'
 import ProgrammeDemand from './views/ProgrammeDemand'
 import DemandDiscovery from './views/DemandDiscovery'
 import DemandEdit from './views/DemandEdit'
+import ProjectEdit from './views/ProjectEdit'
 import Admin from './views/Admin'
 import Archive from './views/Archive'
 import { useAppStore } from './store/useAppStore'
@@ -209,6 +210,11 @@ function AppShell() {
           <Route path="/manage-demand" element={<DemandDiscovery />} />
           <Route path="/manage-demand/new" element={<DemandEdit />} />
           <Route path="/manage-demand/:id/edit" element={<DemandEdit />} />
+          {/* §4.5.2 Project edit page */}
+          <Route path="/manage-projects/new" element={<ProjectEdit />} />
+          <Route path="/manage-projects/:id/edit" element={<ProjectEdit />} />
+          {/* §4.6.A Manage Projects board — placeholder until Change 7 */}
+          <Route path="/manage-projects" element={<DemandDiscovery />} />
           <Route path="/archive" element={<Archive />} />
           <Route path="/admin/*" element={<Admin />} />
         </Routes>

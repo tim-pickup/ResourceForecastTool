@@ -564,14 +564,12 @@ interface PhaseEditorProps {
   onExtReqsChange: (reqs: ExternalResourceRequirement[]) => void
   demandId?: string
   demandStatus?: DemandStatus
+  showRequirements?: boolean  // default true; false for Project Draft (§4.5.2)
 }
 
-export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtReqsChange }: PhaseEditorProps) {
+export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtReqsChange, showRequirements = true }: PhaseEditorProps) {
   const [open, setOpen] = useState(true)
   const store = useAppStore()
-
-  // v1.18: requirements visible in all statuses for direct Demands
-  const showRequirements = true
 
 
   const isIndefinite = phase.end_month === null

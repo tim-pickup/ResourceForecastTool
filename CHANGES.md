@@ -88,7 +88,7 @@ This file directs Claude Code to the work items for the v1.18 spec revision. Eac
 
 ## Change 5 — Drawer and edit page (entity-aware)
 
-- [ ] Update the drawer (header / status / body / footer) and the edit page (Mode A, Mode B) to handle Projects and Demands distinctly. Wire the v1.18 footer button tables and the single-Delete overflow.
+- [x] Update the drawer (header / status / body / footer) and the edit page (Mode A, Mode B) to handle Projects and Demands distinctly. Wire the v1.18 footer button tables and the single-Delete overflow.
 
 **Scope**:
 - Drawer header zone: Project drawer shows Programme name + owner; Demand drawer shows Function chip + parent-Project link or Direct badge.

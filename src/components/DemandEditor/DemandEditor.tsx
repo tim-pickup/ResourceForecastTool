@@ -5,6 +5,7 @@ import { parseISO, format } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
 import { Button } from '../ui/Button'
 import { StatusBadge, Badge } from '../ui/Badge'
+import { ProjectDrawer } from '../ProjectDrawer/ProjectDrawer'
 import type { DemandItem, DemandStatus } from '../../types'
 
 interface Props {
@@ -85,9 +86,9 @@ function dateRange(item: DemandItem): string {
   return `${fmt(starts[0])} – ${hasIndefinite ? 'ongoing' : (ends.length ? fmt(ends[ends.length - 1]) : '—')}`
 }
 
-// ─── Overflow menu (v1.18: Delete only) ──────────────────────────────────────
+// ─── Overflow menu (v1.18: Delete only — hidden for project-spawned Demands) ──
 
-function OverflowMenu({ onDelete }: { onDelete: () => void }) {
+function OverflowMenu({ onDelete, isProjectSpawned }: { onDelete: () => void; isProjectSpawned: boolean }) {
   const [open, setOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -113,15 +114,18 @@ function OverflowMenu({ onDelete }: { onDelete: () => void }) {
       </button>
 
       {(open || confirmDelete) && (
-        <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-border rounded shadow-card z-50">
+        <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-border rounded shadow-card z-50">
           {open && !confirmDelete && (
-            <button
-              onClick={() => { setOpen(false); setConfirmDelete(true) }}
-              className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 flex items-center gap-2 text-accent-red"
-            >
-              <Trash2 size={12} />
-              Delete
-            </button>
+            isProjectSpawned ? (
+              <div className="px-3 py-2 text-xs text-gray-400 italic">Delete the parent Project to remove this Demand.</div>
+            ) : (
+              <button
+                onClick={() => { setOpen(false); setConfirmDelete(true) }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 flex items-center gap-2 text-accent-red"
+              >
+                <Trash2 size={12} /> Delete
+              </button>
+            )
           )}
           {confirmDelete && (
             <div className="px-3 py-2">
@@ -149,6 +153,7 @@ interface DrawerContentProps {
 function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
   const store = useAppStore()
   const navigate = useNavigate()
+  const [projectDrawerId, setProjectDrawerId] = useState<string | null>(null)
 
   // Auto-derive distinct Functions from requirements
   const functionsInvolved = (() => {
@@ -165,8 +170,16 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
     return [...fnIds].map(id => store.functions.find(f => f.id === id)).filter(Boolean)
   })()
 
+  const isProjectSpawned = item.parent_project_id !== null
   const project = item.parent_project_id ? store.projects.find(p => p.id === item.parent_project_id) : null
   const programme = project?.programme_id ? store.programmes.find(p => p.id === project.programme_id) : null
+  const demandFunction = store.functions.find(f => f.id === item.function_id)
+
+  // Sibling Demands (other Demands on the same parent Project)
+  const siblingDemands = isProjectSpawned
+    ? store.demandItems.filter(d => d.parent_project_id === item.parent_project_id && d.id !== demandId)
+    : []
+
   const { finite: totalFiniteHours, indefiniteCount } = totalItemHours(item)
   const pct = coveragePct(item)
   const footerBtns = footerButtons(item.status)
@@ -202,14 +215,32 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
                 {item.name || 'Unnamed'}
               </h2>
               <div className="mt-1.5 flex flex-col gap-1 text-xs">
-                <div><Badge>{item.type}</Badge></div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Badge>{item.type}</Badge>
+                  {/* §4.5.1 Demand header: Function chip */}
+                  {demandFunction && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-medium">
+                      {demandFunction.name}
+                    </span>
+                  )}
+                </div>
                 <div>
                   {programme && project ? (
-                    <span className="text-gray-400">{programme.name} › {project.name}</span>
+                    <button
+                      onClick={() => setProjectDrawerId(project.id)}
+                      className="text-gray-400 hover:text-brand transition-colors text-left"
+                    >
+                      Part of {programme.name} › {project.name}
+                    </button>
                   ) : project ? (
-                    <span className="text-gray-400">{project.name}</span>
+                    <button
+                      onClick={() => setProjectDrawerId(project.id)}
+                      className="text-gray-400 hover:text-brand transition-colors text-left"
+                    >
+                      Part of {project.name}
+                    </button>
                   ) : (
-                    <span className="text-gray-400 italic">Direct Demand — no parent Project</span>
+                    <span className="text-gray-400 italic">Direct Demand</span>
                   )}
                 </div>
                 {item.owner && <div className="text-gray-500">{item.owner}</div>}
@@ -219,7 +250,7 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
               <Button size="sm" variant="primary" onClick={handleEdit}>
                 <Edit2 size={12} /> Edit
               </Button>
-              <OverflowMenu onDelete={handleDelete} />
+              <OverflowMenu onDelete={handleDelete} isProjectSpawned={isProjectSpawned} />
               <button onClick={onClose} className="text-gray-400 hover:text-near-black transition-colors p-1 rounded">
                 <X size={15} />
               </button>
@@ -242,6 +273,35 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
 
         {/* ── Zone 3: Body ───────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+
+          {/* §4.5.1 Origin badge + Sibling Demands */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">Origin:</span>
+              {isProjectSpawned ? (
+                <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  Project-spawned
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                  Direct
+                </span>
+              )}
+            </div>
+            {siblingDemands.length > 0 && (
+              <div className="text-xs flex items-start gap-1.5 flex-wrap">
+                <span className="text-gray-400 shrink-0">Sibling Demands:</span>
+                {siblingDemands.map(sib => {
+                  const sibFn = store.functions.find(f => f.id === sib.function_id)
+                  return (
+                    <span key={sib.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-50 border border-border text-gray-600">
+                      {sibFn?.name ?? sib.function_id} · <StatusBadge status={sib.status} />
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Summary stats */}
           {(() => {
@@ -379,6 +439,15 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
           </div>
         )}
       </div>
+
+      {/* Nested Project drawer (opens when parent-Project link is clicked) */}
+      {projectDrawerId && (
+        <ProjectDrawer
+          projectId={projectDrawerId}
+          onClose={() => setProjectDrawerId(null)}
+          onOpenDemand={(id) => { setProjectDrawerId(null); /* re-open this demand's sibling — for now just close */ void id }}
+        />
+      )}
     </div>
   )
 }
