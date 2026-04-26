@@ -12,14 +12,14 @@ import Admin from './views/Admin'
 import Archive from './views/Archive'
 import { useAppStore } from './store/useAppStore'
 
-// §11.19: Navigation order — Capacity Validation, Demand (new), Team Activity,
-// Manage Demand, Archive, Admin
+// §11.19 v1.18: Capacity Validation, Demand, Manage Projects, Manage Demand,
+// Team Activity, Admin. Archive removed (Closed status no longer exists).
 const navItems = [
   { to: '/capacity', label: 'Capacity Validation' },
   { to: '/demand', label: 'Demand' },
-  { to: '/team', label: 'Team Activity' },
+  { to: '/manage-projects', label: 'Manage Projects' },
   { to: '/manage-demand', label: 'Manage Demand' },
-  { to: '/archive', label: 'Archive' },
+  { to: '/team', label: 'Team Activity' },
   { to: '/admin', label: 'Admin' },
 ]
 

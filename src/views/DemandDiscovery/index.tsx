@@ -28,6 +28,7 @@ type SortKey = 'name' | 'type' | 'status' | 'owner' | 'programme' | 'project'
 type SortDir = 'asc' | 'desc'
 type ViewMode = 'table' | 'board' | 'search'
 type GroupBy = 'none' | 'programme' | 'project'
+type OriginFilter = 'all' | 'project-spawned' | 'direct'
 
 function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: item.id })
@@ -53,12 +54,14 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-near-black truncate">{item.name}</div>
           <div className="text-xs text-gray-500 mt-0.5">{item.type}</div>
-          {programme && project ? (
+          {/* §4.6 v1.18: parent-Project link or Direct badge */}
+          {item.parent_project_id ? (
             <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5">
-              <GitMerge size={10} />{programme.name} › {project.name}
+              <GitMerge size={10} />
+              {programme ? `${programme.name} › ` : ''}{project?.name ?? '—'}
             </div>
           ) : (
-            <div className="text-[10px] text-gray-300 italic mt-0.5">Unaligned</div>
+            <span className="inline-block mt-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">Direct</span>
           )}
           <div className="text-xs text-gray-400">Owner: {item.owner || '—'}</div>
         </div>
@@ -240,6 +243,7 @@ export default function DemandDiscovery() {
   const [filterProgramme, setFilterProgramme] = useState('')
   const [filterProject, setFilterProject] = useState('')
   const [filterHasExternal, setFilterHasExternal] = useState(false)
+  const [filterOrigin, setFilterOrigin] = useState<OriginFilter>('all')
   const [groupBy, setGroupBy] = useState<GroupBy>('none')
   const [search, setSearch] = useState('')
   const [dragError, setDragError] = useState<string | null>(null)
@@ -298,18 +302,13 @@ export default function DemandDiscovery() {
   // All demand items (v1.18: no Closed/Parked statuses to exclude)
   const activeItems = useMemo(() => store.demandItems, [store.demandItems])
 
-  // §4.9 active-Function lens: show demands touching active Function's skills,
-  // or created-under the active Function if they have no requirements yet
+  // §4.6 v1.18: active-Function lens — show only Demands whose function_id matches
+  // the active Function (simpler than the v1.17 skill-based lens; each Demand
+  // now belongs to exactly one Function)
   const lensedItems = useMemo(() => {
     if (!activeFunctionId) return activeItems
-    return activeItems.filter(item => {
-      const hasReqs = item.phases.some(ph => ph.requirements.length > 0)
-      if (hasReqs) {
-        return item.phases.some(ph => ph.requirements.some(r => activeFnSkillIds.has(r.skill_id)))
-      }
-      return item.function_id === activeFunctionId
-    })
-  }, [activeItems, activeFunctionId, activeFnSkillIds])
+    return activeItems.filter(item => item.function_id === activeFunctionId)
+  }, [activeItems, activeFunctionId])
 
   // Projects in selected Programme (for dependent dropdown)
   const availableProjects = useMemo(() =>
@@ -320,7 +319,7 @@ export default function DemandDiscovery() {
   )
 
   // Check if any filter is active (used for Board empty-state message)
-  const anyFilterActive = filterStatus || filterType || filterDomains.length > 0 || filterProgramme || filterProject || filterHasExternal
+  const anyFilterActive = filterStatus || filterType || filterDomains.length > 0 || filterProgramme || filterProject || filterHasExternal || filterOrigin !== 'all'
 
   const filtered = useMemo(() => {
     let items = [...lensedItems]
@@ -340,6 +339,9 @@ export default function DemandDiscovery() {
     }
     if (filterProject) items = items.filter(d => d.parent_project_id === filterProject)
     if (filterHasExternal) items = items.filter(d => demandHasExternal(d))
+    // §4.6: Origin filter
+    if (filterOrigin === 'project-spawned') items = items.filter(d => d.parent_project_id !== null)
+    if (filterOrigin === 'direct') items = items.filter(d => d.parent_project_id === null)
     if (search) {
       const q = search.toLowerCase()
       items = items.filter(d =>
@@ -360,7 +362,7 @@ export default function DemandDiscovery() {
       return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
     })
     return items
-  }, [lensedItems, filterStatus, filterType, filterDomains, filterProgramme, filterProject, filterHasExternal, search, sortKey, sortDir, store.skills])
+  }, [lensedItems, filterStatus, filterType, filterDomains, filterProgramme, filterProject, filterHasExternal, filterOrigin, search, sortKey, sortDir, store.skills])
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -389,6 +391,9 @@ export default function DemandDiscovery() {
     }
     if (filterProject && item.parent_project_id !== filterProject) return false
     if (filterHasExternal && !demandHasExternal(item)) return false
+    // §4.6: Origin filter
+    if (filterOrigin === 'project-spawned' && item.parent_project_id === null) return false
+    if (filterOrigin === 'direct' && item.parent_project_id !== null) return false
     return true
   }
 
@@ -399,6 +404,27 @@ export default function DemandDiscovery() {
     const newStatus = over.id as DemandStatus
     const item = store.demandItems.find(d => d.id === itemId)
     if (!item || item.status === newStatus) return
+
+    // §4.6: PartiallyAllocated and Allocated are auto-only — reject drags
+    if (newStatus === 'PartiallyAllocated' || newStatus === 'Allocated') {
+      setDragError(`"${item.name}" → ${newStatus}: this status is reached automatically as allocations are added.`)
+      setTimeout(() => setDragError(null), 4000)
+      return
+    }
+
+    // §4.6: Draft column shows direct Demands only; project-spawned cannot be dragged to Draft
+    if (newStatus === 'Draft' && item.parent_project_id !== null) {
+      setDragError(`Project-spawned Demands cannot return to Draft.`)
+      setTimeout(() => setDragError(null), 4000)
+      return
+    }
+
+    // §4.6: Draft→Submitted only allowed for direct Demands
+    if (item.status === 'Draft' && newStatus === 'Submitted' && item.parent_project_id !== null) {
+      setDragError(`Project-spawned Demands enter Submitted via the parent Project's Submit action.`)
+      setTimeout(() => setDragError(null), 4000)
+      return
+    }
 
     if (!isValidTransition(item.status, newStatus)) {
       setDragError(`Cannot move "${item.name}" from ${item.status} to ${newStatus}.`)
@@ -458,6 +484,12 @@ export default function DemandDiscovery() {
               <option value="">All Projects</option>
               {availableProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
+            {/* §4.6: Origin filter */}
+            <select value={filterOrigin} onChange={e => setFilterOrigin(e.target.value as OriginFilter)} className="text-xs border border-border rounded px-2 py-1 bg-white">
+              <option value="all">All Origins</option>
+              <option value="project-spawned">Project-spawned</option>
+              <option value="direct">Direct</option>
+            </select>
             <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
               <input type="checkbox" checked={filterHasExternal} onChange={e => setFilterHasExternal(e.target.checked)} className="accent-brand" />
               Has external
@@ -486,8 +518,9 @@ export default function DemandDiscovery() {
         )}
 
         <div className="flex-1" />
+        {/* §4.6: "+ New Direct Demand" creates Draft with activeFunctionId (immutable) */}
         <Button size="sm" variant="primary" onClick={() => navigate('/manage-demand/new')}>
-          <Plus size={12} /> New Demand
+          <Plus size={12} /> New Direct Demand
         </Button>
       </div>
 
@@ -641,8 +674,12 @@ export default function DemandDiscovery() {
           <div className="flex-1 overflow-x-auto p-4">
             <div className="flex gap-3 h-full min-h-[400px]">
               {ACTIVE_STATUSES.map(status => {
-                // Apply all active filters to board columns (§4.6)
-                const colItems = lensedItems.filter(d => d.status === status && passesFilters(d))
+                // §4.6 v1.18: Draft column shows direct Demands only; other columns mix both origins
+                const colItems = lensedItems.filter(d => {
+                  if (d.status !== status) return false
+                  if (status === 'Draft' && d.parent_project_id !== null) return false
+                  return passesFilters(d)
+                })
                 return (
                   <DroppableColumn key={status} status={status}>
                     <div className="flex items-center justify-between mb-1">

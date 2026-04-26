@@ -110,7 +110,7 @@ This file directs Claude Code to the work items for the v1.18 spec revision. Eac
 
 ## Change 6 — Manage Demand reshape (5-column board)
 
-- [ ] Reshape Manage Demand to a 5-column Kanban (Draft / Submitted / Approved / PartiallyAllocated / Allocated). Add the "+ New Direct Demand" button. Add the Origin filter. Apply the active Function lens.
+- [x] Reshape Manage Demand to a 5-column Kanban (Draft / Submitted / Approved / PartiallyAllocated / Allocated). Add the "+ New Direct Demand" button. Add the Origin filter. Apply the active Function lens.
 
 **Scope**:
 - Kanban columns reduced to 5. Draft column shows direct Demands only; Submitted onwards mixes both origins.
