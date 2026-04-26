@@ -29,7 +29,7 @@ const COMMITTED_STATUSES = new Set<DemandStatus>(['Approved', 'PartiallyAllocate
 const EXT_COLORS = ['#7a3dff', '#ed52cb', '#ff6b00', '#00d722', '#ffae13', '#ee1d36', '#0891b2', '#146ef5']
 // Section D: distinct-hue palette for receiving Functions
 const D_COLORS = ['#7c3aed', '#0891b2', '#16a34a', '#ea580c', '#db2777', '#ca8a04', '#64748b', '#9333ea']
-// Same active-status set as capacity.ts: excludes only Parked and Closed
+// Active Demand statuses (v1.18: all statuses are active)
 const EXT_ACTIVE_STATUSES = new Set<DemandStatus>(['Draft', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated'])
 
 // ─── Model Capacity banner ────────────────────────────────────────────────────
@@ -552,7 +552,7 @@ export default function CapacityValidation() {
     }
     return {
       ...store,
-      demandItems: store.demandItems.filter(d => d.project_id && scopeProjectIds.has(d.project_id)),
+      demandItems: store.demandItems.filter(d => d.parent_project_id && scopeProjectIds.has(d.parent_project_id)),
     }
   }, [store, filterProgramme, filterProject])
 

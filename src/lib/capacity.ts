@@ -454,7 +454,7 @@ export function project_internal_hours(
 ): number {
   let total = 0
   for (const item of state.demandItems) {
-    if (item.project_id !== project_id) continue
+    if (item.parent_project_id !== project_id) continue
     if (!REAL_STATUSES.has(item.status)) continue
     for (const phase of item.phases) {
       if (!phaseContainsMonth(phase, month)) continue
@@ -467,7 +467,7 @@ export function project_internal_hours(
 }
 
 // 2. project_external_hours — sum of external requirement hours across
-//    Demands aligned to project_id in any status except Parked and Closed.
+//    Demands aligned to project_id in any active status.
 export function project_external_hours(
   project_id: string,
   month: string,
@@ -485,7 +485,7 @@ export function project_external_hours(
   for (const ext of state.externalResourceRequirements) {
     const item = phaseToItem.get(ext.phase_id)
     if (!item) continue
-    if (item.project_id !== project_id) continue
+    if (item.parent_project_id !== project_id) continue
     if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
     const phase = item.phases.find(p => p.id === ext.phase_id)
     if (!phase || !phaseContainsMonth(phase, month)) continue
@@ -512,7 +512,7 @@ export function project_external_hours_by_provider(
   for (const ext of state.externalResourceRequirements) {
     const item = phaseToItem.get(ext.phase_id)
     if (!item) continue
-    if (item.project_id !== project_id) continue
+    if (item.parent_project_id !== project_id) continue
     if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
     const phase = item.phases.find(p => p.id === ext.phase_id)
     if (!phase || !phaseContainsMonth(phase, month)) continue
@@ -529,7 +529,7 @@ export function project_demand_count(
   status_filter?: ReadonlySet<DemandStatus>
 ): number {
   return state.demandItems.filter(
-    d => d.project_id === project_id &&
+    d => d.parent_project_id === project_id &&
          (!status_filter || status_filter.has(d.status))
   ).length
 }
@@ -574,11 +574,13 @@ export function programme_external_hours_by_provider(
   return result
 }
 
-// 8. programme_project_count — count of active Projects.
+// 8. programme_project_count — count of active Projects in this Programme.
 export function programme_project_count(
   programme_id: string,
   state: AppState
 ): number {
+  // programme_id is now nullable on Project; only count Projects that explicitly
+  // belong to this Programme (null-programme Projects are unaligned).
   return state.projects.filter(p => p.programme_id === programme_id && p.active).length
 }
 
@@ -591,7 +593,7 @@ export function unaligned_demand_hours(
   if (kind === 'internal') {
     let total = 0
     for (const item of state.demandItems) {
-      if (item.project_id !== null) continue
+      if (item.parent_project_id !== null) continue
       if (!REAL_STATUSES.has(item.status)) continue
       for (const phase of item.phases) {
         if (!phaseContainsMonth(phase, month)) continue
@@ -615,7 +617,7 @@ export function unaligned_demand_hours(
   for (const ext of state.externalResourceRequirements) {
     const item = phaseToItem.get(ext.phase_id)
     if (!item) continue
-    if (item.project_id !== null) continue
+    if (item.parent_project_id !== null) continue
     if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
     const phase = item.phases.find(p => p.id === ext.phase_id)
     if (!phase || !phaseContainsMonth(phase, month)) continue
@@ -732,7 +734,7 @@ export function project_demand_by_funding(
 
   // Internal hours: only Demands whose status is in status_set
   for (const item of state.demandItems) {
-    if (item.project_id !== project_id) continue
+    if (item.parent_project_id !== project_id) continue
     if (!opts.status_set.has(item.status)) continue
     for (const phase of item.phases) {
       if (!phaseContainsMonth(phase, month)) continue
@@ -742,10 +744,10 @@ export function project_demand_by_funding(
     }
   }
 
-  // External hours: non-Parked, non-Closed regardless of status_set
+  // External hours: all active statuses regardless of status_set
   const phaseMap = new Map<string, { phase: Phase; item: DemandItem }>()
   for (const item of state.demandItems) {
-    if (item.project_id !== project_id) continue
+    if (item.parent_project_id !== project_id) continue
     for (const phase of item.phases) phaseMap.set(phase.id, { phase, item })
   }
   for (const ext of state.externalResourceRequirements) {
@@ -798,7 +800,7 @@ export function project_demand_by_team(
 
   // Internal hours
   for (const item of state.demandItems) {
-    if (item.project_id !== project_id) continue
+    if (item.parent_project_id !== project_id) continue
     if (!opts.status_set.has(item.status)) continue
     for (const phase of item.phases) {
       if (!phaseContainsMonth(phase, month)) continue
@@ -809,10 +811,10 @@ export function project_demand_by_team(
     }
   }
 
-  // External hours: non-Parked, non-Closed regardless of status_set
+  // External hours: all active statuses regardless of status_set
   const phaseMap = new Map<string, { phase: Phase; item: DemandItem }>()
   for (const item of state.demandItems) {
-    if (item.project_id !== project_id) continue
+    if (item.parent_project_id !== project_id) continue
     for (const phase of item.phases) phaseMap.set(phase.id, { phase, item })
   }
   for (const ext of state.externalResourceRequirements) {

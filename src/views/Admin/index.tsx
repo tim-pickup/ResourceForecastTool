@@ -658,7 +658,7 @@ function ProgrammesPanel() {
   function projectCount(progId: string) { return store.projects.filter(p => p.programme_id === progId).length }
   function demandCount(progId: string) {
     const projectIds = new Set(store.projects.filter(p => p.programme_id === progId).map(p => p.id))
-    return store.demandItems.filter(d => d.project_id && projectIds.has(d.project_id)).length
+    return store.demandItems.filter(d => d.parent_project_id && projectIds.has(d.parent_project_id)).length
   }
 
   function startEdit(prog: typeof store.programmes[0]) {
@@ -749,17 +749,17 @@ function ProjectsPanel() {
   const [editForm, setEditForm] = useState({ name: '', programme_id: '', description: '' })
 
   const progMap = new Map(store.programmes.map(p => [p.id, p.name]))
-  function demandCount(projId: string) { return store.demandItems.filter(d => d.project_id === projId).length }
+  function demandCount(projId: string) { return store.demandItems.filter(d => d.parent_project_id === projId).length }
 
   function handleDelete(projId: string) {
-    const hasDemands = store.demandItems.some(d => d.project_id === projId)
-    if (hasDemands) { alert('Cannot delete: this Project has aligned Demands. Reassign or unalign them first.'); return }
+    const hasDemands = store.demandItems.some(d => d.parent_project_id === projId)
+    if (hasDemands) { alert('Cannot delete: this Project has child Demands. Delete the Demands first.'); return }
     store.deleteProject(projId)
   }
 
   function startEdit(proj: typeof store.projects[0]) {
     setEditId(proj.id)
-    setEditForm({ name: proj.name, programme_id: proj.programme_id, description: proj.description })
+    setEditForm({ name: proj.name, programme_id: proj.programme_id ?? '', description: proj.description })
   }
 
   return (
@@ -780,10 +780,10 @@ function ProjectsPanel() {
           <Input label="Description" value={newForm.description} onChange={e => setNewForm(f => ({ ...f, description: e.target.value }))} />
           <div className="flex gap-2">
             <Button size="sm" variant="primary" onClick={() => {
-              if (!newForm.name.trim() || !newForm.programme_id) return
-              const dupe = store.projects.some(p => p.programme_id === newForm.programme_id && p.name.toLowerCase() === newForm.name.trim().toLowerCase())
+              if (!newForm.name.trim()) return
+              const dupe = store.projects.some(p => p.programme_id === (newForm.programme_id || null) && p.name.toLowerCase() === newForm.name.trim().toLowerCase())
               if (dupe) { alert('A Project with that name already exists in this Programme.'); return }
-              store.addProject({ name: newForm.name.trim(), programme_id: newForm.programme_id, description: newForm.description, active: true })
+              store.addProject({ name: newForm.name.trim(), owner: '', type: 'Group Strategy Project', programme_id: newForm.programme_id || null, description: newForm.description, status: 'Draft', phases: [], active: true })
               setShowNew(false)
             }}>Save</Button>
             <Button size="sm" variant="ghost" onClick={() => setShowNew(false)}>Cancel</Button>
@@ -804,9 +804,9 @@ function ProjectsPanel() {
                 <div className="flex gap-2">
                   <Button size="sm" variant="primary" onClick={() => {
                     if (!editForm.name.trim()) return
-                    const dupe = store.projects.some(p => p.id !== proj.id && p.programme_id === editForm.programme_id && p.name.toLowerCase() === editForm.name.trim().toLowerCase())
+                    const dupe = store.projects.some(p => p.id !== proj.id && p.programme_id === (editForm.programme_id || null) && p.name.toLowerCase() === editForm.name.trim().toLowerCase())
                     if (dupe) { alert('A Project with that name already exists in this Programme.'); return }
-                    store.updateProject(proj.id, { name: editForm.name.trim(), programme_id: editForm.programme_id, description: editForm.description }); setEditId(null)
+                    store.updateProject(proj.id, { name: editForm.name.trim(), programme_id: editForm.programme_id || null, description: editForm.description }); setEditId(null)
                   }}>Save</Button>
                   <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>Cancel</Button>
                 </div>
@@ -819,7 +819,7 @@ function ProjectsPanel() {
                     {!proj.active && <span className="text-xs text-gray-400 bg-gray-100 rounded px-1">Inactive</span>}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
-                    <span className="text-gray-400">{progMap.get(proj.programme_id) ?? proj.programme_id}</span>
+                    <span className="text-gray-400">{proj.programme_id ? (progMap.get(proj.programme_id) ?? proj.programme_id) : <em>No Programme</em>}</span>
                   </div>
                   {proj.description && <p className="text-xs text-gray-400 mt-0.5">{proj.description}</p>}
                   <div className="text-xs text-gray-400 mt-1">{demandCount(proj.id)} aligned demands</div>

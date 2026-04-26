@@ -46,7 +46,7 @@
     {
       "id": "team_004",
       "name": "Infrastructure Team",
-      "description": "Group IT infrastructure and platform services — cloud, network, and platform engineering.",
+      "description": "Group IT infrastructure and platform services \u00e2\u20ac\u201d cloud, network, and platform engineering.",
       "functionId": "func_002",
       "type": "Central",
       "active": true
@@ -54,7 +54,7 @@
     {
       "id": "team_005",
       "name": "Applications Team",
-      "description": "Group IT enterprise applications and data integration — ERP, CRM, data engineering.",
+      "description": "Group IT enterprise applications and data integration \u00e2\u20ac\u201d ERP, CRM, data engineering.",
       "functionId": "func_002",
       "type": "Central",
       "active": true
@@ -64,19 +64,19 @@
     {
       "id": "thm_mom",
       "name": "MOM",
-      "description": "Manufacturing Operations Management — MES, order execution, production tracking, OEE.",
+      "description": "Manufacturing Operations Management \u00e2\u20ac\u201d MES, order execution, production tracking, OEE.",
       "functionId": "func_001"
     },
     {
       "id": "thm_miv",
       "name": "MI&V",
-      "description": "Manufacturing Intelligence & Visualisation — historians, analytics, dashboards, reporting.",
+      "description": "Manufacturing Intelligence & Visualisation \u00e2\u20ac\u201d historians, analytics, dashboards, reporting.",
       "functionId": "func_001"
     },
     {
       "id": "thm_mbm",
       "name": "MBM",
-      "description": "Model-Based Manufacturing — simulation, digital twins, process modelling.",
+      "description": "Model-Based Manufacturing \u00e2\u20ac\u201d simulation, digital twins, process modelling.",
       "functionId": "func_001"
     },
     {
@@ -498,9 +498,18 @@
       "active": true,
       "teamId": "team_004",
       "skills": [
-        { "skill_id": "skl_git_infra_cloud", "level": "Specialist" },
-        { "skill_id": "skl_git_infra_network", "level": "Advanced" },
-        { "skill_id": "skl_git_infra_platform", "level": "Basic" }
+        {
+          "skill_id": "skl_git_infra_cloud",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_git_infra_network",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_git_infra_platform",
+          "level": "Basic"
+        }
       ]
     },
     {
@@ -513,8 +522,14 @@
       "active": true,
       "teamId": "team_004",
       "skills": [
-        { "skill_id": "skl_git_infra_platform", "level": "Specialist" },
-        { "skill_id": "skl_git_infra_cloud", "level": "Advanced" }
+        {
+          "skill_id": "skl_git_infra_platform",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_git_infra_cloud",
+          "level": "Advanced"
+        }
       ]
     },
     {
@@ -527,9 +542,18 @@
       "active": true,
       "teamId": "team_005",
       "skills": [
-        { "skill_id": "skl_git_apps_erp", "level": "Specialist" },
-        { "skill_id": "skl_git_apps_crm", "level": "Advanced" },
-        { "skill_id": "skl_git_apps_support", "level": "Advanced" }
+        {
+          "skill_id": "skl_git_apps_erp",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_git_apps_crm",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_git_apps_support",
+          "level": "Advanced"
+        }
       ]
     },
     {
@@ -542,8 +566,14 @@
       "active": true,
       "teamId": "team_005",
       "skills": [
-        { "skill_id": "skl_git_apps_crm", "level": "Specialist" },
-        { "skill_id": "skl_git_apps_erp", "level": "Advanced" }
+        {
+          "skill_id": "skl_git_apps_crm",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_git_apps_erp",
+          "level": "Advanced"
+        }
       ]
     },
     {
@@ -556,14 +586,23 @@
       "active": true,
       "teamId": "team_005",
       "skills": [
-        { "skill_id": "skl_git_data_eng", "level": "Specialist" },
-        { "skill_id": "skl_git_data_int_arch", "level": "Advanced" },
-        { "skill_id": "skl_git_data_platform", "level": "Advanced" }
+        {
+          "skill_id": "skl_git_data_eng",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_git_data_int_arch",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_git_data_platform",
+          "level": "Advanced"
+        }
       ]
     },
     {
       "id": "per_018",
-      "name": "Henrik Sørensen",
+      "name": "Henrik S\u00c3\u00b8rensen",
       "primary_domain_id": "thm_git_data",
       "contracted_hours_per_month": 152,
       "available_from": "2026-08",
@@ -571,8 +610,14 @@
       "active": true,
       "teamId": "team_005",
       "skills": [
-        { "skill_id": "skl_git_data_int_arch", "level": "Specialist" },
-        { "skill_id": "skl_git_data_eng", "level": "Advanced" }
+        {
+          "skill_id": "skl_git_data_int_arch",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_git_data_eng",
+          "level": "Advanced"
+        }
       ]
     }
   ],
@@ -583,8 +628,7 @@
       "type": "Plant Project",
       "status": "Allocated",
       "owner": "Priya Kumar",
-      "description": "Extension of MES Phase 1 deployment at Plant B covering Lines 3–5, with genealogy and SCADA integration.",
-      "parked_reason": null,
+      "description": "Extension of MES Phase 1 deployment at Plant B covering Lines 3\u00e2\u20ac\u201c5, with genealogy and SCADA integration.",
       "phases": [
         {
           "id": "phs_001a",
@@ -757,8 +801,8 @@
           ]
         }
       ],
-      "project_id": "prj_001",
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": "prj_001"
     },
     {
       "id": "dmd_002",
@@ -767,7 +811,6 @@
       "status": "Allocated",
       "owner": "Fatima Al-Rashid",
       "description": "Group-wide OEE reporting standardisation covering 5 plants. Defines KPI taxonomy and delivers a unified dashboard.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_002a",
@@ -912,8 +955,8 @@
           ]
         }
       ],
-      "project_id": "prj_006",
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": "prj_006"
     },
     {
       "id": "dmd_003",
@@ -922,7 +965,6 @@
       "status": "PartiallyAllocated",
       "owner": "Marcus Vogel",
       "description": "Pilot digital twin for Line Y covering thermal and throughput behaviour. Success criteria feed into Group Strategy for a broader rollout.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_003a",
@@ -985,7 +1027,7 @@
               "shape": "skill",
               "skill_id": "skl_miv_integration",
               "level": "Advanced",
-              "notes": "Historian → model data pipeline",
+              "notes": "Historian \u00e2\u2020\u2019 model data pipeline",
               "hours_by_month": {
                 "2026-06": 20,
                 "2026-07": 20,
@@ -1000,7 +1042,7 @@
                     "2026-07": 10,
                     "2026-08": 10
                   },
-                  "notes": "Partial allocation — awaiting confirmation of remaining hours"
+                  "notes": "Partial allocation \u00e2\u20ac\u201d awaiting confirmation of remaining hours"
                 }
               ]
             }
@@ -1065,8 +1107,8 @@
           ]
         }
       ],
-      "project_id": "prj_004",
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": "prj_004"
     },
     {
       "id": "dmd_004",
@@ -1075,7 +1117,6 @@
       "status": "Approved",
       "owner": "James Whitfield",
       "description": "Upgrade Plant C historian to current platform version, migrate tags, and rebuild critical dashboards.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_004a",
@@ -1162,8 +1203,8 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_005",
@@ -1172,7 +1213,6 @@
       "status": "Submitted",
       "owner": "Alex Morgan",
       "description": "Major upgrade of Site X MES to add genealogy, improve SCADA integration, and introduce OEE dashboards. Largest single demand in the pipeline.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_005a",
@@ -1187,7 +1227,7 @@
               "shape": "skill",
               "skill_id": "skl_mom_mes",
               "level": "Specialist",
-              "notes": "Lead architect — must have done a full MES rollout",
+              "notes": "Lead architect \u00e2\u20ac\u201d must have done a full MES rollout",
               "hours_by_month": {
                 "2026-05": 40,
                 "2026-06": 40,
@@ -1293,8 +1333,8 @@
           ]
         }
       ],
-      "project_id": "prj_003",
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": "prj_003"
     },
     {
       "id": "dmd_006",
@@ -1302,8 +1342,7 @@
       "type": "NPD Demand",
       "status": "Submitted",
       "owner": "Ishani Bhatia",
-      "description": "New product introduction on Line Y — cross-theme demand spanning MOM workflow changes, MI&V instrumentation, and MBM model updates. Demonstrates the cross-theme composition.",
-      "parked_reason": null,
+      "description": "New product introduction on Line Y \u00e2\u20ac\u201d cross-theme demand spanning MOM workflow changes, MI&V instrumentation, and MBM model updates. Demonstrates the cross-theme composition.",
       "phases": [
         {
           "id": "phs_006a",
@@ -1423,8 +1462,8 @@
           ]
         }
       ],
-      "project_id": "prj_004",
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": "prj_004"
     },
     {
       "id": "dmd_007",
@@ -1432,8 +1471,7 @@
       "type": "Plant Project",
       "status": "Draft",
       "owner": "Alex Morgan",
-      "description": "Enhance genealogy capture at Plant A to support new regulatory traceability requirements. Being shaped — requirements still being gathered from Quality.",
-      "parked_reason": null,
+      "description": "Enhance genealogy capture at Plant A to support new regulatory traceability requirements. Being shaped \u00e2\u20ac\u201d requirements still being gathered from Quality.",
       "phases": [
         {
           "id": "phs_007a",
@@ -1458,8 +1496,8 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_008",
@@ -1468,7 +1506,6 @@
       "status": "Draft",
       "owner": "Fatima Al-Rashid",
       "description": "POC dashboard combining historian data and simulation output to predict maintenance needs on critical assets. Still being shaped with Reliability team.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_008a",
@@ -1523,17 +1560,16 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_009",
       "name": "Plant D MES Greenfield",
       "type": "Plant Project",
-      "status": "Parked",
+      "status": "Draft",
       "owner": "Priya Kumar",
       "description": "Greenfield MES deployment at new Plant D facility.",
-      "parked_reason": "Plant D construction delayed by 12 months; re-assess in Q2 2027 when civil works are complete.",
       "phases": [
         {
           "id": "phs_009a",
@@ -1591,17 +1627,16 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_010",
       "name": "Plant B Advanced Analytics",
       "type": "Plant Project",
-      "status": "Parked",
+      "status": "Draft",
       "owner": "James Whitfield",
       "description": "Advanced analytics layer on top of Plant B historian to support yield optimisation.",
-      "parked_reason": "Not resourceable within current 2026 plan. Plant B sponsor agreed to defer to 2027 and consider funding at next review.",
       "phases": [
         {
           "id": "phs_010a",
@@ -1642,17 +1677,16 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_bau_bau_001",
-      "name": "MES Super User — Plant A",
+      "name": "MES Super User \u00e2\u20ac\u201d Plant A",
       "type": "BAU",
       "status": "Allocated",
       "owner": "Alex Morgan",
       "description": "Day-to-day MES support for Plant A super users, batch troubleshooting, recipe queries.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_bau_001_1",
@@ -1693,17 +1727,16 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_bau_bau_002",
-      "name": "MES Super User — Plant B",
+      "name": "MES Super User \u00e2\u20ac\u201d Plant B",
       "type": "BAU",
       "status": "Allocated",
       "owner": "Priya Kumar",
       "description": "Day-to-day MES support for Plant B. Planned handoff to business super users through 2026.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_bau002_1",
@@ -1812,7 +1845,7 @@
               "shape": "skill",
               "skill_id": "skl_mom_mes",
               "level": "Basic",
-              "notes": "Super user support — steady residual",
+              "notes": "Super user support \u00e2\u20ac\u201d steady residual",
               "steady_state_hours": 5,
               "allocations": [
                 {
@@ -1826,8 +1859,8 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_bau_bau_003",
@@ -1836,7 +1869,6 @@
       "status": "Allocated",
       "owner": "James Whitfield",
       "description": "Tag management, historian health, data quality investigations.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_bau_003_1",
@@ -1871,8 +1903,8 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_bau_bau_004",
@@ -1881,7 +1913,6 @@
       "status": "Allocated",
       "owner": "Ben Carter",
       "description": "Dashboard fixes, report tweaks, ad-hoc reporting requests.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_bau_004_1",
@@ -1916,8 +1947,8 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_bau_bau_005",
@@ -1926,7 +1957,6 @@
       "status": "Allocated",
       "owner": "Marcus Vogel",
       "description": "Licence admin, tooling updates, model troubleshooting for existing simulation users.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_bau_005_1",
@@ -1961,17 +1991,16 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_npd_002",
-      "name": "NPD Trial Line A — MES Integration",
+      "name": "NPD Trial Line A \u00e2\u20ac\u201d MES Integration",
       "type": "NPD Demand",
       "status": "Submitted",
       "owner": "Daniel Okafor",
       "description": "Integration of MES genealogy and workflow coverage for the new NPD trial line in Plant A. Needed to unlock scaled production trials in Q4 2026.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_npd002_1",
@@ -2044,17 +2073,16 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_npd_003",
-      "name": "NPD Line C — Quality Reporting",
+      "name": "NPD Line C \u00e2\u20ac\u201d Quality Reporting",
       "type": "NPD Demand",
       "status": "Allocated",
       "owner": "Naomi Chen",
-      "description": "Quality reporting build-out for the NPD Line C rollout — dashboards and yield tracking for early-phase trials.",
-      "parked_reason": null,
+      "description": "Quality reporting build-out for the NPD Line C rollout \u00e2\u20ac\u201d dashboards and yield tracking for early-phase trials.",
       "phases": [
         {
           "id": "phs_npd003_1",
@@ -2119,17 +2147,16 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_npd_004",
-      "name": "NPD Product Family Z — Process Model",
+      "name": "NPD Product Family Z \u00e2\u20ac\u201d Process Model",
       "type": "NPD Demand",
       "status": "Draft",
       "owner": "Marcus Vogel",
       "description": "Process simulation model for the Product Family Z NPD programme. Still being scoped with R&D.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_npd004_1",
@@ -2170,8 +2197,8 @@
           ]
         }
       ],
-      "project_id": "prj_004",
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": "prj_004"
     },
     {
       "id": "dmd_stress_001",
@@ -2180,7 +2207,6 @@
       "status": "Approved",
       "owner": "David Lin",
       "description": "Full MES platform migration at Plant C. Approved but awaiting resource planning - heavy MOM Specialist requirement creates downstream capacity tension.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_stress001_1",
@@ -2247,17 +2273,16 @@
           ]
         }
       ],
-      "project_id": "prj_002",
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": "prj_002"
     },
     {
       "id": "dmd_stress_002",
-      "name": "Corporate Data Lake — MI&V Integration",
+      "name": "Corporate Data Lake \u00e2\u20ac\u201d MI&V Integration",
       "type": "Group Strategy Project",
       "status": "Submitted",
       "owner": "Elena Richter",
       "description": "Strategic integration of plant data into group-level analytics lake. Pending Prioritisation Board review. Heavy MI&V Specialist requirement.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_stress002_1",
@@ -2298,8 +2323,8 @@
           ]
         }
       ],
-      "project_id": "prj_005",
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": "prj_005"
     },
     {
       "id": "dmd_stress_003",
@@ -2308,7 +2333,6 @@
       "status": "Submitted",
       "owner": "Martin Hughes",
       "description": "Enhancement to OEE tracking at Plant A. Submitted for prioritisation. Would directly increase MOM demand in already-congested months.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_stress003_1",
@@ -2334,8 +2358,8 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_stress_004",
@@ -2344,7 +2368,6 @@
       "status": "PartiallyAllocated",
       "owner": "Priya Kumar",
       "description": "Rollout of genealogy & traceability tracking across plants. Priya partially allocated; further Advanced MOM capacity still needed.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_stress004_1",
@@ -2381,8 +2404,8 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_stress_005",
@@ -2391,7 +2414,6 @@
       "status": "Allocated",
       "owner": "Fatima Al-Rashid",
       "description": "Historian platform upgrade. Fatima leading; overlaps with her other MI&V commitments to test cross-project headroom tracking.",
-      "parked_reason": null,
       "phases": [
         {
           "id": "phs_stress005_1",
@@ -2428,17 +2450,16 @@
           ]
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     },
     {
       "id": "dmd_scoping_001",
       "name": "Plant A MES Line 6 Extension",
       "type": "Plant Project",
-      "status": "Scoping",
+      "status": "Draft",
       "owner": "Alex Morgan",
-      "description": "Extension of the Plant A MES to cover Line 6. Submitted for scoping — teams are being assigned to define the skill-shaped requirements.",
-      "parked_reason": null,
+      "description": "Extension of the Plant A MES to cover Line 6. Submitted for scoping \u00e2\u20ac\u201d teams are being assigned to define the skill-shaped requirements.",
       "phases": [
         {
           "id": "phs_scoping_001",
@@ -2450,8 +2471,8 @@
           "requirements": []
         }
       ],
-      "project_id": null,
-      "createdUnderFunctionId": "func_001"
+      "function_id": "func_001",
+      "parent_project_id": null
     }
   ],
   "programmes": [
@@ -2480,42 +2501,66 @@
       "name": "Plant B MES Phase 2",
       "programme_id": "prg_001",
       "description": "Extension of MES Phase 1 at Plant B covering Lines 3-5, with genealogy and SCADA integration.",
-      "active": true
+      "active": true,
+      "owner": "",
+      "type": "Group Strategy Project",
+      "status": "Draft",
+      "phases": []
     },
     {
       "id": "prj_002",
       "name": "Plant C MES Platform",
       "programme_id": "prg_001",
       "description": "Full MES platform migration at Plant C. Includes vendor-supported hardware commissioning.",
-      "active": true
+      "active": true,
+      "owner": "",
+      "type": "Group Strategy Project",
+      "status": "Draft",
+      "phases": []
     },
     {
       "id": "prj_003",
       "name": "Site X MES Upgrade",
       "programme_id": "prg_001",
       "description": "MES upgrade at Site X covering new line integration and workflow re-engineering.",
-      "active": true
+      "active": true,
+      "owner": "",
+      "type": "Group Strategy Project",
+      "status": "Draft",
+      "phases": []
     },
     {
       "id": "prj_004",
       "name": "Line Y Digital Twin",
       "programme_id": "prg_002",
       "description": "Pilot digital twin for Line Y covering thermal and throughput behaviour.",
-      "active": true
+      "active": true,
+      "owner": "",
+      "type": "Group Strategy Project",
+      "status": "Draft",
+      "phases": []
     },
     {
       "id": "prj_005",
       "name": "Corporate Data Lake",
       "programme_id": "prg_003",
       "description": "Strategic integration of plant data into the group-level analytics data lake.",
-      "active": true
+      "active": true,
+      "owner": "",
+      "type": "Group Strategy Project",
+      "status": "Draft",
+      "phases": []
     },
     {
       "id": "prj_006",
       "name": "Group OEE Standard",
       "programme_id": "prg_003",
       "description": "Group-wide OEE reporting standardisation covering five plants.",
-      "active": true
+      "active": true,
+      "owner": "",
+      "type": "Group Strategy Project",
+      "status": "Draft",
+      "phases": []
     }
   ],
   "providers": [
@@ -2542,26 +2587,6 @@
     {
       "id": "prv_006",
       "name": "Other"
-    }
-  ],
-  "demand_team_assignments": [
-    {
-      "id": "dta_001",
-      "demandId": "dmd_scoping_001",
-      "phaseId": "phs_scoping_001",
-      "teamId": "team_001",
-      "confirmed": true,
-      "confirmedBy": "James Whitfield",
-      "confirmedAt": "2026-04-18T09:00:00Z"
-    },
-    {
-      "id": "dta_002",
-      "demandId": "dmd_scoping_001",
-      "phaseId": "phs_scoping_001",
-      "teamId": "team_005",
-      "confirmed": false,
-      "confirmedBy": null,
-      "confirmedAt": null
     }
   ],
   "external_resource_requirements": [
@@ -2614,5 +2639,6 @@
       "hours_by_month": {},
       "steady_state_hours": 10
     }
-  ]
+  ],
+  "project_team_assignments": []
 }

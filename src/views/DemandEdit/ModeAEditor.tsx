@@ -1,6 +1,5 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
-import { createPortal } from 'react-dom'
-import { Plus, Trash2, ChevronDown, ChevronRight, CheckCircle2, X } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { parseISO, isAfter, differenceInMonths, addMonths, format } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
 import type { DemandStatus, Phase, Requirement, FundingSource, Level, SkillRequirement, ExternalResourceRequirement } from '../../types'
@@ -567,130 +566,13 @@ interface PhaseEditorProps {
   demandStatus?: DemandStatus
 }
 
-export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtReqsChange, demandId, demandStatus }: PhaseEditorProps) {
+export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtReqsChange }: PhaseEditorProps) {
   const [open, setOpen] = useState(true)
-  const [teamSearch, setTeamSearch] = useState('')
-  const [teamPickerOpen, setTeamPickerOpen] = useState(false)
-  const teamInputRef = useRef<HTMLInputElement>(null)
-  const teamDropdownRef = useRef<HTMLDivElement>(null)
-  const [teamDropdownStyle, setTeamDropdownStyle] = useState<React.CSSProperties>({})
   const store = useAppStore()
 
-  // Teams visible from Draft onwards (§4.5.2 v1.17 — changed from Scoping onwards)
-  const showTeamsSection = (
-    demandStatus === 'Draft' || demandStatus === 'Scoping' ||
-    demandStatus === 'Submitted' || demandStatus === 'Parked'
-  ) && !!demandId
-  // Editable in Draft and Scoping; read-only in Submitted and Parked
-  const isTeamsEditable = (demandStatus === 'Draft' || demandStatus === 'Scoping') && !!demandId
-  const isScoping = demandStatus === 'Scoping' && !!demandId
-  // Requirements visible from Scoping onwards (hidden in Draft per §4.5.2 v1.17)
-  const showRequirements = demandStatus !== 'Draft'
+  // v1.18: requirements visible in all statuses for direct Demands
+  const showRequirements = true
 
-  const phaseAssignments = showTeamsSection
-    ? store.demandTeamAssignments.filter(a => a.demandId === demandId && a.phaseId === phase.id)
-    : []
-  const assignedTeamIds = new Set(phaseAssignments.map(a => a.teamId))
-  const assignedTeams = store.teams.filter(t => assignedTeamIds.has(t.id))
-
-  // Sorted assigned teams by Function name then team name
-  const sortedAssignedTeams = useMemo(() =>
-    [...assignedTeams].sort((a, b) => {
-      const fnA = store.functions.find(f => f.id === a.functionId)?.name ?? ''
-      const fnB = store.functions.find(f => f.id === b.functionId)?.name ?? ''
-      return fnA !== fnB ? fnA.localeCompare(fnB) : a.name.localeCompare(b.name)
-    }),
-    [assignedTeams, store.functions]
-  )
-
-  // Picker dropdown: groups unassigned active teams by Function, filtered by search
-  const pickerGroups = useMemo(() => {
-    if (!isTeamsEditable) return []
-    const searchLower = teamSearch.toLowerCase()
-    const unassigned = store.teams.filter(t => t.active && !assignedTeamIds.has(t.id))
-    const filtered = unassigned.filter(t => {
-      if (!searchLower) return true
-      const fn = store.functions.find(f => f.id === t.functionId)
-      return t.name.toLowerCase().includes(searchLower) || (fn?.name.toLowerCase().includes(searchLower) ?? false)
-    })
-    const groups = new Map<string, { fnName: string; fnId: string; teams: typeof filtered }>()
-    for (const team of filtered) {
-      const fn = store.functions.find(f => f.id === team.functionId)
-      const key = team.functionId
-      if (!groups.has(key)) groups.set(key, { fnName: fn?.name ?? 'Unknown Function', fnId: key, teams: [] })
-      groups.get(key)!.teams.push(team)
-    }
-    return [...groups.values()].sort((a, b) => a.fnName.localeCompare(b.fnName))
-  }, [teamSearch, store.teams, store.functions, assignedTeamIds, isTeamsEditable])
-
-  // Portal positioning for team picker dropdown
-  useEffect(() => {
-    if (!teamPickerOpen) return
-    function updatePos() {
-      if (!teamInputRef.current) return
-      const rect = teamInputRef.current.getBoundingClientRect()
-      setTeamDropdownStyle({
-        position: 'fixed',
-        top: rect.bottom + 2,
-        left: rect.left,
-        width: rect.width,
-        zIndex: 9999,
-      })
-    }
-    updatePos()
-    window.addEventListener('scroll', updatePos, true)
-    window.addEventListener('resize', updatePos)
-    return () => {
-      window.removeEventListener('scroll', updatePos, true)
-      window.removeEventListener('resize', updatePos)
-    }
-  }, [teamPickerOpen])
-
-  // Close picker on outside click
-  useEffect(() => {
-    if (!teamPickerOpen) return
-    function handler(e: MouseEvent) {
-      const target = e.target as Node
-      if (teamInputRef.current?.contains(target) || teamDropdownRef.current?.contains(target)) return
-      setTeamPickerOpen(false)
-      setTeamSearch('')
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [teamPickerOpen])
-
-  function handleTeamSelect(teamId: string) {
-    if (!demandId) return
-    store.addDemandTeamAssignment({ demandId, phaseId: phase.id, teamId, confirmed: false, confirmedBy: null, confirmedAt: null })
-    setTeamSearch('')
-    setTeamPickerOpen(false)
-  }
-
-  function handleTeamRemove(teamId: string) {
-    if (!demandId) return
-    const existing = phaseAssignments.find(a => a.teamId === teamId)
-    if (!existing) return
-    const reqCount = phase.requirements.filter(r => r.owningTeamId === teamId).length
-    if (
-      reqCount > 0 &&
-      !window.confirm(`This team has ${reqCount} requirement${reqCount !== 1 ? 's' : ''} on this phase. Removing the team will unlink those requirements but not delete them. Continue?`)
-    ) return
-    store.deleteDemandTeamAssignment(existing.id)
-    if (reqCount > 0) {
-      onChange({ ...phase, requirements: phase.requirements.map(r => r.owningTeamId === teamId ? { ...r, owningTeamId: null } : r) })
-    }
-  }
-
-  function handleConfirm(teamId: string) {
-    if (!demandId) return
-    const assignment = phaseAssignments.find(a => a.teamId === teamId)
-    if (!assignment) return
-    store.updateDemandTeamAssignment(assignment.id, {
-      confirmed: true,
-      confirmedBy: 'Team Lead',
-      confirmedAt: new Date().toISOString(),
-    })
-  }
 
   const isIndefinite = phase.end_month === null
   const months = useMemo(() => getMonths(phase.start_month, phase.end_month), [phase.start_month, phase.end_month])
@@ -737,8 +619,6 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
   const dateLabel = isIndefinite
     ? `${phase.start_month || '?'} → ongoing`
     : `${phase.start_month || '?'} → ${phase.end_month || '?'}`
-
-  const showPickerDropdown = teamPickerOpen && (pickerGroups.length > 0 || (teamSearch.length > 0 && pickerGroups.length === 0))
 
   return (
     <div className="border border-border rounded overflow-hidden">
@@ -792,113 +672,7 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
           </div>
           <Input label="Funding Notes" value={phase.funding_notes} onChange={e => onChange({ ...phase, funding_notes: e.target.value })} placeholder="e.g. IS-2026-04" />
 
-          {/* Teams Assigned — visible from Draft onwards (§4.5.2 v1.17) */}
-          {showTeamsSection && (
-            <div className="border border-purple-200 rounded p-2.5 bg-purple-50/40">
-              <span className="text-xs font-medium text-purple-700 uppercase tracking-wide block mb-2">Teams Assigned</span>
-
-              {/* Searchable combobox — editable in Draft and Scoping only */}
-              {isTeamsEditable && (
-                <div className="relative mb-2">
-                  <input
-                    ref={teamInputRef}
-                    type="text"
-                    value={teamSearch}
-                    onChange={e => { setTeamSearch(e.target.value); setTeamPickerOpen(true) }}
-                    onFocus={() => setTeamPickerOpen(true)}
-                    placeholder="Add a team to this phase…"
-                    className="w-full text-xs border border-border rounded px-2 py-1.5 bg-white placeholder:text-gray-400"
-                  />
-                  {showPickerDropdown && createPortal(
-                    <div
-                      ref={teamDropdownRef}
-                      style={{ ...teamDropdownStyle, maxHeight: 200, overflowY: 'auto' }}
-                      className="bg-white border border-border rounded shadow-lg"
-                    >
-                      {pickerGroups.length === 0 && (
-                        <div className="px-3 py-2 text-xs text-gray-400 italic">No teams match "{teamSearch}"</div>
-                      )}
-                      {pickerGroups.map(group => (
-                        <div key={group.fnId}>
-                          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 bg-gray-50 sticky top-0">
-                            {group.fnName}
-                          </div>
-                          {group.teams.map(team => (
-                            <button
-                              key={team.id}
-                              type="button"
-                              onMouseDown={e => { e.preventDefault(); handleTeamSelect(team.id) }}
-                              className="w-full flex items-center justify-between px-3 py-1.5 text-xs hover:bg-purple-50 text-left"
-                            >
-                              <span className="font-medium text-near-black">{team.name}</span>
-                              <span className="text-gray-400 text-[10px] ml-2">{group.fnName}</span>
-                            </button>
-                          ))}
-                        </div>
-                      ))}
-                    </div>,
-                    document.body
-                  )}
-                </div>
-              )}
-
-              {/* Assigned list */}
-              {sortedAssignedTeams.length === 0 ? (
-                <p className="text-xs text-gray-400 italic">
-                  {isTeamsEditable
-                    ? 'No teams assigned. Add at least one team before submitting for scoping.'
-                    : 'No teams assigned.'}
-                </p>
-              ) : (
-                <div className="flex flex-col divide-y divide-purple-100">
-                  {sortedAssignedTeams.map(team => {
-                    const fn = store.functions.find(f => f.id === team.functionId)
-                    const fnColor = getFnColor(team.functionId, store.functions)
-                    return (
-                      <div key={team.id} className="flex items-center gap-2 py-1.5 text-xs first:pt-0 last:pb-0">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: fnColor }} />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-near-black truncate">{team.name}</div>
-                          {fn && <div className="text-[10px] text-gray-400 leading-tight">{fn.name}</div>}
-                        </div>
-                        {isTeamsEditable && (
-                          <button
-                            type="button"
-                            onClick={() => handleTeamRemove(team.id)}
-                            className="text-gray-300 hover:text-accent-red transition-colors shrink-0"
-                          >
-                            <X size={11} />
-                          </button>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* Confirm strip — Scoping only, below the assigned list */}
-              {isScoping && phaseAssignments.filter(a => !a.confirmed).length > 0 && (
-                <div className="mt-2 pt-2 border-t border-purple-200 flex flex-col gap-1.5">
-                  {phaseAssignments.filter(a => !a.confirmed).map(a => {
-                    const team = store.teams.find(t => t.id === a.teamId)
-                    return (
-                      <button
-                        key={a.id}
-                        type="button"
-                        onClick={() => handleConfirm(a.teamId)}
-                        className="flex items-center gap-1 text-xs font-medium text-purple-700 hover:text-purple-900 border border-purple-300 rounded px-2 py-1 bg-white hover:bg-purple-50 transition-colors self-start"
-                      >
-                        <CheckCircle2 size={11} />
-                        Confirm requirements for {team?.name ?? a.teamId}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Internal requirements — hidden in Draft (§4.5.2 v1.17) */}
+          {/* Internal requirements */}
           {showRequirements && (
             <div>
               <div className="flex items-center justify-between mb-1.5">
@@ -918,7 +692,6 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
                       req={req}
                       onChange={r => updateReq(req.id, r)}
                       onDelete={() => deleteReq(req.id)}
-                      assignedTeams={assignedTeams}
                     />
                   ) : (
                     <RequirementRow
@@ -927,7 +700,6 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
                       months={months}
                       onChange={r => updateReq(req.id, r)}
                       onDelete={() => deleteReq(req.id)}
-                      assignedTeams={assignedTeams}
                     />
                   )
                 ))}
@@ -935,7 +707,7 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
             </div>
           )}
 
-          {/* External Resource Requirements — hidden in Draft (§4.5.2 v1.17) */}
+          {/* External Resource Requirements */}
           {showRequirements && (
             <div className="border-t border-dashed border-amber-200 pt-2">
               <div className="flex items-center justify-between mb-1.5">

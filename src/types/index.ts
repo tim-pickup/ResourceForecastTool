@@ -1,5 +1,6 @@
 export type Level = 'Basic' | 'Advanced' | 'Specialist'
-export type DemandStatus = 'Draft' | 'Scoping' | 'Submitted' | 'Approved' | 'PartiallyAllocated' | 'Allocated' | 'Parked' | 'Closed'
+export type DemandStatus = 'Draft' | 'Submitted' | 'Approved' | 'PartiallyAllocated' | 'Allocated'
+export type ProjectStatus = 'Draft' | 'Scoping' | 'Submitted' | 'Approved' | 'Allocated'
 export type DemandType = 'Group Strategy Project' | 'Plant Project' | 'NPD Demand' | 'BAU'
 export type FundingSource = 'Investment Scheme' | 'Plant/Sector Allocation' | 'Mixed'
 
@@ -19,15 +20,19 @@ export interface Team {
   active: boolean
 }
 
-export interface DemandTeamAssignment {
+// Renamed from DemandTeamAssignment in v1.18 — FK now points at Project, not Demand
+export interface ProjectTeamAssignment {
   id: string
-  demandId: string
+  projectId: string    // was demandId
   phaseId: string
   teamId: string
   confirmed: boolean
   confirmedBy: string | null
   confirmedAt: string | null
 }
+
+// Keep old name as alias so existing imports don't all break at once
+export type DemandTeamAssignment = ProjectTeamAssignment
 
 export interface Domain {
   id: string
@@ -98,12 +103,9 @@ export interface DemandItem {
   status: DemandStatus
   owner: string
   description: string
-  parked_reason: string | null
-  previous_status: DemandStatus | null
-  closed_at: string | null
-  phases: Phase[]
-  project_id: string | null  // null = unaligned
-  createdUnderFunctionId: string | null
+  function_id: string          // required — single Function this Demand belongs to
+  parent_project_id: string | null  // null for direct Demands
+  phases: Phase[]              // direct Demands own their phases; Project-spawned present Project's phases
 }
 
 // ─── v1.14 entities ───────────────────────────────────────────────────────────
@@ -115,11 +117,16 @@ export interface Programme {
   active: boolean
 }
 
+// Upgraded in v1.18: Project is now the planning vehicle (holds phases + requirements)
 export interface Project {
   id: string
-  name: string       // unique within parent Programme, case-insensitive
-  programme_id: string
+  name: string
+  owner: string
+  type: DemandType
+  programme_id: string | null  // nullable — a Project may be unaligned (no Programme)
   description: string
+  status: ProjectStatus
+  phases: Phase[]    // phases and requirements live on the Project for spawned Demands
   active: boolean
 }
 
@@ -147,7 +154,7 @@ export interface AppState {
   activeFunctionId: string | null
   functions: AppFunction[]
   teams: Team[]
-  demandTeamAssignments: DemandTeamAssignment[]
+  projectTeamAssignments: ProjectTeamAssignment[]  // renamed from demandTeamAssignments
   domains: Domain[]
   skills: Skill[]
   people: Person[]
@@ -184,18 +191,16 @@ export function derivedPrimaryDomain(item: Pick<DemandItem, 'phases'>, domains: 
   return domains.find(d => d.id === topDomainId) ?? null
 }
 
-// State machine — valid user-driven transitions (not including system auto-transitions)
-export const VALID_TRANSITIONS: Partial<Record<DemandStatus, DemandStatus[]>> = {
-  Draft: ['Scoping'],
-  Scoping: ['Submitted', 'Draft', 'Parked', 'Closed'],
-  Submitted: ['Draft', 'Approved', 'Parked'],
-  Approved: ['Submitted', 'Parked', 'Closed'],
-  PartiallyAllocated: ['Parked', 'Closed'],
-  Allocated: ['Parked', 'Closed'],
-  Parked: ['Submitted'],
-  Closed: [],
+// User-driven Demand state machine transitions (system auto-transitions excluded)
+// v1.18: Draft → Submitted (direct Demands), Submitted → Approved
+export const VALID_DEMAND_TRANSITIONS: Partial<Record<DemandStatus, DemandStatus[]>> = {
+  Draft: ['Submitted'],
+  Submitted: ['Approved'],
 }
 
+// Alias for backward compatibility with existing callers
+export const VALID_TRANSITIONS = VALID_DEMAND_TRANSITIONS
+
 export function isValidTransition(from: DemandStatus, to: DemandStatus): boolean {
-  return VALID_TRANSITIONS[from]?.includes(to) ?? false
+  return VALID_DEMAND_TRANSITIONS[from]?.includes(to) ?? false
 }

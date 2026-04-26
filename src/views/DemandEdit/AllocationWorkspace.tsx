@@ -542,8 +542,8 @@ export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRev
     }
     return [...fnIds].map(id => store.functions.find(f => f.id === id)).filter(Boolean)
   })()
-  const project = draft.project_id ? store.projects.find(p => p.id === draft.project_id) : null
-  const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
+  const project = draft.parent_project_id ? store.projects.find(p => p.id === draft.parent_project_id) : null
+  const programme = project?.programme_id ? store.programmes.find(p => p.id === project.programme_id) : null
 
   const { totalReqMonths, coveredMonths } = useMemo(() => {
     let total = 0; let covered = 0
@@ -602,27 +602,15 @@ export function AllocationWorkspace({ draft, demandItemId, onChange, onParkToRev
           </>}
           {draft.owner && <><span className="text-gray-400">·</span><span className="text-gray-500">{draft.owner}</span></>}
         </div>
-        {/* Project alignment — editable even in Mode B (§2.1.1 explicit exception) */}
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-gray-400">Project:</span>
-          <select
-            value={draft.project_id ?? ''}
-            onChange={e => onChange({ ...draft, project_id: e.target.value || null })}
-            className="text-xs border border-border rounded px-1.5 py-0.5 bg-white"
-          >
-            <option value="">Unaligned</option>
-            {store.programmes.filter(p => p.active).map(prog => (
-              <optgroup key={prog.id} label={prog.name}>
-                {store.projects.filter(p => p.programme_id === prog.id && p.active).map(proj => (
-                  <option key={proj.id} value={proj.id}>{proj.name}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-          {programme && project && (
-            <span className="text-gray-400">{programme.name} › {project.name}</span>
-          )}
-        </div>
+        {/* Parent Project (read-only in Mode B) */}
+        {project && (
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-gray-400">Project:</span>
+            <span className="text-gray-500">
+              {programme ? `${programme.name} › ` : ''}{project.name}
+            </span>
+          </div>
+        )}
         <div className="text-gray-400 text-[10px]">
           {draft.phases.length} phase{draft.phases.length !== 1 ? 's' : ''} · {draft.phases.map((p, i) => {
             const label = p.end_month === null ? `${p.start_month} onwards` : `${p.start_month}–${p.end_month}`

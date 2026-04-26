@@ -13,18 +13,15 @@ import { clsx } from 'clsx'
 import { getCurrentMonth, generateMonths } from '../../utils/capacity'
 import { project_internal_hours, project_external_hours } from '../../lib/capacity'
 
-// Active statuses — Closed items live in Archive, not here
-const ACTIVE_STATUSES: DemandStatus[] = ['Draft', 'Scoping', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated', 'Parked']
+// v1.18 Demand statuses (Scoping/Parked/Closed removed)
+const ACTIVE_STATUSES: DemandStatus[] = ['Draft', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated']
 
 const COLUMN_COLORS: Record<DemandStatus, string> = {
   Draft: 'bg-gray-50',
-  Scoping: 'bg-purple-50',
   Submitted: 'bg-yellow-50',
   Approved: 'bg-blue-50',
   PartiallyAllocated: 'bg-indigo-50',
   Allocated: 'bg-green-50',
-  Parked: 'bg-orange-50',
-  Closed: 'bg-gray-50',
 }
 
 type SortKey = 'name' | 'type' | 'status' | 'owner' | 'programme' | 'project'
@@ -36,22 +33,8 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: item.id })
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
   const store = useAppStore()
-  const project = item.project_id ? store.projects.find(p => p.id === item.project_id) : null
-  const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
-
-  // Confirmation strip for Scoping items: one chip per team (aggregate across phases)
-  const scopingStrip = item.status === 'Scoping' ? (() => {
-    const assignments = store.demandTeamAssignments.filter(a => a.demandId === item.id)
-    const byTeam = new Map<string, boolean>()
-    for (const a of assignments) {
-      byTeam.set(a.teamId, (byTeam.get(a.teamId) ?? true) && a.confirmed)
-    }
-    return [...byTeam.entries()].map(([teamId, confirmed]) => ({
-      teamId,
-      confirmed,
-      name: store.teams.find(t => t.id === teamId)?.name ?? teamId,
-    }))
-  })() : null
+  const project = item.parent_project_id ? store.projects.find(p => p.id === item.parent_project_id) : null
+  const programme = project?.programme_id ? store.programmes.find(p => p.id === project.programme_id) : null
 
   return (
     <div
@@ -78,23 +61,6 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
             <div className="text-[10px] text-gray-300 italic mt-0.5">Unaligned</div>
           )}
           <div className="text-xs text-gray-400">Owner: {item.owner || '—'}</div>
-          {scopingStrip && scopingStrip.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1.5 pt-1.5 border-t border-purple-100">
-              {scopingStrip.map(({ teamId, confirmed, name }) => (
-                <span
-                  key={teamId}
-                  className={clsx(
-                    'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium',
-                    confirmed
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-amber-100 text-amber-700'
-                  )}
-                >
-                  {name}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -148,7 +114,7 @@ function FunctionsInvolvedChips({ item, functions, domains, skills }: {
 
 function TableRow({ item, projectMap, programmeMap, phasesWithExt, functions, domains, skills, onSelect }: {
   item: DemandItem
-  projectMap: Map<string, { id: string; name: string; programme_id: string; active: boolean; description: string }>
+  projectMap: Map<string, { id: string; name: string; programme_id: string | null; active: boolean; description: string }>
   programmeMap: Map<string, { id: string; name: string; description: string; active: boolean }>
   phasesWithExt: Set<string>
   functions: AppFunction[]
@@ -157,8 +123,8 @@ function TableRow({ item, projectMap, programmeMap, phasesWithExt, functions, do
   onSelect: (id: string) => void
 }) {
   const store = useAppStore()
-  const project = item.project_id ? projectMap.get(item.project_id) : null
-  const programme = project ? programmeMap.get(project.programme_id) : null
+  const project = item.parent_project_id ? projectMap.get(item.parent_project_id) : null
+  const programme = project?.programme_id ? programmeMap.get(project.programme_id) : null
   const extHrs = store.externalResourceRequirements
     .filter(r => item.phases.some(p => p.id === r.phase_id))
     .reduce((s, ext) => {
@@ -297,7 +263,7 @@ export default function DemandDiscovery() {
         const newFnSkillIds = new Set(store.skills.filter(s => newFnDomainIds.has(s.domain_id)).map(s => s.id))
         const touchesNewFn = item.phases.some(ph => ph.requirements.some(r => newFnSkillIds.has(r.skill_id)))
         const hasAnyReqs = item.phases.some(ph => ph.requirements.length > 0)
-        const shouldClose = hasAnyReqs ? !touchesNewFn : item.createdUnderFunctionId !== activeFunctionId
+        const shouldClose = hasAnyReqs ? !touchesNewFn : item.function_id !== activeFunctionId
         if (shouldClose) setDrawerId(null)
       }
     }
@@ -329,11 +295,8 @@ export default function DemandDiscovery() {
     [store.domains, activeFunctionId]
   )
 
-  // Active items only (exclude Closed)
-  const activeItems = useMemo(() =>
-    store.demandItems.filter(d => d.status !== 'Closed'),
-    [store.demandItems]
-  )
+  // All demand items (v1.18: no Closed/Parked statuses to exclude)
+  const activeItems = useMemo(() => store.demandItems, [store.demandItems])
 
   // §4.9 active-Function lens: show demands touching active Function's skills,
   // or created-under the active Function if they have no requirements yet
@@ -344,7 +307,7 @@ export default function DemandDiscovery() {
       if (hasReqs) {
         return item.phases.some(ph => ph.requirements.some(r => activeFnSkillIds.has(r.skill_id)))
       }
-      return item.createdUnderFunctionId === activeFunctionId
+      return item.function_id === activeFunctionId
     })
   }, [activeItems, activeFunctionId, activeFnSkillIds])
 
@@ -373,9 +336,9 @@ export default function DemandDiscovery() {
     }
     if (filterProgramme) {
       const projIds = new Set(store.projects.filter(p => p.programme_id === filterProgramme).map(p => p.id))
-      items = items.filter(d => d.project_id && projIds.has(d.project_id))
+      items = items.filter(d => d.parent_project_id && projIds.has(d.parent_project_id))
     }
-    if (filterProject) items = items.filter(d => d.project_id === filterProject)
+    if (filterProject) items = items.filter(d => d.parent_project_id === filterProject)
     if (filterHasExternal) items = items.filter(d => demandHasExternal(d))
     if (search) {
       const q = search.toLowerCase()
@@ -392,8 +355,8 @@ export default function DemandDiscovery() {
       else if (sortKey === 'type') { av = a.type; bv = b.type }
       else if (sortKey === 'status') { av = a.status; bv = b.status }
       else if (sortKey === 'owner') { av = a.owner; bv = b.owner }
-      else if (sortKey === 'programme') { av = programmeMap.get(projectMap.get(a.project_id ?? '')?.programme_id ?? '')?.name ?? ''; bv = programmeMap.get(projectMap.get(b.project_id ?? '')?.programme_id ?? '')?.name ?? '' }
-      else if (sortKey === 'project') { av = projectMap.get(a.project_id ?? '')?.name ?? ''; bv = projectMap.get(b.project_id ?? '')?.name ?? '' }
+      else if (sortKey === 'programme') { av = programmeMap.get(projectMap.get(a.parent_project_id ?? '')?.programme_id ?? '')?.name ?? ''; bv = programmeMap.get(projectMap.get(b.parent_project_id ?? '')?.programme_id ?? '')?.name ?? '' }
+      else if (sortKey === 'project') { av = projectMap.get(a.parent_project_id ?? '')?.name ?? ''; bv = projectMap.get(b.parent_project_id ?? '')?.name ?? '' }
       return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
     })
     return items
@@ -422,9 +385,9 @@ export default function DemandDiscovery() {
     }
     if (filterProgramme) {
       const projIds = new Set(store.projects.filter(p => p.programme_id === filterProgramme).map(p => p.id))
-      if (!item.project_id || !projIds.has(item.project_id)) return false
+      if (!item.parent_project_id || !projIds.has(item.parent_project_id)) return false
     }
-    if (filterProject && item.project_id !== filterProject) return false
+    if (filterProject && item.parent_project_id !== filterProject) return false
     if (filterHasExternal && !demandHasExternal(item)) return false
     return true
   }
@@ -443,9 +406,7 @@ export default function DemandDiscovery() {
       return
     }
 
-    const updates: Partial<DemandItem> = { status: newStatus }
-    if (newStatus === 'Parked') updates.parked_reason = null
-    store.updateDemandItem(itemId, updates)
+    store.updateDemandItem(itemId, { status: newStatus })
 
     // If the destination status is filtered out, show a toast
     if (filterStatus && filterStatus !== newStatus) {
@@ -525,7 +486,6 @@ export default function DemandDiscovery() {
         )}
 
         <div className="flex-1" />
-        <Button size="sm" variant="ghost" onClick={() => navigate('/archive')}>Archive</Button>
         <Button size="sm" variant="primary" onClick={() => navigate('/manage-demand/new')}>
           <Plus size={12} /> New Demand
         </Button>
@@ -586,7 +546,7 @@ export default function DemandDiscovery() {
                 if (groupBy === 'project') {
                   const groups = new Map<string | null, DemandItem[]>()
                   for (const item of filtered) {
-                    const key = item.project_id ?? null
+                    const key = item.parent_project_id ?? null
                     const arr = groups.get(key) ?? []
                     arr.push(item)
                     groups.set(key, arr)
@@ -595,7 +555,7 @@ export default function DemandDiscovery() {
                   for (const [projId, items] of groups) {
                     if (projId === null) continue
                     const proj = projectMap.get(projId)
-                    const prog = proj ? programmeMap.get(proj.programme_id) : undefined
+                    const prog = proj?.programme_id ? programmeMap.get(proj.programme_id) : undefined
                     const intHrs = HORIZON.reduce((s, m) => s + project_internal_hours(projId, m, appState), 0)
                     const extHrs = HORIZON.reduce((s, m) => s + project_external_hours(projId, m, appState), 0)
                     rows.push(
@@ -630,7 +590,7 @@ export default function DemandDiscovery() {
                 // groupBy === 'programme'
                 const groups = new Map<string | null, DemandItem[]>()
                 for (const item of filtered) {
-                  const proj = item.project_id ? projectMap.get(item.project_id) : null
+                  const proj = item.parent_project_id ? projectMap.get(item.parent_project_id) : null
                   const key = proj?.programme_id ?? null
                   const arr = groups.get(key) ?? []
                   arr.push(item)

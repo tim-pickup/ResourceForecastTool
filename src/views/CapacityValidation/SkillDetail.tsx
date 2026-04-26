@@ -256,8 +256,8 @@ const DEMAND_TYPE_COLOR: Record<DemandType, string> = {
   'Group Strategy Project':  DEMAND_COLORS.strategy,
 }
 
-const STATUS_ORDER: Record<DemandStatus, number> = {
-  Allocated: 0, PartiallyAllocated: 1, Approved: 2, Submitted: 3, Scoping: 4, Draft: 5, Parked: 6, Closed: 7,
+const STATUS_ORDER: Partial<Record<DemandStatus, number>> = {
+  Allocated: 0, PartiallyAllocated: 1, Approved: 2, Submitted: 3, Draft: 4,
 }
 
 const STATUS_LABEL: Partial<Record<DemandStatus, string>> = {
@@ -266,8 +266,6 @@ const STATUS_LABEL: Partial<Record<DemandStatus, string>> = {
   Approved: 'Appr',
   Submitted: 'Sub',
   Draft: 'Draft',
-  Parked: 'Parked',
-  Closed: 'Closed',
 }
 
 function getSkillMonthRuns(
@@ -329,7 +327,7 @@ function DemandSkillGantt({
   )
   const [levelFilter, setLevelFilter] = useState<Level | null>(null)
 
-  const ALL_STATUSES: DemandStatus[] = ['Draft', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated', 'Parked']
+  const ALL_STATUSES: DemandStatus[] = ['Draft', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated']
   const ALL_TYPES: DemandType[] = ['Group Strategy Project', 'Plant Project', 'NPD Demand', 'BAU']
   const ALL_LEVELS: Array<Level | null> = [null, 'Basic', 'Advanced', 'Specialist']
 
@@ -351,7 +349,7 @@ function DemandSkillGantt({
       const aStart = Math.min(...a.runs.map(r => r.startIdx))
       const bStart = Math.min(...b.runs.map(r => r.startIdx))
       if (aStart !== bStart) return aStart - bStart
-      return STATUS_ORDER[a.item.status] - STATUS_ORDER[b.item.status]
+      return (STATUS_ORDER[a.item.status] ?? 99) - (STATUS_ORDER[b.item.status] ?? 99)
     })
 
     return result

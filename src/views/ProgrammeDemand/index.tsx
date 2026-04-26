@@ -399,9 +399,9 @@ function SidePanel({
   const qualifying = useMemo(() => {
     return demandItems.filter(item => {
       if (!statusSet.has(item.status) && item.status !== 'Submitted') return false
-      if (panelState.projectId && item.project_id !== panelState.projectId) return false
+      if (panelState.projectId && item.parent_project_id !== panelState.projectId) return false
       if (panelState.programmeId && !panelState.projectId) {
-        const project = projects.find(p => p.id === item.project_id)
+        const project = projects.find(p => p.id === item.parent_project_id)
         if (!project || project.programme_id !== panelState.programmeId) return false
       }
       return item.phases.some(ph => {
@@ -428,8 +428,8 @@ function SidePanel({
         ) : (
           <ul className="divide-y divide-border">
             {qualifying.map(item => {
-              const project = projects.find(p => p.id === item.project_id)
-              const programme = project ? programmes.find(pr => pr.id === project.programme_id) : null
+              const project = projects.find(p => p.id === item.parent_project_id)
+              const programme = project?.programme_id ? programmes.find(pr => pr.id === project.programme_id) : null
               return (
                 <li key={item.id}>
                   <button
@@ -468,7 +468,7 @@ function UnalignedCard({
   const functions = useAppStore(s => s.functions)
   const statusSet = includeSubmitted ? WITH_SUBMITTED_SET : BASE_STATUS_SET
   const hasUnaligned = useMemo(() =>
-    demandItems.some(d => d.project_id === null && d.status !== 'Parked' && d.status !== 'Closed'),
+    demandItems.some(d => d.parent_project_id === null),
     [demandItems]
   )
   if (!hasUnaligned) return null
@@ -476,7 +476,7 @@ function UnalignedCard({
   const getUnalignedFunding = (month: string, ss: ReadonlySet<DemandStatus>): DemandByFundingResult => {
     const result: DemandByFundingResult = { 'Investment Scheme': 0, 'Plant/Sector Allocation': 0, 'Mixed': 0 }
     for (const item of demandItems) {
-      if (item.project_id !== null) continue
+      if (item.parent_project_id !== null) continue
       if (!ss.has(item.status)) continue
       for (const phase of item.phases) {
         if (!(month >= phase.start_month && (phase.end_month === null || month <= phase.end_month))) continue
@@ -495,7 +495,7 @@ function UnalignedCard({
     const fnMap = new Map(functions.map(f => [f.id, f]))
 
     for (const item of demandItems) {
-      if (item.project_id !== null) continue
+      if (item.parent_project_id !== null) continue
       if (!ss.has(item.status)) continue
       for (const phase of item.phases) {
         if (!(month >= phase.start_month && (phase.end_month === null || month <= phase.end_month))) continue
@@ -581,8 +581,7 @@ function ProgrammeLanding({
       {programmes.map(programme => {
         const projectCount = store.projects.filter(p => p.programme_id === programme.id && p.active).length
         const demandCount = store.demandItems.filter(d => {
-          if (d.status === 'Parked' || d.status === 'Closed') return false
-          const project = store.projects.find(p => p.id === d.project_id)
+          const project = store.projects.find(p => p.id === d.parent_project_id)
           return project?.programme_id === programme.id
         }).length
 
@@ -661,8 +660,7 @@ function ProgrammeDrillDown({
   )
 
   const demandCount = store.demandItems.filter(d => {
-    if (d.status === 'Parked' || d.status === 'Closed') return false
-    const project = store.projects.find(p => p.id === d.project_id)
+    const project = store.projects.find(p => p.id === d.parent_project_id)
     return project?.programme_id === programme.id
   }).length
 
@@ -707,7 +705,7 @@ function ProgrammeDrillDown({
       {/* Per-Project cards */}
       <div className="space-y-3">
         {projects.map(project => {
-          const projectDemandCount = store.demandItems.filter(d => d.project_id === project.id && d.status !== 'Parked' && d.status !== 'Closed').length
+          const projectDemandCount = store.demandItems.filter(d => d.parent_project_id === project.id).length
 
           const projectSummary = rollupSummary(months, (m) => {
             const r = project_demand_by_funding(project.id, m, { status_set: statusSet }, store)

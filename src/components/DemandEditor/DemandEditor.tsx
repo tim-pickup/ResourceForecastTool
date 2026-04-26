@@ -1,75 +1,33 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, MoreHorizontal, Copy, Trash2, Edit2, AlertTriangle, ExternalLink, GitMerge, CheckCircle } from 'lucide-react'
+import { X, MoreHorizontal, Trash2, Edit2, ExternalLink, GitMerge } from 'lucide-react'
 import { parseISO, format } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
 import { Button } from '../ui/Button'
 import { StatusBadge, Badge } from '../ui/Badge'
-import { Modal } from '../ui/Modal'
-import type { DemandItem, DemandStatus, DemandTeamAssignment, Team } from '../../types'
-
-// ─── Submit-for-assessment dialog helpers ─────────────────────────────────────
-
-interface SubmitRow {
-  teamName: string
-  phaseLabel: string
-  reqCount: number
-  confirmed: boolean
-}
-
-function buildSubmitRows(
-  item: DemandItem,
-  assignments: DemandTeamAssignment[],
-  teams: Team[]
-): SubmitRow[] {
-  return assignments
-    .filter(a => a.demandId === item.id)
-    .map(a => {
-      const team = teams.find(t => t.id === a.teamId)
-      const phaseIdx = item.phases.findIndex(p => p.id === a.phaseId)
-      const phase = phaseIdx >= 0 ? item.phases[phaseIdx] : undefined
-      const reqCount = phase ? phase.requirements.filter(r => r.owningTeamId === a.teamId).length : 0
-      return {
-        teamName: team?.name ?? 'Unknown Team',
-        phaseLabel: phase?.name ? phase.name : `Phase ${phaseIdx + 1}`,
-        reqCount,
-        confirmed: a.confirmed,
-      }
-    })
-}
+import type { DemandItem, DemandStatus } from '../../types'
 
 interface Props {
   demandId: string | null
   onClose: () => void
 }
 
-// ─── Footer CTAs per status ───────────────────────────────────────────────────
-// Rendered right-aligned; rightmost is highest priority.
-// Transitional buttons change status in-place (drawer stays open).
-// Navigational buttons route away (drawer closes).
+// ─── Footer CTAs per status (v1.18) ──────────────────────────────────────────
 
 interface FooterButton {
   label: string
   variant?: 'primary' | 'secondary' | 'danger'
   kind: 'transitional' | 'navigational'
-  next?: DemandStatus   // for transitional
-  action?: string       // 'allocate' | 'model-capacity'
+  next?: DemandStatus
+  action?: string
 }
 
 function footerButtons(status: DemandStatus): FooterButton[] {
   switch (status) {
     case 'Draft':
-      return [{ label: 'Submit for Scoping', kind: 'transitional', next: 'Scoping', variant: 'primary' }]
-    case 'Scoping':
-      return [
-        { label: 'Revert to Draft', kind: 'transitional', next: 'Draft', variant: 'secondary' },
-        { label: 'Park', kind: 'transitional', next: 'Parked', variant: 'secondary' },
-        { label: 'Submit for capacity assessment', kind: 'navigational', action: 'submit-for-assessment', variant: 'primary' },
-      ]
+      return [{ label: 'Submit Demand', kind: 'transitional', next: 'Submitted', variant: 'primary' }]
     case 'Submitted':
       return [
-        { label: 'Park', kind: 'transitional', next: 'Parked', variant: 'secondary' },
-        { label: 'Revert to Draft', kind: 'transitional', next: 'Draft', variant: 'secondary' },
         { label: 'Model Capacity', kind: 'navigational', action: 'model-capacity', variant: 'secondary' },
         { label: 'Approve', kind: 'transitional', next: 'Approved', variant: 'primary' },
       ]
@@ -78,64 +36,11 @@ function footerButtons(status: DemandStatus): FooterButton[] {
     case 'PartiallyAllocated':
       return [{ label: 'Allocate', kind: 'navigational', action: 'allocate', variant: 'primary' }]
     case 'Allocated':
-      return []  // deliberately empty
-    case 'Parked':
-      return [{ label: 'Revive', kind: 'transitional', next: 'Submitted', variant: 'primary' }]
-    case 'Closed':
-      return [{ label: 'Restore', kind: 'transitional', next: undefined, variant: 'secondary' }]
+      return []
   }
 }
 
-// ─── Overflow menu per status ─────────────────────────────────────────────────
-
-interface OverflowAction {
-  label: string
-  kind: 'revise' | 'park' | 'close' | 'duplicate' | 'delete'
-  danger?: boolean
-}
-
-function overflowActions(status: DemandStatus): OverflowAction[] {
-  switch (status) {
-    case 'Draft':
-      return [{ label: 'Duplicate', kind: 'duplicate' }, { label: 'Delete', kind: 'delete', danger: true }]
-    case 'Scoping':
-      return [
-        { label: 'Close', kind: 'close', danger: true },
-        { label: 'Duplicate', kind: 'duplicate' },
-        { label: 'Delete', kind: 'delete', danger: true },
-      ]
-    case 'Submitted':
-      return [{ label: 'Duplicate', kind: 'duplicate' }, { label: 'Delete', kind: 'delete', danger: true }]
-    case 'Approved':
-      return [
-        { label: 'Revise', kind: 'revise' },
-        { label: 'Park', kind: 'park' },
-        { label: 'Close', kind: 'close', danger: true },
-        { label: 'Duplicate', kind: 'duplicate' },
-        { label: 'Delete', kind: 'delete', danger: true },
-      ]
-    case 'PartiallyAllocated':
-      return [
-        { label: 'Park', kind: 'park' },
-        { label: 'Close', kind: 'close', danger: true },
-        { label: 'Duplicate', kind: 'duplicate' },
-        { label: 'Delete', kind: 'delete', danger: true },
-      ]
-    case 'Allocated':
-      return [
-        { label: 'Park', kind: 'park' },
-        { label: 'Close', kind: 'close', danger: true },
-        { label: 'Duplicate', kind: 'duplicate' },
-        { label: 'Delete', kind: 'delete', danger: true },
-      ]
-    case 'Parked':
-      return [{ label: 'Duplicate', kind: 'duplicate' }, { label: 'Delete', kind: 'delete', danger: true }]
-    case 'Closed':
-      return [{ label: 'Duplicate', kind: 'duplicate' }, { label: 'Delete', kind: 'delete', danger: true }]
-  }
-}
-
-// ─── Helper: compute allocation coverage % ───────────────────────────────────
+// ─── Helper functions ─────────────────────────────────────────────────────────
 
 function coveragePct(item: DemandItem): number | null {
   let total = 0, covered = 0
@@ -180,42 +85,22 @@ function dateRange(item: DemandItem): string {
   return `${fmt(starts[0])} – ${hasIndefinite ? 'ongoing' : (ends.length ? fmt(ends[ends.length - 1]) : '—')}`
 }
 
-// ─── Overflow menu ────────────────────────────────────────────────────────────
+// ─── Overflow menu (v1.18: Delete only) ──────────────────────────────────────
 
-interface OverflowMenuProps {
-  status: DemandStatus
-  onDuplicate: () => void
-  onDelete: () => void
-  onRevise: () => void
-  onPark: () => void
-  onClose: () => void
-}
-
-function OverflowMenu({ status, onDuplicate, onDelete, onRevise, onPark, onClose: onCloseDemand }: OverflowMenuProps) {
+function OverflowMenu({ onDelete }: { onDelete: () => void }) {
   const [open, setOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [confirmClose, setConfirmClose] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const actions = overflowActions(status)
 
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false); setConfirmDelete(false); setConfirmClose(false)
+        setOpen(false); setConfirmDelete(false)
       }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
-
-  function dispatch(kind: OverflowAction['kind']) {
-    setOpen(false)
-    if (kind === 'duplicate') { onDuplicate(); return }
-    if (kind === 'revise') { onRevise(); return }
-    if (kind === 'park') { onPark(); return }
-    if (kind === 'close') { setConfirmClose(true); return }
-    if (kind === 'delete') { setConfirmDelete(true); return }
-  }
 
   return (
     <div className="relative" ref={ref}>
@@ -227,24 +112,17 @@ function OverflowMenu({ status, onDuplicate, onDelete, onRevise, onPark, onClose
         <MoreHorizontal size={15} />
       </button>
 
-      {(open || confirmDelete || confirmClose) && (
+      {(open || confirmDelete) && (
         <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-border rounded shadow-card z-50">
-          {open && !confirmDelete && !confirmClose && (
-            <>
-              {actions.map(a => (
-                <button
-                  key={a.kind}
-                  onClick={() => dispatch(a.kind)}
-                  className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 flex items-center gap-2 ${a.danger ? 'text-accent-red hover:bg-red-50' : ''}`}
-                >
-                  {a.kind === 'duplicate' && <Copy size={12} className="text-gray-400" />}
-                  {a.kind === 'delete' && <Trash2 size={12} />}
-                  {a.label}
-                </button>
-              ))}
-            </>
+          {open && !confirmDelete && (
+            <button
+              onClick={() => { setOpen(false); setConfirmDelete(true) }}
+              className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 flex items-center gap-2 text-accent-red"
+            >
+              <Trash2 size={12} />
+              Delete
+            </button>
           )}
-
           {confirmDelete && (
             <div className="px-3 py-2">
               <p className="text-xs text-accent-red font-medium mb-1.5">Permanently delete?</p>
@@ -254,23 +132,13 @@ function OverflowMenu({ status, onDuplicate, onDelete, onRevise, onPark, onClose
               </div>
             </div>
           )}
-
-          {confirmClose && (
-            <div className="px-3 py-2">
-              <p className="text-xs text-orange-700 font-medium mb-1.5">Close and archive?</p>
-              <div className="flex gap-2">
-                <button onClick={() => { setConfirmClose(false); onCloseDemand() }} className="text-xs font-medium text-orange-700 hover:underline">Close</button>
-                <button onClick={() => setConfirmClose(false)} className="text-xs text-gray-500 hover:underline">Cancel</button>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>
   )
 }
 
-// ─── Drawer inner (receives non-null item + id) ───────────────────────────────
+// ─── Drawer inner ─────────────────────────────────────────────────────────────
 
 interface DrawerContentProps {
   demandId: string
@@ -281,7 +149,6 @@ interface DrawerContentProps {
 function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
   const store = useAppStore()
   const navigate = useNavigate()
-  const [showSubmitDialog, setShowSubmitDialog] = useState(false)
 
   // Auto-derive distinct Functions from requirements
   const functionsInvolved = (() => {
@@ -297,79 +164,32 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
     }
     return [...fnIds].map(id => store.functions.find(f => f.id === id)).filter(Boolean)
   })()
-  const project = item.project_id ? store.projects.find(p => p.id === item.project_id) : null
-  const programme = project ? store.programmes.find(p => p.id === project.programme_id) : null
+
+  const project = item.parent_project_id ? store.projects.find(p => p.id === item.parent_project_id) : null
+  const programme = project?.programme_id ? store.programmes.find(p => p.id === project.programme_id) : null
   const { finite: totalFiniteHours, indefiniteCount } = totalItemHours(item)
   const pct = coveragePct(item)
   const footerBtns = footerButtons(item.status)
 
-  // ── Submit for Scoping gating (§3, §4.5.1 v1.17) ─────────────────────────
-  const submitForScopingHint = item.status === 'Draft' ? (() => {
-    if (item.phases.length === 0) return 'Add at least one phase first.'
-    const missing = item.phases.filter(phase =>
-      store.demandTeamAssignments.filter(a => a.demandId === demandId && a.phaseId === phase.id).length === 0
-    )
-    if (missing.length > 0)
-      return `${missing.length} phase${missing.length !== 1 ? 's' : ''} need${missing.length === 1 ? 's' : ''} at least one team assigned.`
-    return null
-  })() : null
-
-  // ── Status transition handlers ────────────────────────────────────────────
-
-  function handleTransition(next: DemandStatus | undefined) {
-    if (!next) return
-    if (next === 'Closed') {
-      if (!window.confirm(`Archive "${item.name}"? It will be removed from the Demand list and all charts.`)) return
-      store.updateDemandItem(demandId, { status: 'Closed', previous_status: item.status, closed_at: new Date().toISOString().slice(0, 10) })
-      onClose(); return
-    }
-    let parkedReason: string | null = item.parked_reason
-    if (next === 'Parked') {
-      parkedReason = window.prompt('Parked reason (optional):', '') ?? null
-      if (parkedReason === '') parkedReason = null
-    }
-    store.updateDemandItem(demandId, { status: next, parked_reason: next === 'Parked' ? parkedReason : null })
-  }
-
-  function handleRevise() { store.updateDemandItem(demandId, { status: 'Submitted' }) }
-
-  function handleOverflowPark() {
-    const reason = window.prompt('Parked reason (optional):', '') ?? null
-    store.updateDemandItem(demandId, { status: 'Parked', parked_reason: reason || null })
-  }
-
-  function handleOverflowClose() {
-    store.updateDemandItem(demandId, { status: 'Closed', previous_status: item.status, closed_at: new Date().toISOString().slice(0, 10) })
-    onClose()
+  function handleTransition(next: DemandStatus) {
+    store.updateDemandItem(demandId, { status: next })
   }
 
   function handleDelete() { store.deleteDemandItem(demandId); onClose() }
-  function handleDuplicate() { store.duplicateDemandItem(demandId); onClose() }
   function handleEdit() { onClose(); navigate(`/manage-demand/${demandId}/edit`) }
   function handleAllocate() { onClose(); navigate(`/manage-demand/${demandId}/edit`) }
   function handleModelImpact() { onClose(); navigate(`/capacity?overlay=${demandId}&from=demand`) }
 
-  function handleConfirmSubmit() {
-    store.updateDemandItem(demandId, { status: 'Submitted' })
-    setShowSubmitDialog(false)
-  }
-
   function handleFooterAction(btn: FooterButton) {
-    if (btn.kind === 'transitional') {
-      if (btn.label === 'Restore') {
-        store.updateDemandItem(demandId, { status: item.previous_status ?? 'Submitted', previous_status: null, closed_at: null })
-        return
-      }
+    if (btn.kind === 'transitional' && btn.next) {
       handleTransition(btn.next)
     } else {
       if (btn.action === 'allocate') handleAllocate()
       if (btn.action === 'model-capacity') handleModelImpact()
-      if (btn.action === 'submit-for-assessment') setShowSubmitDialog(true)
     }
   }
 
   return (
-    <>
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-black/20" onClick={onClose} />
       <div className="w-[440px] bg-white border-l border-border flex flex-col shadow-panel overflow-hidden">
@@ -382,36 +202,24 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
                 {item.name || 'Unnamed'}
               </h2>
               <div className="mt-1.5 flex flex-col gap-1 text-xs">
-                {/* Row 2: Type badge */}
                 <div><Badge>{item.type}</Badge></div>
-                {/* Row 3: Project alignment */}
                 <div>
                   {programme && project ? (
                     <span className="text-gray-400">{programme.name} › {project.name}</span>
+                  ) : project ? (
+                    <span className="text-gray-400">{project.name}</span>
                   ) : (
-                    <span className="text-gray-400 italic">
-                      <span className="[@media(max-width:319px)]:hidden">Unaligned — Not Associated To A Project</span>
-                      <span className="hidden [@media(max-width:319px)]:inline">Unaligned</span>
-                    </span>
+                    <span className="text-gray-400 italic">Direct Demand — no parent Project</span>
                   )}
                 </div>
-                {/* Row 4: Owner */}
                 {item.owner && <div className="text-gray-500">{item.owner}</div>}
               </div>
             </div>
-            {/* Right: Edit → kebab → × */}
             <div className="flex items-center gap-1 shrink-0">
               <Button size="sm" variant="primary" onClick={handleEdit}>
                 <Edit2 size={12} /> Edit
               </Button>
-              <OverflowMenu
-                status={item.status}
-                onDuplicate={handleDuplicate}
-                onDelete={handleDelete}
-                onRevise={handleRevise}
-                onPark={handleOverflowPark}
-                onClose={handleOverflowClose}
-              />
+              <OverflowMenu onDelete={handleDelete} />
               <button onClick={onClose} className="text-gray-400 hover:text-near-black transition-colors p-1 rounded">
                 <X size={15} />
               </button>
@@ -419,7 +227,7 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
           </div>
         </div>
 
-        {/* ── Zone 2: Status (badge + info only, no buttons) ─────────────── */}
+        {/* ── Zone 2: Status ─────────────────────────────────────────────── */}
         <div className="px-5 py-2.5 border-b border-border bg-gray-50/50">
           <div className="flex items-center gap-2 flex-wrap">
             <StatusBadge status={item.status} />
@@ -437,7 +245,6 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
 
           {/* Summary stats */}
           {(() => {
-            // Compute total external hours across all phases
             const allExtReqs = store.externalResourceRequirements.filter(r => item.phases.some(p => p.id === r.phase_id))
             const totalExtHours = allExtReqs.reduce((s, ext) => {
               const phase = item.phases.find(p => p.id === ext.phase_id)
@@ -462,7 +269,7 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
             )
           })()}
 
-          {/* Functions involved — auto-derived from requirements */}
+          {/* Functions involved */}
           {functionsInvolved.length > 0 && (
             <div className="text-xs flex items-start gap-2">
               <span className="text-gray-400 shrink-0 mt-0.5">Functions:</span>
@@ -473,13 +280,6 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
                   </span>
                 ))}
               </div>
-            </div>
-          )}
-
-          {item.status === 'Parked' && item.parked_reason && (
-            <div className="flex items-start gap-2 bg-orange-50 border border-orange-200 rounded p-2.5 text-xs text-orange-700">
-              <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-              <span>{item.parked_reason}</span>
             </div>
           )}
 
@@ -561,115 +361,29 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
           )}
         </div>
 
-        {/* ── Zone 4: Footer (empty on Allocated) ────────────────────────── */}
+        {/* ── Zone 4: Footer ─────────────────────────────────────────────── */}
         {footerBtns.length > 0 && (
-          <div className="border-t border-border px-5 py-3 flex flex-col gap-2">
-            {submitForScopingHint && (
-              <p className="text-xs text-amber-600 text-right">{submitForScopingHint}</p>
-            )}
-            <div className="flex items-center justify-end gap-2">
-              {footerBtns.map(btn => (
-                <Button
-                  key={btn.label}
-                  size="sm"
-                  variant={btn.variant ?? 'secondary'}
-                  disabled={btn.label === 'Submit for Scoping' && !!submitForScopingHint}
-                  onClick={() => handleFooterAction(btn)}
-                >
-                  {btn.label === 'Allocate' && <GitMerge size={12} />}
-                  {btn.label === 'Model Capacity' && <ExternalLink size={12} />}
-                  {btn.label}
-                </Button>
-              ))}
-            </div>
+          <div className="border-t border-border px-5 py-3 flex items-center justify-end gap-2">
+            {footerBtns.map(btn => (
+              <Button
+                key={btn.label}
+                size="sm"
+                variant={btn.variant ?? 'secondary'}
+                onClick={() => handleFooterAction(btn)}
+              >
+                {btn.label === 'Allocate' && <GitMerge size={12} />}
+                {btn.label === 'Model Capacity' && <ExternalLink size={12} />}
+                {btn.label}
+              </Button>
+            ))}
           </div>
         )}
       </div>
     </div>
-
-    {/* ── Submit for capacity assessment dialog ──────────────────────────── */}
-    {(() => {
-      if (!showSubmitDialog) return null
-      const rows = buildSubmitRows(item, store.demandTeamAssignments, store.teams)
-      const unconfirmedCount = rows.filter(r => !r.confirmed).length
-      const hasAnyAssignments = rows.length > 0
-      const allConfirmed = hasAnyAssignments && unconfirmedCount === 0
-      const submitLabel = (hasAnyAssignments && !allConfirmed) ? 'Submit anyway' : 'Submit'
-
-      let bodyContent: React.ReactNode
-      if (!hasAnyAssignments) {
-        bodyContent = (
-          <p className="text-xs text-gray-600">
-            No teams are assigned to phases on this Demand. You can still submit now and assign teams or add requirements before Approval.
-          </p>
-        )
-      } else if (allConfirmed) {
-        bodyContent = (
-          <>
-            <p className="text-xs text-gray-600 mb-3">
-              All {rows.length} assigned team{rows.length !== 1 ? 's have' : ' has'} confirmed their requirements:
-            </p>
-            <ul className="flex flex-col gap-1.5">
-              {rows.map((r, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-gray-700">
-                  <CheckCircle size={13} className="text-green-500 mt-0.5 shrink-0" />
-                  <span><strong>{r.teamName}</strong> — {r.reqCount} requirement{r.reqCount !== 1 ? 's' : ''} on {r.phaseLabel}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="text-xs text-gray-400 mt-3">
-              Once submitted, the Demand will appear on the Capacity Validation page as a candidate Submitted overlay, and allocation work can begin after approval.
-            </p>
-          </>
-        )
-      } else {
-        bodyContent = (
-          <>
-            <p className="text-xs text-gray-600 mb-3">
-              {unconfirmedCount} of {rows.length} assigned team{rows.length !== 1 ? 's have' : ' has'} not yet confirmed their requirements:
-            </p>
-            <ul className="flex flex-col gap-1.5">
-              {rows.map((r, i) => (
-                <li key={i} className={`flex items-start gap-2 text-xs ${r.confirmed ? 'text-gray-700' : 'text-amber-700'}`}>
-                  {r.confirmed
-                    ? <CheckCircle size={13} className="text-green-500 mt-0.5 shrink-0" />
-                    : <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
-                  }
-                  <span>
-                    <strong>{r.teamName}</strong> — {r.reqCount} requirement{r.reqCount !== 1 ? 's' : ''} on {r.phaseLabel}
-                    {!r.confirmed && <span className="italic">, not confirmed</span>}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="text-xs text-gray-500 mt-3">
-              You can still submit now and follow up with those teams afterwards. Their requirements can continue to be added before the Demand is Approved.
-            </p>
-          </>
-        )
-      }
-
-      return (
-        <Modal
-          open={showSubmitDialog}
-          onClose={() => setShowSubmitDialog(false)}
-          title={`Submit "${item.name}" for capacity assessment?`}
-          footer={
-            <>
-              <Button size="sm" variant="ghost" onClick={() => setShowSubmitDialog(false)}>Cancel</Button>
-              <Button size="sm" variant="primary" onClick={handleConfirmSubmit}>{submitLabel}</Button>
-            </>
-          }
-        >
-          {bodyContent}
-        </Modal>
-      )
-    })()}
-    </>
   )
 }
 
-// ─── Outer wrapper handles null guards ───────────────────────────────────────
+// ─── Outer wrapper ────────────────────────────────────────────────────────────
 
 export function DemandDrawer({ demandId, onClose }: Props) {
   const item = useAppStore(s => demandId ? s.demandItems.find(d => d.id === demandId) : undefined)
@@ -677,4 +391,5 @@ export function DemandDrawer({ demandId, onClose }: Props) {
   return <DrawerContent demandId={demandId} item={item} onClose={onClose} />
 }
 
+// Alias for callers that haven't been updated yet
 export const DemandEditor = DemandDrawer

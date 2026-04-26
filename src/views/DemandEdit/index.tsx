@@ -1,45 +1,40 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Copy, CheckCircle, AlertTriangle } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import type { DemandItem, DemandStatus, DemandType, ExternalResourceRequirement } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { Input, Select, Textarea } from '../../components/ui/FormFields'
 import { StatusBadge } from '../../components/ui/Badge'
-import { Modal } from '../../components/ui/Modal'
-import { generateId } from '../../utils/ids'
 import { PhaseEditor, blankPhase, PhaseGantt } from './ModeAEditor'
 import { AllocationWorkspace, computeAutoStatus } from './AllocationWorkspace'
 
 const TYPES: DemandType[] = ['Group Strategy Project', 'Plant Project', 'NPD Demand', 'BAU']
-const MODE_A: DemandStatus[] = ['Draft', 'Scoping', 'Submitted', 'Parked']
+// v1.18: Mode A = pre-Approved statuses; Mode B = allocation workspace
+const MODE_A: DemandStatus[] = ['Draft', 'Submitted']
 const MODE_B: DemandStatus[] = ['Approved', 'PartiallyAllocated', 'Allocated']
 
-interface Transition { label: string; next: DemandStatus; variant?: 'danger' | 'secondary'; isSubmitAction?: boolean }
+interface Transition { label: string; next: DemandStatus; variant?: 'danger' | 'secondary' }
 
 function pageTransitions(status: DemandStatus, isNew: boolean): Transition[] {
   if (isNew) return []
   switch (status) {
-    case 'Draft':     return [{ label: 'Submit for Scoping', next: 'Scoping' }]
-    case 'Scoping':   return [
-      { label: 'Revert to Draft', next: 'Draft' },
-      { label: 'Park', next: 'Parked' },
-      { label: 'Submit for capacity assessment', next: 'Submitted', isSubmitAction: true },
-    ]
-    case 'Submitted': return [{ label: 'Approve', next: 'Approved' }, { label: 'Revert to Draft', next: 'Draft' }, { label: 'Park', next: 'Parked' }]
-    case 'Approved':  return [{ label: 'Revise', next: 'Submitted' }, { label: 'Park', next: 'Parked' }, { label: 'Close', next: 'Closed', variant: 'danger' }]
-    case 'PartiallyAllocated': return [{ label: 'Park', next: 'Parked' }, { label: 'Close', next: 'Closed', variant: 'danger' }]
-    case 'Allocated': return [{ label: 'Park', next: 'Parked' }, { label: 'Close', next: 'Closed', variant: 'danger' }]
-    case 'Parked':    return [{ label: 'Revive', next: 'Submitted' }]
-    case 'Closed':    return []
+    case 'Draft':     return [{ label: 'Submit Demand', next: 'Submitted' }]
+    case 'Submitted': return [{ label: 'Approve', next: 'Approved' }]
+    // PartiallyAllocated / Allocated: system auto-transitions only, no user actions here
+    case 'Approved':
+    case 'PartiallyAllocated':
+    case 'Allocated': return []
   }
 }
 
-function blankDemand(): Omit<DemandItem, 'id'> {
+function blankDemand(activeFunctionId: string | null): Omit<DemandItem, 'id'> {
   return {
     name: '', type: 'Plant Project', status: 'Draft', owner: '',
-    description: '', parked_reason: null,
-    previous_status: null, closed_at: null, phases: [], project_id: null, createdUnderFunctionId: null,
+    description: '',
+    function_id: activeFunctionId ?? '',
+    parent_project_id: null,
+    phases: [],
   }
 }
 
@@ -47,15 +42,15 @@ export default function DemandEdit() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const store = useAppStore()
+  const activeFunctionId = store.activeFunctionId
 
   const isNew = !id
   const existing = id ? store.demandItems.find(d => d.id === id) : null
 
   const [draft, setDraft] = useState<Omit<DemandItem, 'id'>>(() =>
-    existing ? { ...existing } : blankDemand()
+    existing ? { ...existing } : blankDemand(activeFunctionId)
   )
   const [isDirty, setIsDirty] = useState(false)
-  const [showSubmitDialog, setShowSubmitDialog] = useState(false)
 
   // External resource requirements — keyed by phase_id, tracked separately from draft
   const [extReqsByPhase, setExtReqsByPhase] = useState<Record<string, ExternalResourceRequirement[]>>(() => {
@@ -121,7 +116,6 @@ export default function DemandEdit() {
     for (const [, reqs] of Object.entries(extReqsByPhase)) {
       for (const req of reqs) {
         if (phaseIds.has(req.phase_id)) {
-          // Use addExternalRequirement (generates new ID) if needed, else preserve existing
           store.addExternalRequirement({ ...req })
         }
       }
@@ -137,67 +131,19 @@ export default function DemandEdit() {
   }
 
   const handleStatusChange = (next: DemandStatus) => {
-    if (next === 'Closed') {
-      if (!window.confirm(`Archive "${draft.name || 'this item'}"? It will be removed from the Demand list and all charts.`)) return
-      const updates: Partial<DemandItem> = {
-        status: 'Closed',
-        previous_status: draft.status as DemandStatus,
-        closed_at: new Date().toISOString().slice(0, 10),
-      }
-      if (!isNew && id) store.updateDemandItem(id, updates)
-      navigate('/manage-demand')
-      return
-    }
-
-    let parkedReason: string | null = draft.parked_reason
-    if (next === 'Parked') {
-      parkedReason = window.prompt('Parked reason (optional):', '') ?? null
-      if (parkedReason === '') parkedReason = null
-    }
-
-    update(d => ({ ...d, status: next, parked_reason: next === 'Parked' ? parkedReason : null }))
+    update(d => ({ ...d, status: next }))
     if (!isNew && id) {
-      store.updateDemandItem(id, { status: next, parked_reason: next === 'Parked' ? parkedReason : null })
+      store.updateDemandItem(id, { status: next })
     }
     setIsDirty(false)
-  }
-
-  const handleRevise = () => {
-    if (!window.confirm('Return this demand to Submitted for revision? Existing allocations are preserved but will be excluded from capacity calculations while Submitted. On re-Approval they will be re-validated.')) return
-    const updates: Partial<DemandItem> = { status: 'Submitted' }
-    if (!isNew && id) store.updateDemandItem(id, updates)
-    update(d => ({ ...d, status: 'Submitted' }))
-    setIsDirty(false)
-  }
-
-  const handleParkToRevise = () => {
-    const msg = isDirty
-      ? 'Park this demand? Unsaved allocation changes will be discarded. Named allocations already saved are preserved.'
-      : 'Park this demand? It will be removed from capacity calculations. Named allocations are preserved and will reappear when re-approved.'
-    if (!window.confirm(msg)) return
-    const updates: Partial<DemandItem> = { status: 'Parked', parked_reason: null }
-    if (!isNew && id) store.updateDemandItem(id, updates)
-    update(d => ({ ...d, status: 'Parked', parked_reason: null }))
-    setIsDirty(false)
-  }
-
-  const handleConfirmSubmitForAssessment = () => {
-    if (!isNew && id) store.updateDemandItem(id, { status: 'Submitted' })
-    update(d => ({ ...d, status: 'Submitted' }))
-    setIsDirty(false)
-    setShowSubmitDialog(false)
   }
 
   const trans = pageTransitions(draft.status as DemandStatus, isNew)
 
-  // Submit for Scoping gating (§3, §4.5.2 v1.17)
-  const submitForScopingHint = draft.status === 'Draft' && !isNew ? (() => {
+  // Submit Demand gating: must have at least one phase with at least one requirement
+  const submitHint = draft.status === 'Draft' && !isNew ? (() => {
     if (draft.phases.length === 0) return 'Add at least one phase first.'
-    const missing = draft.phases.filter(phase =>
-      store.demandTeamAssignments.filter(a => a.demandId === id && a.phaseId === phase.id).length === 0
-    )
-    if (missing.length > 0)
-      return `${missing.length} phase${missing.length !== 1 ? 's' : ''} need${missing.length === 1 ? 's' : ''} at least one team assigned.`
+    if (!draft.phases.some(ph => ph.requirements.length > 0)) return 'Add at least one requirement to a phase.'
     return null
   })() : null
 
@@ -225,25 +171,20 @@ export default function DemandEdit() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {submitForScopingHint && (
-            <span className="text-xs text-amber-600">{submitForScopingHint}</span>
+          {submitHint && (
+            <span className="text-xs text-amber-600">{submitHint}</span>
           )}
           {!isNew && trans.map(t => (
             <Button
               key={t.label}
               size="sm"
-              variant={t.isSubmitAction ? 'primary' : (t.variant ?? 'secondary')}
-              disabled={t.label === 'Submit for Scoping' && !!submitForScopingHint}
-              onClick={() => t.isSubmitAction ? setShowSubmitDialog(true) : handleStatusChange(t.next)}
+              variant={t.variant ?? 'secondary'}
+              disabled={t.label === 'Submit Demand' && !!submitHint}
+              onClick={() => handleStatusChange(t.next)}
             >
               {t.label}
             </Button>
           ))}
-          {!isNew && (
-            <Button size="sm" variant="ghost" onClick={() => { store.duplicateDemandItem(id!); navigate('/manage-demand') }}>
-              <Copy size={12} /> Duplicate
-            </Button>
-          )}
           <div className="h-4 w-px bg-border" />
           <Button size="sm" variant="ghost" onClick={handleCancel}>Cancel</Button>
           <Button size="sm" variant="primary" onClick={handleSave}>Save</Button>
@@ -269,71 +210,56 @@ export default function DemandEdit() {
                   {TYPES.map(t => <option key={t}>{t}</option>)}
                 </Select>
                 <Input label="Owner" value={draft.owner} onChange={e => update(d => ({ ...d, owner: e.target.value }))} placeholder="Name or role" />
-                {/* Project alignment */}
-                <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">Project Alignment</label>
-                  <select
-                    value={draft.project_id ?? ''}
-                    onChange={e => update(d => ({ ...d, project_id: e.target.value || null }))}
-                    className="text-xs border border-border rounded px-2 py-1.5 bg-white w-full"
-                  >
-                    <option value="">Unaligned</option>
-                    {store.programmes.filter(p => p.active).map(prog => (
-                      <optgroup key={prog.id} label={prog.name}>
-                        {store.projects.filter(p => p.programme_id === prog.id && p.active).map(proj => (
-                          <option key={proj.id} value={proj.id}>{proj.name}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </div>
+                {/* Parent Project (read-only badge for project-spawned; editable for direct Demands in Draft) */}
+                {draft.parent_project_id ? (
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">Parent Project</label>
+                    <span className="text-xs text-gray-500 bg-gray-100 rounded px-2 py-1">
+                      {store.projects.find(p => p.id === draft.parent_project_id)?.name ?? draft.parent_project_id}
+                    </span>
+                  </div>
+                ) : null}
                 <Textarea label="Description" value={draft.description} onChange={e => update(d => ({ ...d, description: e.target.value }))} placeholder="Brief description" />
-                {draft.status === 'Parked' && (
-                  <Textarea
-                    label="Parked Reason"
-                    value={draft.parked_reason ?? ''}
-                    onChange={e => update(d => ({ ...d, parked_reason: e.target.value || null }))}
-                    placeholder="Why is this parked? When might it be revived?"
-                  />
-                )}
               </div>
 
-              {/* Phases */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">Phases</span>
-                  <button onClick={addPhase} className="flex items-center gap-1 text-xs text-brand hover:text-brand-hover font-medium">
-                    + Add Phase
-                  </button>
-                </div>
-                {draft.phases.length > 0 && (
-                  <PhaseGantt
-                    phases={draft.phases}
-                    onClickPhase={phaseId => {
-                      document.getElementById(`phase-${phaseId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                    }}
-                  />
-                )}
-                <div className="flex flex-col gap-2">
-                  {draft.phases.length === 0 && (
-                    <p className="text-xs text-gray-400 italic">No phases yet. Add a phase to define resource requirements.</p>
+              {/* Phases (only for direct Demands — parent_project_id === null) */}
+              {draft.parent_project_id === null && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">Phases</span>
+                    <button onClick={addPhase} className="flex items-center gap-1 text-xs text-brand hover:text-brand-hover font-medium">
+                      + Add Phase
+                    </button>
+                  </div>
+                  {draft.phases.length > 0 && (
+                    <PhaseGantt
+                      phases={draft.phases}
+                      onClickPhase={phaseId => {
+                        document.getElementById(`phase-${phaseId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      }}
+                    />
                   )}
-                  {draft.phases.map((phase, idx) => (
-                    <div key={phase.id} id={`phase-${phase.id}`}>
-                      <PhaseEditor
-                        phase={phase}
-                        index={idx}
-                        onChange={p => updatePhase(phase.id, p)}
-                        onDelete={() => deletePhase(phase.id)}
-                        extReqs={extReqsByPhase[phase.id] ?? []}
-                        onExtReqsChange={reqs => { setExtReqsByPhase(prev => ({ ...prev, [phase.id]: reqs })); setIsDirty(true) }}
-                        demandId={id}
-                        demandStatus={draft.status as DemandStatus}
-                      />
-                    </div>
-                  ))}
+                  <div className="flex flex-col gap-2">
+                    {draft.phases.length === 0 && (
+                      <p className="text-xs text-gray-400 italic">No phases yet. Add a phase to define resource requirements.</p>
+                    )}
+                    {draft.phases.map((phase, idx) => (
+                      <div key={phase.id} id={`phase-${phase.id}`}>
+                        <PhaseEditor
+                          phase={phase}
+                          index={idx}
+                          onChange={p => updatePhase(phase.id, p)}
+                          onDelete={() => deletePhase(phase.id)}
+                          extReqs={extReqsByPhase[phase.id] ?? []}
+                          onExtReqsChange={reqs => { setExtReqsByPhase(prev => ({ ...prev, [phase.id]: reqs })); setIsDirty(true) }}
+                          demandId={id}
+                          demandStatus={draft.status as DemandStatus}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
 
@@ -343,8 +269,8 @@ export default function DemandEdit() {
               draft={draft}
               demandItemId={id}
               onChange={d => { setDraft(d); setIsDirty(true) }}
-              onParkToRevise={handleParkToRevise}
-              onRevise={handleRevise}
+              onParkToRevise={() => {}}
+              onRevise={() => {}}
             />
           )}
 
@@ -355,96 +281,6 @@ export default function DemandEdit() {
           </div>
         </div>
       </div>
-
-      {/* Submit for capacity assessment dialog */}
-      {showSubmitDialog && id && (() => {
-        const assignments = store.demandTeamAssignments.filter(a => a.demandId === id)
-        const rows = assignments.map(a => {
-          const team = store.teams.find(t => t.id === a.teamId)
-          const phaseIdx = draft.phases.findIndex(p => p.id === a.phaseId)
-          const phase = phaseIdx >= 0 ? draft.phases[phaseIdx] : undefined
-          const reqCount = phase ? phase.requirements.filter(r => r.owningTeamId === a.teamId).length : 0
-          return {
-            teamName: team?.name ?? 'Unknown Team',
-            phaseLabel: phase?.name ? phase.name : `Phase ${phaseIdx + 1}`,
-            reqCount,
-            confirmed: a.confirmed,
-          }
-        })
-        const unconfirmedCount = rows.filter(r => !r.confirmed).length
-        const hasAnyAssignments = rows.length > 0
-        const allConfirmed = hasAnyAssignments && unconfirmedCount === 0
-        const submitLabel = (hasAnyAssignments && !allConfirmed) ? 'Submit anyway' : 'Submit'
-
-        let bodyContent: React.ReactNode
-        if (!hasAnyAssignments) {
-          bodyContent = (
-            <p className="text-xs text-gray-600">
-              No teams are assigned to phases on this Demand. You can still submit now and assign teams or add requirements before Approval.
-            </p>
-          )
-        } else if (allConfirmed) {
-          bodyContent = (
-            <>
-              <p className="text-xs text-gray-600 mb-3">
-                All {rows.length} assigned team{rows.length !== 1 ? 's have' : ' has'} confirmed their requirements:
-              </p>
-              <ul className="flex flex-col gap-1.5">
-                {rows.map((r, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs text-gray-700">
-                    <CheckCircle size={13} className="text-green-500 mt-0.5 shrink-0" />
-                    <span><strong>{r.teamName}</strong> — {r.reqCount} requirement{r.reqCount !== 1 ? 's' : ''} on {r.phaseLabel}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="text-xs text-gray-400 mt-3">
-                Once submitted, the Demand will appear on the Capacity Validation page as a candidate Submitted overlay, and allocation work can begin after approval.
-              </p>
-            </>
-          )
-        } else {
-          bodyContent = (
-            <>
-              <p className="text-xs text-gray-600 mb-3">
-                {unconfirmedCount} of {rows.length} assigned team{rows.length !== 1 ? 's have' : ' has'} not yet confirmed their requirements:
-              </p>
-              <ul className="flex flex-col gap-1.5">
-                {rows.map((r, i) => (
-                  <li key={i} className={`flex items-start gap-2 text-xs ${r.confirmed ? 'text-gray-700' : 'text-amber-700'}`}>
-                    {r.confirmed
-                      ? <CheckCircle size={13} className="text-green-500 mt-0.5 shrink-0" />
-                      : <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
-                    }
-                    <span>
-                      <strong>{r.teamName}</strong> — {r.reqCount} requirement{r.reqCount !== 1 ? 's' : ''} on {r.phaseLabel}
-                      {!r.confirmed && <span className="italic">, not confirmed</span>}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <p className="text-xs text-gray-500 mt-3">
-                You can still submit now and follow up with those teams afterwards. Their requirements can continue to be added before the Demand is Approved.
-              </p>
-            </>
-          )
-        }
-
-        return (
-          <Modal
-            open={showSubmitDialog}
-            onClose={() => setShowSubmitDialog(false)}
-            title={`Submit "${draft.name || 'this demand'}" for capacity assessment?`}
-            footer={
-              <>
-                <Button size="sm" variant="ghost" onClick={() => setShowSubmitDialog(false)}>Cancel</Button>
-                <Button size="sm" variant="primary" onClick={handleConfirmSubmitForAssessment}>{submitLabel}</Button>
-              </>
-            }
-          >
-            {bodyContent}
-          </Modal>
-        )
-      })()}
     </div>
   )
 }

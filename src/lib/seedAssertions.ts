@@ -10,7 +10,7 @@
  * localStorage state, so they reflect the canonical seed fixture.
  */
 
-import type { AppState, DemandItem, DemandStatus } from '../types'
+import type { AppState, DemandItem, DemandStatus, ProjectStatus } from '../types'
 import {
   computeProjection,
   projected_consumption,
@@ -40,12 +40,20 @@ function buildSeedState(): AppState {
     })(),
     functions: raw.functions || [],
     teams: raw.teams || [],
-    demandTeamAssignments: raw.demand_team_assignments || [],
+    projectTeamAssignments: raw.project_team_assignments || raw.demand_team_assignments || [],
     domains: raw.domains || [],
     skills: raw.skills || [],
     people: (raw.people || []).map((p: Record<string, unknown>) => ({ ...p, teamId: (p.teamId ?? '') as string })),
     programmes: raw.programmes || [],
-    projects: raw.projects || [],
+    projects: (raw.projects || []).map((p: Record<string, unknown>) => ({
+      ...p,
+      owner: (p.owner ?? '') as string,
+      type: (p.type ?? 'Group Strategy Project') as string,
+      programme_id: (p.programme_id ?? null) as string | null,
+      status: (p.status ?? 'Draft') as ProjectStatus,
+      phases: (p.phases ?? []) as [],
+      active: (p.active ?? true) as boolean,
+    })),
     providers: raw.providers || [],
     externalResourceRequirements: (raw.external_resource_requirements || []).map((e: Record<string, unknown>) => ({
       ...e,
@@ -57,14 +65,11 @@ function buildSeedState(): AppState {
       id: d.id as string,
       name: d.name as string,
       type: d.type as DemandItem['type'],
-      status: (d.status === 'Accepted' ? 'Approved' : d.status) as DemandStatus,
+      status: (['Parked', 'Closed', 'Scoping'].includes(d.status as string) ? 'Draft' : d.status === 'Accepted' ? 'Approved' : d.status) as DemandStatus,
       owner: d.owner as string,
       description: d.description as string,
-      parked_reason: (d.parked_reason ?? null) as string | null,
-      previous_status: (d.previous_status ?? null) as DemandStatus | null,
-      closed_at: (d.closed_at ?? null) as string | null,
-      project_id: (d.project_id ?? null) as string | null,
-      createdUnderFunctionId: (d.createdUnderFunctionId ?? null) as string | null,
+      function_id: (d.function_id ?? d.createdUnderFunctionId ?? '') as string,
+      parent_project_id: (d.parent_project_id ?? d.project_id ?? null) as string | null,
       phases: ((d.phases || []) as Record<string, unknown>[]).map(p => ({
         id: p.id as string,
         name: p.name as string,
