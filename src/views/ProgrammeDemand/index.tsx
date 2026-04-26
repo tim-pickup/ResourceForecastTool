@@ -11,9 +11,9 @@ import {
 import { ArrowLeft, ChevronRight, Info, X } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import {
-  programme_demand_by_funding, programme_demand_by_team,
-  project_demand_by_funding, project_demand_by_team,
-  type DemandByFundingResult, type DemandByTeamEntry,
+  programme_demand_by_funding,
+  project_demand_by_funding,
+  type DemandByFundingResult,
 } from '../../lib/capacity'
 import { generateMonths, getCurrentMonth, formatMonthLabel } from '../../utils/capacity'
 import { DemandDrawer } from '../../components/DemandEditor/DemandEditor'
@@ -21,7 +21,6 @@ import type { DemandStatus, FundingSource, Programme, Project } from '../../type
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type StackingMode = 'funding' | 'team'
 type HorizonMonths = 6 | 12 | 24 | 60
 
 const HORIZONS: HorizonMonths[] = [6, 12, 24, 60]
@@ -35,24 +34,11 @@ const FUNDING_COLORS: Record<FundingSource, string> = {
   'Mixed': '#f59e0b',
 }
 
-const FUNCTION_PALETTE = ['#6366f1', '#0891b2', '#16a34a', '#ea580c', '#db2777', '#ca8a04', '#9333ea', '#64748b']
-const EXTERNAL_COLOR = '#94a3b8'
-const UNASSIGNED_COLOR = '#cbd5e1'
-
-function fnColorFor(parentFunctionLabel: string, orderedLabels: string[]): string {
-  if (parentFunctionLabel === 'External') return EXTERNAL_COLOR
-  if (parentFunctionLabel === 'Unassigned') return UNASSIGNED_COLOR
-  const idx = orderedLabels.indexOf(parentFunctionLabel)
-  return FUNCTION_PALETTE[(idx >= 0 ? idx : 0) % FUNCTION_PALETTE.length]
-}
-
 // ─── Shared toolbar ───────────────────────────────────────────────────────────
 
 interface ToolbarProps {
   horizon: HorizonMonths
   onHorizonChange: (h: HorizonMonths) => void
-  stacking: StackingMode
-  onStackingChange: (m: StackingMode) => void
   includeSubmitted: boolean
   onIncludeSubmittedChange: (v: boolean) => void
   programmes?: Programme[]
@@ -62,7 +48,6 @@ interface ToolbarProps {
 
 function Toolbar({
   horizon, onHorizonChange,
-  stacking, onStackingChange,
   includeSubmitted, onIncludeSubmittedChange,
   programmes, filterProgrammeId, onFilterProgrammeChange,
 }: ToolbarProps) {
@@ -86,21 +71,6 @@ function Toolbar({
       </div>
 
       <div className="h-4 w-px bg-border" />
-
-      {/* Stacking mode */}
-      <div className="flex items-center gap-0.5 border border-border rounded overflow-hidden">
-        {([['funding', 'By Funding Source'], ['team', 'By Team']] as [StackingMode, string][]).map(([m, label]) => (
-          <button
-            key={m}
-            onClick={() => onStackingChange(m)}
-            className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-              stacking === m ? 'bg-brand text-white' : 'text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
 
       {/* Include Submitted toggle */}
       <label className="flex items-center gap-1.5 cursor-pointer select-none">
@@ -133,90 +103,41 @@ function Toolbar({
   )
 }
 
-// ─── Stacked area chart for a Programme or Project ────────────────────────────
+// ─── Stacked area chart for a Programme or Project (By Funding Source only) ───
 
 interface DemandChartProps {
   months: string[]
-  stacking: StackingMode
   includeSubmitted: boolean
   getFundingData: (month: string, statusSet: ReadonlySet<DemandStatus>) => DemandByFundingResult
-  getTeamData: (month: string, statusSet: ReadonlySet<DemandStatus>) => DemandByTeamEntry[]
   height?: number
   onMonthClick?: (month: string) => void
 }
 
 function DemandChart({
-  months, stacking, includeSubmitted,
-  getFundingData, getTeamData,
+  months, includeSubmitted,
+  getFundingData,
   height = 200, onMonthClick,
 }: DemandChartProps) {
-  const statusSet = includeSubmitted ? WITH_SUBMITTED_SET : BASE_STATUS_SET
-
-  // Pre-compute team key ordering (stable across months)
-  const teamKeys = useMemo(() => {
-    const seen = new Map<string, DemandByTeamEntry>()
-    for (const month of months) {
-      for (const entry of getTeamData(month, WITH_SUBMITTED_SET)) {
-        if (!seen.has(entry.key)) seen.set(entry.key, entry)
-      }
-    }
-    const sortOrder = (e: DemandByTeamEntry) =>
-      e.parent_function_label === 'External' ? 2 : e.parent_function_label === 'Unassigned' ? 1 : 0
-    return [...seen.values()].sort((a, b) => {
-      const ao = sortOrder(a), bo = sortOrder(b)
-      if (ao !== bo) return ao - bo
-      const pfCmp = a.parent_function_label.localeCompare(b.parent_function_label)
-      if (pfCmp !== 0) return pfCmp
-      return a.label.localeCompare(b.label)
-    })
-  }, [months, getTeamData])
-
-  const orderedFnLabels = useMemo(() => {
-    const labels = new Set<string>()
-    for (const e of teamKeys) {
-      if (e.parent_function_label !== 'External' && e.parent_function_label !== 'Unassigned') {
-        labels.add(e.parent_function_label)
-      }
-    }
-    return [...labels].sort()
-  }, [teamKeys])
-
   const chartData = useMemo(() => months.map(month => {
     const label = formatMonthLabel(month)
-    if (stacking === 'funding') {
-      const base = getFundingData(month, BASE_STATUS_SET)
-      if (includeSubmitted) {
-        const total = getFundingData(month, WITH_SUBMITTED_SET)
-        const point: Record<string, number | string> = { label, month }
-        for (const k of FUNDING_KEYS) {
-          point[`${k}_c`] = base[k]
-          point[`${k}_s`] = Math.max(0, total[k] - base[k])
-        }
-        return point
-      }
+    const base = getFundingData(month, BASE_STATUS_SET)
+    if (includeSubmitted) {
+      const total = getFundingData(month, WITH_SUBMITTED_SET)
       const point: Record<string, number | string> = { label, month }
-      for (const k of FUNDING_KEYS) point[k] = base[k]
-      return point
-    } else {
-      // By Team
-      const baseMap = new Map(getTeamData(month, BASE_STATUS_SET).map(e => [e.key, e.hours]))
-      const totalMap = includeSubmitted
-        ? new Map(getTeamData(month, WITH_SUBMITTED_SET).map(e => [e.key, e.hours]))
-        : baseMap
-      const point: Record<string, number | string> = { label, month }
-      for (const e of teamKeys) {
-        const base = baseMap.get(e.key) ?? 0
-        const total = totalMap.get(e.key) ?? 0
-        point[`${e.key}_c`] = base
-        point[`${e.key}_s`] = Math.max(0, total - base)
+      for (const k of FUNDING_KEYS) {
+        point[`${k}_c`] = base[k]
+        point[`${k}_s`] = Math.max(0, total[k] - base[k])
       }
       return point
     }
-  }), [months, stacking, includeSubmitted, getFundingData, getTeamData, teamKeys])
+    const point: Record<string, number | string> = { label, month }
+    for (const k of FUNDING_KEYS) point[k] = base[k]
+    return point
+  }), [months, includeSubmitted, getFundingData])
 
-  const hasData = chartData.some(d => {
-    return Object.entries(d).some(([k, v]) => k !== 'label' && k !== 'month' && (v as number) > 0)
-  })
+  const hasData = chartData.some(d =>
+    Object.entries(d).some(([k, v]) => k !== 'label' && k !== 'month' && (v as number) > 0)
+  )
 
   if (!hasData) {
     return (
@@ -232,65 +153,6 @@ function DemandChart({
     }
   }
 
-  if (stacking === 'funding') {
-    return (
-      <div>
-        <ResponsiveContainer width="100%" height={height}>
-          <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -10 }} onClick={handleClick as never}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-            <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickFormatter={v => `${v}h`} />
-            <RechartTooltip
-              formatter={(value: number, name: string) => {
-                const clean = name.replace(/_c$/, '').replace(/_s$/, ' (Submitted)')
-                return [`${value}h`, clean]
-              }}
-              labelStyle={{ fontWeight: 600, fontSize: 11 }}
-              contentStyle={{ fontSize: 11 }}
-            />
-            {/* Committed series */}
-            {FUNDING_KEYS.map(k => (
-              <Area
-                key={`${k}_c`}
-                type="monotone"
-                dataKey={includeSubmitted ? `${k}_c` : k}
-                name={k}
-                stackId="main"
-                fill={FUNDING_COLORS[k]}
-                stroke="none"
-                fillOpacity={0.8}
-                isAnimationActive={false}
-              />
-            ))}
-            {/* Submitted overlay */}
-            {includeSubmitted && FUNDING_KEYS.map(k => (
-              <Area
-                key={`${k}_s`}
-                type="monotone"
-                dataKey={`${k}_s`}
-                name={`${k} (Submitted)`}
-                stackId="main"
-                fill={FUNDING_COLORS[k]}
-                stroke="none"
-                fillOpacity={0.35}
-                isAnimationActive={false}
-              />
-            ))}
-          </AreaChart>
-        </ResponsiveContainer>
-        <div className="flex flex-wrap gap-3 mt-2 justify-end">
-          {FUNDING_KEYS.map(k => (
-            <span key={k} className="flex items-center gap-1 text-[10px] text-gray-500">
-              <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: FUNDING_COLORS[k], opacity: 0.8 }} />
-              {k}
-            </span>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  // By Team mode
   return (
     <div>
       <ResponsiveContainer width="100%" height={height}>
@@ -306,51 +168,42 @@ function DemandChart({
             labelStyle={{ fontWeight: 600, fontSize: 11 }}
             contentStyle={{ fontSize: 11 }}
           />
-          {teamKeys.map(e => {
-            const color = fnColorFor(e.parent_function_label, orderedFnLabels)
-            return (
-              <Area
-                key={`${e.key}_c`}
-                type="monotone"
-                dataKey={`${e.key}_c`}
-                name={`${e.label} (${e.parent_function_label})`}
-                stackId="main"
-                fill={color}
-                stroke="none"
-                fillOpacity={0.75}
-                isAnimationActive={false}
-              />
-            )
-          })}
-          {includeSubmitted && teamKeys.map(e => {
-            const color = fnColorFor(e.parent_function_label, orderedFnLabels)
-            return (
-              <Area
-                key={`${e.key}_s`}
-                type="monotone"
-                dataKey={`${e.key}_s`}
-                name={`${e.label} (${e.parent_function_label}) — Submitted`}
-                stackId="main"
-                fill={color}
-                stroke="none"
-                fillOpacity={0.3}
-                isAnimationActive={false}
-              />
-            )
-          })}
+          {FUNDING_KEYS.map(k => (
+            <Area
+              key={`${k}_c`}
+              type="monotone"
+              dataKey={includeSubmitted ? `${k}_c` : k}
+              name={k}
+              stackId="main"
+              fill={FUNDING_COLORS[k]}
+              stroke="none"
+              fillOpacity={0.8}
+              isAnimationActive={false}
+            />
+          ))}
+          {includeSubmitted && FUNDING_KEYS.map(k => (
+            <Area
+              key={`${k}_s`}
+              type="monotone"
+              dataKey={`${k}_s`}
+              name={`${k} (Submitted)`}
+              stackId="main"
+              fill={FUNDING_COLORS[k]}
+              stroke="none"
+              fillOpacity={0.35}
+              isAnimationActive={false}
+            />
+          ))}
         </AreaChart>
       </ResponsiveContainer>
-      {teamKeys.length > 0 && (
-        <div className="flex flex-wrap gap-3 mt-2 justify-end">
-          {teamKeys.map(e => (
-            <span key={e.key} className="flex items-center gap-1 text-[10px] text-gray-500">
-              <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: fnColorFor(e.parent_function_label, orderedFnLabels), opacity: 0.75 }} />
-              {e.label}
-              <span className="text-gray-400">({e.parent_function_label})</span>
-            </span>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-3 mt-2 justify-end">
+        {FUNDING_KEYS.map(k => (
+          <span key={k} className="flex items-center gap-1 text-[10px] text-gray-500">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: FUNDING_COLORS[k], opacity: 0.8 }} />
+            {k}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }
@@ -457,15 +310,12 @@ function SidePanel({
 // ─── Unaligned card (virtual) ─────────────────────────────────────────────────
 
 function UnalignedCard({
-  months, stacking, includeSubmitted,
+  months, includeSubmitted,
 }: {
   months: string[]
-  stacking: StackingMode
   includeSubmitted: boolean
 }) {
   const demandItems = useAppStore(s => s.demandItems)
-  const teams = useAppStore(s => s.teams)
-  const functions = useAppStore(s => s.functions)
   const statusSet = includeSubmitted ? WITH_SUBMITTED_SET : BASE_STATUS_SET
   const hasUnaligned = useMemo(() =>
     demandItems.some(d => d.parent_project_id === null),
@@ -489,33 +339,6 @@ function UnalignedCard({
     return result
   }
 
-  const getUnalignedTeam = (month: string, ss: ReadonlySet<DemandStatus>): DemandByTeamEntry[] => {
-    const acc = new Map<string, DemandByTeamEntry>()
-    const teamMap = new Map(teams.map(t => [t.id, t]))
-    const fnMap = new Map(functions.map(f => [f.id, f]))
-
-    for (const item of demandItems) {
-      if (item.parent_project_id !== null) continue
-      if (!ss.has(item.status)) continue
-      for (const phase of item.phases) {
-        if (!(month >= phase.start_month && (phase.end_month === null || month <= phase.end_month))) continue
-        for (const req of phase.requirements) {
-          const h = phase.end_month === null ? (req.steady_state_hours ?? 0) : (req.hours_by_month[month] ?? 0)
-          if (h <= 0) continue
-          const teamId = req.owningTeamId
-          const k = teamId ? `team:${teamId}` : 'team:unassigned'
-          if (!acc.has(k)) {
-            const team = teamId ? teamMap.get(teamId) : undefined
-            const fn = team ? fnMap.get(team.functionId) : undefined
-            acc.set(k, { key: k, hours: 0, label: team?.name ?? 'Unassigned', parent_function_label: fn?.name ?? 'Unassigned', source: 'internal' })
-          }
-          acc.get(k)!.hours += h
-        }
-      }
-    }
-    return [...acc.values()].filter(e => e.hours > 0)
-  }
-
   const summary = rollupSummary(months, (m) => {
     const r = getUnalignedFunding(m, statusSet)
     return r['Investment Scheme'] + r['Plant/Sector Allocation'] + r['Mixed']
@@ -531,10 +354,8 @@ function UnalignedCard({
       </div>
       <DemandChart
         months={months}
-        stacking={stacking}
         includeSubmitted={includeSubmitted}
         getFundingData={getUnalignedFunding}
-        getTeamData={getUnalignedTeam}
         height={140}
       />
       <p className="text-[10px] text-gray-400 mt-2">
@@ -547,11 +368,10 @@ function UnalignedCard({
 // ─── Landing page ─────────────────────────────────────────────────────────────
 
 function ProgrammeLanding({
-  months, stacking, includeSubmitted, filterProgrammeId,
+  months, includeSubmitted, filterProgrammeId,
   onNavigateToDrillDown, onMonthClick,
 }: {
   months: string[]
-  stacking: StackingMode
   includeSubmitted: boolean
   filterProgrammeId: string | null
   onNavigateToDrillDown: (programmeId: string) => void
@@ -612,10 +432,8 @@ function ProgrammeLanding({
 
             <DemandChart
               months={months}
-              stacking={stacking}
               includeSubmitted={includeSubmitted}
               getFundingData={(m, ss) => programme_demand_by_funding(programme.id, m, { status_set: ss }, store)}
-              getTeamData={(m, ss) => programme_demand_by_team(programme.id, m, { status_set: ss }, store)}
               height={180}
               onMonthClick={(m) => onMonthClick(programme.id, m)}
             />
@@ -629,7 +447,6 @@ function ProgrammeLanding({
 
       <UnalignedCard
         months={months}
-        stacking={stacking}
         includeSubmitted={includeSubmitted}
       />
     </div>
@@ -639,11 +456,10 @@ function ProgrammeLanding({
 // ─── Drill-down page ──────────────────────────────────────────────────────────
 
 function ProgrammeDrillDown({
-  programmeId, months, stacking, includeSubmitted, onBack, onMonthClick,
+  programmeId, months, includeSubmitted, onBack, onMonthClick,
 }: {
   programmeId: string
   months: string[]
-  stacking: StackingMode
   includeSubmitted: boolean
   onBack: () => void
   onMonthClick: (projectId: string, month: string) => void
@@ -690,10 +506,8 @@ function ProgrammeDrillDown({
         <h3 className="text-xs font-semibold text-gray-600 mb-3">Programme Total — {programme.name}</h3>
         <DemandChart
           months={months}
-          stacking={stacking}
           includeSubmitted={includeSubmitted}
           getFundingData={(m, ss) => programme_demand_by_funding(programmeId, m, { status_set: ss }, store)}
-          getTeamData={(m, ss) => programme_demand_by_team(programmeId, m, { status_set: ss }, store)}
           height={200}
           onMonthClick={(m) => onMonthClick('', m)}
         />
@@ -729,10 +543,8 @@ function ProgrammeDrillDown({
               </div>
               <DemandChart
                 months={months}
-                stacking={stacking}
                 includeSubmitted={includeSubmitted}
                 getFundingData={(m, ss) => project_demand_by_funding(project.id, m, { status_set: ss }, store)}
-                getTeamData={(m, ss) => project_demand_by_team(project.id, m, { status_set: ss }, store)}
                 height={160}
                 onMonthClick={(m) => onMonthClick(project.id, m)}
               />
@@ -754,7 +566,6 @@ export default function ProgrammeDemand() {
   const navigate = useNavigate()
 
   const [horizon, setHorizon] = useState<HorizonMonths>(12)
-  const [stacking, setStacking] = useState<StackingMode>('funding')
   const [includeSubmitted, setIncludeSubmitted] = useState(false)
   const [filterProgrammeId, setFilterProgrammeId] = useState<string | null>(null)
   const [sidePanel, setSidePanel] = useState<SidePanelState | null>(null)
@@ -798,7 +609,6 @@ export default function ProgrammeDemand() {
       {/* Toolbar */}
       <Toolbar
         horizon={horizon} onHorizonChange={setHorizon}
-        stacking={stacking} onStackingChange={setStacking}
         includeSubmitted={includeSubmitted} onIncludeSubmittedChange={setIncludeSubmitted}
         programmes={programmeId ? undefined : activeProgammes}
         filterProgrammeId={programmeId ? undefined : filterProgrammeId}
@@ -810,7 +620,6 @@ export default function ProgrammeDemand() {
         <ProgrammeDrillDown
           programmeId={programmeId}
           months={months}
-          stacking={stacking}
           includeSubmitted={includeSubmitted}
           onBack={() => navigate('/demand')}
           onMonthClick={handleDrillDownMonthClick}
@@ -818,7 +627,6 @@ export default function ProgrammeDemand() {
       ) : (
         <ProgrammeLanding
           months={months}
-          stacking={stacking}
           includeSubmitted={includeSubmitted}
           filterProgrammeId={filterProgrammeId}
           onNavigateToDrillDown={(id) => navigate(`/demand/programme/${id}`)}

@@ -32,7 +32,7 @@ This file directs Claude Code to the work items for the v1.18 spec revision. Eac
 
 ## Change 2 — Aggregation layer rewrite
 
-- [ ] Update the shared aggregation module to walk the new Project → Phases → Requirements → child Demand structure, add `direct_demand_*` functions, and revise `*_demand_by_funding` signatures with the new `opts` parameter. Delete dead-code by-team functions.
+- [x] Update the shared aggregation module to walk the new Project → Phases → Requirements → child Demand structure, add `direct_demand_*` functions, and revise `*_demand_by_funding` signatures with the new `opts` parameter. Delete dead-code by-team functions.
 
 **Scope**:
 - Update `project_internal_hours`, `project_external_hours`, `programme_internal_hours`, `programme_external_hours` to walk Project phases and respect child-Demand status filtering.

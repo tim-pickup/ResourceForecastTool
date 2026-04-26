@@ -445,13 +445,40 @@ function phaseContainsMonth(phase: Phase, month: string): boolean {
   return monthInRange(month, phase.start_month, phase.end_month)
 }
 
-// 1. project_internal_hours — sum of internal skill-shaped requirement target
-//    hours across Demands aligned to project_id in Approved/PA/Allocated.
+// 1. project_internal_hours — sum of internal skill-shaped requirement target hours
+//    on this Project's phases, scoped to Functions whose child Demands are in REAL_STATUSES.
+//    Falls back to DemandItem phases when Project.phases is empty (pre-seed-rebuild).
 export function project_internal_hours(
   project_id: string,
   month: string,
   state: AppState
 ): number {
+  const project = state.projects.find(p => p.id === project_id)
+  if (!project) return 0
+
+  if (project.phases.length > 0) {
+    // v1.18: phases live on Project; filter by Function's child-Demand status
+    const fnStatus = new Map<string, DemandStatus>()
+    for (const d of state.demandItems) {
+      if (d.parent_project_id === project_id) fnStatus.set(d.function_id, d.status)
+    }
+    const domFn = new Map(state.domains.map(d => [d.id, d.functionId]))
+    const sklFn = new Map(state.skills.map(s => [s.id, domFn.get(s.domain_id) ?? '']))
+    let total = 0
+    for (const phase of project.phases) {
+      if (!phaseContainsMonth(phase, month)) continue
+      for (const req of phase.requirements) {
+        const fnId = sklFn.get(req.skill_id)
+        if (!fnId) continue
+        const ds = fnStatus.get(fnId)
+        if (!ds || !REAL_STATUSES.has(ds)) continue
+        total += reqHoursForMonth(req, phase, month)
+      }
+    }
+    return total
+  }
+
+  // Legacy fallback: phases still on DemandItems (pre-seed-rebuild)
   let total = 0
   for (const item of state.demandItems) {
     if (item.parent_project_id !== project_id) continue
@@ -466,21 +493,36 @@ export function project_internal_hours(
   return total
 }
 
-// 2. project_external_hours — sum of external requirement hours across
-//    Demands aligned to project_id in any active status.
+// 2. project_external_hours — sum of external requirement hours on this Project's phases.
+//    External hours are independent of Demand status; any non-deleted Project contributes.
+//    Falls back to DemandItem phases when Project.phases is empty (pre-seed-rebuild).
 export function project_external_hours(
   project_id: string,
   month: string,
   state: AppState
 ): number {
-  // Build a phase-to-parentItem lookup so we can check item status
+  const project = state.projects.find(p => p.id === project_id)
+  if (!project) return 0
+
+  if (project.phases.length > 0) {
+    // v1.18: external reqs linked to Project phases
+    const phaseById = new Map(project.phases.map(ph => [ph.id, ph]))
+    let total = 0
+    for (const ext of state.externalResourceRequirements) {
+      const phase = phaseById.get(ext.phase_id)
+      if (!phase || !phaseContainsMonth(phase, month)) continue
+      total += extHoursForMonth(ext, phase, month)
+    }
+    return total
+  }
+
+  // Legacy fallback: external reqs linked to DemandItem phases
   const phaseToItem = new Map<string, DemandItem>()
   for (const item of state.demandItems) {
     for (const phase of item.phases) {
       phaseToItem.set(phase.id, item)
     }
   }
-
   let total = 0
   for (const ext of state.externalResourceRequirements) {
     const item = phaseToItem.get(ext.phase_id)
@@ -494,21 +536,37 @@ export function project_external_hours(
   return total
 }
 
-// 3. project_external_hours_by_provider — same as above, broken down by
-//    {provider_id: number}.
+// 3. project_external_hours_by_provider — same as project_external_hours,
+//    broken down by {provider_id: number}.
 export function project_external_hours_by_provider(
   project_id: string,
   month: string,
   state: AppState
 ): Record<string, number> {
+  const project = state.projects.find(p => p.id === project_id)
+  if (!project) return {}
+
+  const result: Record<string, number> = {}
+
+  if (project.phases.length > 0) {
+    // v1.18: external reqs linked to Project phases
+    const phaseById = new Map(project.phases.map(ph => [ph.id, ph]))
+    for (const ext of state.externalResourceRequirements) {
+      const phase = phaseById.get(ext.phase_id)
+      if (!phase || !phaseContainsMonth(phase, month)) continue
+      const h = extHoursForMonth(ext, phase, month)
+      result[ext.provider_id] = (result[ext.provider_id] ?? 0) + h
+    }
+    return result
+  }
+
+  // Legacy fallback: external reqs linked to DemandItem phases
   const phaseToItem = new Map<string, DemandItem>()
   for (const item of state.demandItems) {
     for (const phase of item.phases) {
       phaseToItem.set(phase.id, item)
     }
   }
-
-  const result: Record<string, number> = {}
   for (const ext of state.externalResourceRequirements) {
     const item = phaseToItem.get(ext.phase_id)
     if (!item) continue
@@ -626,76 +684,208 @@ export function unaligned_demand_hours(
   return total
 }
 
-// ─── §2.4.9 crossFunctionDemandHours ─────────────────────────────────────────
-// Returns internal skill-shaped requirement hours placed on *other* Functions
-// by Demands that touch the active Function, for a given month.
+// ─── §2.4.9 new direct-demand and unaligned-project aggregation functions ────
+
+// direct_demand_internal_hours — internal hours across direct Demands (parent_project_id = null)
+//   in REAL_STATUSES. Optional function_id scopes to a single Function.
+export function direct_demand_internal_hours(
+  month: string,
+  opts: { function_id?: string },
+  state: AppState
+): number {
+  let total = 0
+  for (const d of state.demandItems) {
+    if (d.parent_project_id !== null) continue
+    if (!REAL_STATUSES.has(d.status)) continue
+    if (opts.function_id && d.function_id !== opts.function_id) continue
+    for (const phase of d.phases) {
+      if (!phaseContainsMonth(phase, month)) continue
+      for (const req of phase.requirements) {
+        total += reqHoursForMonth(req, phase, month)
+      }
+    }
+  }
+  return total
+}
+
+// direct_demand_external_hours — external hours across direct Demands in any active status.
+//   Optional function_id scopes to a single Function.
+export function direct_demand_external_hours(
+  month: string,
+  opts: { function_id?: string },
+  state: AppState
+): number {
+  const phaseToItem = new Map<string, DemandItem>()
+  for (const d of state.demandItems) {
+    if (d.parent_project_id !== null) continue
+    if (opts.function_id && d.function_id !== opts.function_id) continue
+    for (const phase of d.phases) phaseToItem.set(phase.id, d)
+  }
+  let total = 0
+  for (const ext of state.externalResourceRequirements) {
+    const item = phaseToItem.get(ext.phase_id)
+    if (!item) continue
+    if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
+    const phase = item.phases.find(p => p.id === ext.phase_id)
+    if (!phase || !phaseContainsMonth(phase, month)) continue
+    total += extHoursForMonth(ext, phase, month)
+  }
+  return total
+}
+
+// direct_demand_by_funding — funding-source decomposition for direct Demands.
+//   function_id required (active Function lens). include_external adds external hours.
+//   include_other_functions is ignored (direct Demands have no sibling Demands).
+export function direct_demand_by_funding(
+  month: string,
+  opts: {
+    status_set: ReadonlySet<DemandStatus>
+    function_id?: string
+    include_external?: boolean
+    include_other_functions?: boolean
+  },
+  state: AppState
+): DemandByFundingResult {
+  const result: DemandByFundingResult = { 'Investment Scheme': 0, 'Plant/Sector Allocation': 0, 'Mixed': 0 }
+
+  for (const d of state.demandItems) {
+    if (d.parent_project_id !== null) continue
+    if (!opts.status_set.has(d.status)) continue
+    if (opts.function_id && d.function_id !== opts.function_id) continue
+    for (const phase of d.phases) {
+      if (!phaseContainsMonth(phase, month)) continue
+      for (const req of phase.requirements) {
+        result[phase.funding_source] += reqHoursForMonth(req, phase, month)
+      }
+    }
+  }
+
+  if (opts.include_external) {
+    const phaseToItem = new Map<string, { item: DemandItem; phase: Phase }>()
+    for (const d of state.demandItems) {
+      if (d.parent_project_id !== null) continue
+      if (opts.function_id && d.function_id !== opts.function_id) continue
+      for (const phase of d.phases) phaseToItem.set(phase.id, { item: d, phase })
+    }
+    for (const ext of state.externalResourceRequirements) {
+      const entry = phaseToItem.get(ext.phase_id)
+      if (!entry) continue
+      if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(entry.item.status)) continue
+      if (!phaseContainsMonth(entry.phase, month)) continue
+      result[entry.phase.funding_source] += extHoursForMonth(ext, entry.phase, month)
+    }
+  }
+
+  return result
+}
+
+// unaligned_project_hours — hours for Projects with no Programme (programme_id = null).
+//   Replaces v1.17 unaligned_demand_hours for the Project-model era.
+export function unaligned_project_hours(
+  month: string,
+  kind: 'internal' | 'external',
+  state: AppState
+): number {
+  const unaligned = state.projects.filter(p => p.programme_id === null && p.active)
+  if (kind === 'internal') {
+    return unaligned.reduce((s, p) => s + project_internal_hours(p.id, month, state), 0)
+  }
+  return unaligned.reduce((s, p) => s + project_external_hours(p.id, month, state), 0)
+}
+
+// ─── §2.4.9 cross_function_demand_hours — reframed for v1.18 ─────────────────
+// v1.18 semantics: for Projects where active Function has at least one child Demand,
+// sum requirements targeting non-active-Function Skills where the corresponding
+// sibling Demand is in status_set.
 //
-// Scope (per spec §4 View 1 Section D):
-//   - Only Demands in Approved / PartiallyAllocated / Allocated status
-//   - A Demand qualifies if it has ≥1 requirement targeting any skill in the
-//     active Function's Domain taxonomy (across any phase, any month)
-//   - Returns only requirements targeting Skills in OTHER Functions
-//   - External requirements are excluded (§2.6 — they are Section C's concern)
+// Falls back to v1.17 behavior (Demands touching active Function via skill requirements)
+// when Project.phases is empty (pre-seed-rebuild).
+//
+// Direct Demands are excluded — they are not on shared Projects by definition.
 //
 // opts.by = 'function'  → keyed by receiving functionId
-// opts.by = 'team'      → keyed by owningTeamId of the requirement
-//                         (null owningTeamId → '__unassigned__')
-//                         Only requirements whose owningTeam belongs to the
-//                         receiving Function are grouped by team; others go to
-//                         '__unassigned__'.
+// opts.by = 'team'      → keyed by owningTeamId, '__unassigned__' for nulls
 
 export type CrossFunctionDemandGroup = Record<string, number>
 
 export function crossFunctionDemandHours(
   activeFunctionId: string,
   month: string,
-  opts: { by: 'function' | 'team' },
+  opts: { by: 'function' | 'team'; status_set?: ReadonlySet<DemandStatus> },
   state: AppState
 ): CrossFunctionDemandGroup {
-  // Build active-Function skill set
-  const activeDomainIds = new Set(
-    state.domains.filter(d => d.functionId === activeFunctionId).map(d => d.id)
-  )
-  const activeSkillIds = new Set(
-    state.skills.filter(s => activeDomainIds.has(s.domain_id)).map(s => s.id)
-  )
+  const statusSet = opts.status_set ?? REAL_STATUSES
 
-  // Skill → owning-Function mapping
-  const domainFnMap = new Map(state.domains.map(d => [d.id, d.functionId]))
-  const skillFnMap = new Map(
-    state.skills.map(s => [s.id, domainFnMap.get(s.domain_id) ?? ''])
-  )
-
-  // Team → owning-Function mapping
-  const teamFnMap = new Map(state.teams.map(t => [t.id, t.functionId]))
+  const domFn = new Map(state.domains.map(d => [d.id, d.functionId]))
+  const sklFn = new Map(state.skills.map(s => [s.id, domFn.get(s.domain_id) ?? '']))
+  const teamFn = new Map(state.teams.map(t => [t.id, t.functionId]))
 
   const result: CrossFunctionDemandGroup = {}
 
-  for (const item of state.demandItems) {
-    if (!REAL_STATUSES.has(item.status)) continue
+  // Collect Projects where activeFunctionId has at least one child Demand,
+  // plus the per-Function Demand status map for each such Project.
+  const projectsWithActive = new Set<string>()
+  const projectFnStatus = new Map<string, Map<string, DemandStatus>>()
+  for (const d of state.demandItems) {
+    if (d.parent_project_id === null) continue
+    if (!projectFnStatus.has(d.parent_project_id)) {
+      projectFnStatus.set(d.parent_project_id, new Map())
+    }
+    projectFnStatus.get(d.parent_project_id)!.set(d.function_id, d.status)
+    if (d.function_id === activeFunctionId) projectsWithActive.add(d.parent_project_id)
+  }
 
-    // Demand must touch active Function in at least one requirement (any phase)
-    const touchesActive = item.phases.some(ph =>
-      ph.requirements.some(req => activeSkillIds.has(req.skill_id))
-    )
-    if (!touchesActive) continue
+  for (const project of state.projects) {
+    if (!projectsWithActive.has(project.id)) continue
+    const fnStatus = projectFnStatus.get(project.id)!
 
-    for (const phase of item.phases) {
-      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-      for (const req of phase.requirements) {
-        const reqFnId = skillFnMap.get(req.skill_id)
-        if (!reqFnId || reqFnId === activeFunctionId) continue  // skip active-Function skills
-        const hours = reqHoursForMonth(req, phase, month)
-        if (hours <= 0) continue
-
-        if (opts.by === 'function') {
-          result[reqFnId] = (result[reqFnId] ?? 0) + hours
-        } else {
-          const teamId = req.owningTeamId
-          if (teamId && teamFnMap.get(teamId) === reqFnId) {
-            result[teamId] = (result[teamId] ?? 0) + hours
+    if (project.phases.length > 0) {
+      // v1.18: walk Project phases
+      for (const phase of project.phases) {
+        if (!monthInRange(month, phase.start_month, phase.end_month)) continue
+        for (const req of phase.requirements) {
+          const reqFnId = sklFn.get(req.skill_id)
+          if (!reqFnId || reqFnId === activeFunctionId) continue
+          const ds = fnStatus.get(reqFnId)
+          if (!ds || !statusSet.has(ds)) continue
+          const hours = reqHoursForMonth(req, phase, month)
+          if (hours <= 0) continue
+          if (opts.by === 'function') {
+            result[reqFnId] = (result[reqFnId] ?? 0) + hours
           } else {
-            result['__unassigned__'] = (result['__unassigned__'] ?? 0) + hours
+            const teamId = req.owningTeamId
+            if (teamId && teamFn.get(teamId) === reqFnId) {
+              result[teamId] = (result[teamId] ?? 0) + hours
+            } else {
+              result['__unassigned__'] = (result['__unassigned__'] ?? 0) + hours
+            }
+          }
+        }
+      }
+    } else {
+      // Legacy fallback: walk Demands on this project; find non-active-Function reqs
+      for (const d of state.demandItems) {
+        if (d.parent_project_id !== project.id) continue
+        if (!statusSet.has(d.status)) continue
+        // Include: Demands for non-active Functions, OR the active-Function Demand's
+        // cross-function requirements (v1.17 model where one Demand spans functions)
+        for (const phase of d.phases) {
+          if (!monthInRange(month, phase.start_month, phase.end_month)) continue
+          for (const req of phase.requirements) {
+            const reqFnId = sklFn.get(req.skill_id)
+            if (!reqFnId || reqFnId === activeFunctionId) continue
+            const hours = reqHoursForMonth(req, phase, month)
+            if (hours <= 0) continue
+            if (opts.by === 'function') {
+              result[reqFnId] = (result[reqFnId] ?? 0) + hours
+            } else {
+              const teamId = req.owningTeamId
+              if (teamId && teamFn.get(teamId) === reqFnId) {
+                result[teamId] = (result[teamId] ?? 0) + hours
+              } else {
+                result['__unassigned__'] = (result['__unassigned__'] ?? 0) + hours
+              }
+            }
           }
         }
       }
@@ -705,37 +895,74 @@ export function crossFunctionDemandHours(
   return result
 }
 
-// ─── §2.4.9 v1.17 — programme/project demand-by-funding / demand-by-team ─────
-// Added for the new Demand view (§4.10). These differ from the existing roll-up
-// family: status_set is configurable; internal + external combine into one
-// number per stack key; they return decompositions for direct chart rendering.
+// ─── §2.4.9 v1.18 — programme/project demand-by-funding ─────────────────────
+// These functions answer "how much demand does a Programme/Project create over time,
+// scoped to the active Function and respecting external/other-Functions toggles?"
+//
+// opts.function_id        — active Function lens (omit to include all Functions)
+// opts.status_set         — which Demand statuses count as in-scope internal hours
+// opts.include_external   — also add external requirement hours (default false)
+// opts.include_other_functions — also include sibling Functions' hours (default false)
+//
+// NOTE: programme_demand_by_team and project_demand_by_team have been removed in
+// v1.18. The "By Team" stacking option on the Demand view is removed per §4.10.
 
 export type DemandByFundingResult = Record<FundingSource, number>
 
-export interface DemandByTeamEntry {
-  key: string                    // 'team:<id>' | 'team:unassigned' | 'provider:<id>'
-  hours: number
-  label: string
-  parent_function_label: string  // Function name, 'External', or 'Unassigned'
-  source: 'internal' | 'external'
+export interface DemandByFundingOpts {
+  status_set: ReadonlySet<DemandStatus>
+  function_id?: string
+  include_external?: boolean
+  include_other_functions?: boolean
 }
 
 export function project_demand_by_funding(
   project_id: string,
   month: string,
-  opts: { status_set: ReadonlySet<DemandStatus> },
+  opts: DemandByFundingOpts,
   state: AppState
 ): DemandByFundingResult {
-  const result: DemandByFundingResult = {
-    'Investment Scheme': 0,
-    'Plant/Sector Allocation': 0,
-    'Mixed': 0,
+  const result: DemandByFundingResult = { 'Investment Scheme': 0, 'Plant/Sector Allocation': 0, 'Mixed': 0 }
+  const project = state.projects.find(p => p.id === project_id)
+  if (!project) return result
+
+  if (project.phases.length > 0) {
+    // v1.18: phases on Project; filter by Function's child-Demand status
+    const fnStatus = new Map<string, DemandStatus>()
+    for (const d of state.demandItems) {
+      if (d.parent_project_id === project_id) fnStatus.set(d.function_id, d.status)
+    }
+    const domFn = new Map(state.domains.map(d => [d.id, d.functionId]))
+    const sklFn = new Map(state.skills.map(s => [s.id, domFn.get(s.domain_id) ?? '']))
+
+    for (const phase of project.phases) {
+      if (!phaseContainsMonth(phase, month)) continue
+      for (const req of phase.requirements) {
+        const reqFnId = sklFn.get(req.skill_id)
+        if (!reqFnId) continue
+        const ds = fnStatus.get(reqFnId)
+        if (!ds || !opts.status_set.has(ds)) continue
+        const isActive = !opts.function_id || reqFnId === opts.function_id
+        const isOther = opts.function_id && reqFnId !== opts.function_id
+        if (isActive || (isOther && opts.include_other_functions)) {
+          result[phase.funding_source] += reqHoursForMonth(req, phase, month)
+        }
+      }
+      if (opts.include_external) {
+        for (const ext of state.externalResourceRequirements) {
+          if (ext.phase_id !== phase.id) continue
+          result[phase.funding_source] += extHoursForMonth(ext, phase, month)
+        }
+      }
+    }
+    return result
   }
 
-  // Internal hours: only Demands whose status is in status_set
+  // Legacy fallback: phases on DemandItems
   for (const item of state.demandItems) {
     if (item.parent_project_id !== project_id) continue
     if (!opts.status_set.has(item.status)) continue
+    if (opts.function_id && item.function_id !== opts.function_id) continue
     for (const phase of item.phases) {
       if (!phaseContainsMonth(phase, month)) continue
       for (const req of phase.requirements) {
@@ -743,108 +970,30 @@ export function project_demand_by_funding(
       }
     }
   }
-
-  // External hours: all active statuses regardless of status_set
-  const phaseMap = new Map<string, { phase: Phase; item: DemandItem }>()
-  for (const item of state.demandItems) {
-    if (item.parent_project_id !== project_id) continue
-    for (const phase of item.phases) phaseMap.set(phase.id, { phase, item })
-  }
-  for (const ext of state.externalResourceRequirements) {
-    const entry = phaseMap.get(ext.phase_id)
-    if (!entry) continue
-    const { phase, item } = entry
-    if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
-    if (!phaseContainsMonth(phase, month)) continue
-    result[phase.funding_source] += extHoursForMonth(ext, phase, month)
-  }
-
-  return result
-}
-
-export function project_demand_by_team(
-  project_id: string,
-  month: string,
-  opts: { status_set: ReadonlySet<DemandStatus> },
-  state: AppState
-): DemandByTeamEntry[] {
-  const acc = new Map<string, DemandByTeamEntry>()
-  const teamMap = new Map(state.teams.map(t => [t.id, t]))
-  const fnMap = new Map(state.functions.map(f => [f.id, f]))
-  const providerMap = new Map(state.providers.map(p => [p.id, p]))
-
-  function getOrCreateTeam(teamId: string | null): DemandByTeamEntry {
-    if (teamId === null) {
-      if (!acc.has('team:unassigned')) {
-        acc.set('team:unassigned', { key: 'team:unassigned', hours: 0, label: 'Unassigned', parent_function_label: 'Unassigned', source: 'internal' })
-      }
-      return acc.get('team:unassigned')!
+  // Legacy: include externals when function_id not specified (preserves v1.17 chart behavior)
+  //         or when include_external is explicitly true
+  if (opts.include_external || !opts.function_id) {
+    const phaseMap = new Map<string, { phase: Phase; item: DemandItem }>()
+    for (const item of state.demandItems) {
+      if (item.parent_project_id !== project_id) continue
+      for (const phase of item.phases) phaseMap.set(phase.id, { phase, item })
     }
-    const k = `team:${teamId}`
-    if (!acc.has(k)) {
-      const team = teamMap.get(teamId)
-      const fn = team ? fnMap.get(team.functionId) : undefined
-      acc.set(k, { key: k, hours: 0, label: team?.name ?? teamId, parent_function_label: fn?.name ?? 'Unknown', source: 'internal' })
-    }
-    return acc.get(k)!
-  }
-
-  function getOrCreateProvider(providerId: string): DemandByTeamEntry {
-    const k = `provider:${providerId}`
-    if (!acc.has(k)) {
-      const provider = providerMap.get(providerId)
-      acc.set(k, { key: k, hours: 0, label: provider?.name ?? providerId, parent_function_label: 'External', source: 'external' })
-    }
-    return acc.get(k)!
-  }
-
-  // Internal hours
-  for (const item of state.demandItems) {
-    if (item.parent_project_id !== project_id) continue
-    if (!opts.status_set.has(item.status)) continue
-    for (const phase of item.phases) {
+    for (const ext of state.externalResourceRequirements) {
+      const entry = phaseMap.get(ext.phase_id)
+      if (!entry) continue
+      const { phase, item } = entry
+      if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
       if (!phaseContainsMonth(phase, month)) continue
-      for (const req of phase.requirements) {
-        const h = reqHoursForMonth(req, phase, month)
-        if (h > 0) getOrCreateTeam(req.owningTeamId).hours += h
-      }
+      result[phase.funding_source] += extHoursForMonth(ext, phase, month)
     }
   }
-
-  // External hours: all active statuses regardless of status_set
-  const phaseMap = new Map<string, { phase: Phase; item: DemandItem }>()
-  for (const item of state.demandItems) {
-    if (item.parent_project_id !== project_id) continue
-    for (const phase of item.phases) phaseMap.set(phase.id, { phase, item })
-  }
-  for (const ext of state.externalResourceRequirements) {
-    const entry = phaseMap.get(ext.phase_id)
-    if (!entry) continue
-    const { phase, item } = entry
-    if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
-    if (!phaseContainsMonth(phase, month)) continue
-    const h = extHoursForMonth(ext, phase, month)
-    if (h > 0) getOrCreateProvider(ext.provider_id).hours += h
-  }
-
-  const sortOrder = (e: DemandByTeamEntry) =>
-    e.parent_function_label === 'External' ? 2 : e.parent_function_label === 'Unassigned' ? 1 : 0
-
-  return [...acc.values()]
-    .filter(e => e.hours > 0)
-    .sort((a, b) => {
-      const ao = sortOrder(a), bo = sortOrder(b)
-      if (ao !== bo) return ao - bo
-      const pfCmp = a.parent_function_label.localeCompare(b.parent_function_label)
-      if (pfCmp !== 0) return pfCmp
-      return a.label.localeCompare(b.label)
-    })
+  return result
 }
 
 export function programme_demand_by_funding(
   programme_id: string,
   month: string,
-  opts: { status_set: ReadonlySet<DemandStatus> },
+  opts: DemandByFundingOpts,
   state: AppState
 ): DemandByFundingResult {
   const result: DemandByFundingResult = { 'Investment Scheme': 0, 'Plant/Sector Allocation': 0, 'Mixed': 0 }
@@ -855,35 +1004,6 @@ export function programme_demand_by_funding(
     result['Mixed'] += pr['Mixed']
   }
   return result
-}
-
-export function programme_demand_by_team(
-  programme_id: string,
-  month: string,
-  opts: { status_set: ReadonlySet<DemandStatus> },
-  state: AppState
-): DemandByTeamEntry[] {
-  const acc = new Map<string, DemandByTeamEntry>()
-  for (const project of state.projects.filter(p => p.programme_id === programme_id && p.active)) {
-    for (const entry of project_demand_by_team(project.id, month, opts, state)) {
-      if (acc.has(entry.key)) {
-        acc.get(entry.key)!.hours += entry.hours
-      } else {
-        acc.set(entry.key, { ...entry })
-      }
-    }
-  }
-
-  const sortOrder = (e: DemandByTeamEntry) =>
-    e.parent_function_label === 'External' ? 2 : e.parent_function_label === 'Unassigned' ? 1 : 0
-
-  return [...acc.values()].sort((a, b) => {
-    const ao = sortOrder(a), bo = sortOrder(b)
-    if (ao !== bo) return ao - bo
-    const pfCmp = a.parent_function_label.localeCompare(b.parent_function_label)
-    if (pfCmp !== 0) return pfCmp
-    return a.label.localeCompare(b.label)
-  })
 }
 
 // ─── Runtime invariant checker (dev mode) ────────────────────────────────────
