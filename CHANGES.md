@@ -130,7 +130,7 @@ This file directs Claude Code to the work items for the v1.18 spec revision. Eac
 
 ## Change 7 — Manage Projects view (new)
 
-- [ ] Build the new Manage Projects view as a 5-column Kanban (Draft / Scoping / Submitted / Approved / Allocated). Add the "+ New Project" button. Apply the cross-Function visibility rule.
+- [x] Build the new Manage Projects view as a 5-column Kanban (Draft / Scoping / Submitted / Approved / Allocated). Add the "+ New Project" button. Apply the cross-Function visibility rule.
 
 **Scope**:
 - Kanban columns: 5 statuses. Drag-and-drop: Draft → Scoping (gated), Scoping → Submitted (triggers spawn confirmation dialog). Approved/Allocated drags rejected (auto-only).
