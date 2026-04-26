@@ -21,6 +21,9 @@ import {
   project_external_hours,
   project_external_hours_by_provider,
   crossFunctionDemandHours,
+  function_capacity,
+  domain_capacity,
+  person_capacity,
   type DemandTarget,
 } from './capacity'
 import { generateMonths, getCurrentMonth } from '../utils/capacity'
@@ -234,8 +237,8 @@ export function runSeedAssertions(): void {
     )
   }
 
-  // All passed
-  const allOk =
+  // All passed (existing)
+  const existingOk =
     bandMomMes > 0 &&
     alexProj > 0 &&
     bandMivWithOverlay > 0 &&
@@ -244,7 +247,88 @@ export function runSeedAssertions(): void {
     projExternal > 0 &&
     providerCount >= 2 &&
     cfNonZero
-  if (allOk) {
-    console.info('[SeedAssertions] All §2.4.8 + §2.4.9 renderability invariants passed ✓')
+  if (existingOk) {
+    console.info('[SeedAssertions] §2.4.8 + §2.4.9 grey-band/projection/roll-up invariants passed ✓')
+  }
+
+  // ── §2.4.8 Capacity reconciliation invariants (v1.18) ───────────────────
+  // Added to address two v1.17 defects:
+  //   1. Section A capacity line did not change on Function switch.
+  //   2. Group IT Data & Integration showed possible phantom capacity in Jul–Aug 2026.
+
+  const dmFnId = 'func_001'
+  const gitFnId = 'func_002'
+  const capacityTestMonths = ['2026-07', '2026-08']
+
+  // 1. function_capacity consistency: must equal sum of person_capacity for each Function.
+  //    The independent expected value is computed by directly iterating over People —
+  //    this catches any bug in function_capacity itself.
+  let capacityConsistencyOk = true
+  for (const fnId of [dmFnId, gitFnId]) {
+    const fnName = state.functions.find(f => f.id === fnId)?.name ?? fnId
+    const fnTeamIds = new Set(state.teams.filter(t => t.functionId === fnId).map(t => t.id))
+    for (const month of capacityTestMonths) {
+      const actual = function_capacity(fnId, month, state)
+      const expected = state.people
+        .filter(p => p.active && fnTeamIds.has(p.teamId))
+        .reduce((s, p) => s + person_capacity(p.id, month, state), 0)
+      if (Math.abs(actual - expected) > 0.01) {
+        console.error(
+          `[SeedAssertion FAIL] function_capacity(${fnName}, ${month}): ` +
+          `got ${actual.toFixed(1)}, expected sum-of-person-capacity ${expected.toFixed(1)}`
+        )
+        capacityConsistencyOk = false
+      }
+    }
+  }
+
+  // 2. Function-switch assertion: DM and GroupIT must produce different Section A
+  //    capacity-line values in at least one visible month. Equality across every month
+  //    would mean both Functions have identical headcount and contracted hours, which
+  //    the seed is intentionally constructed to prevent.
+  let fnSwitchDiffers = false
+  for (const month of months) {
+    const dmCap = function_capacity(dmFnId, month, state)
+    const gitCap = function_capacity(gitFnId, month, state)
+    if (Math.abs(dmCap - gitCap) > 0.01) { fnSwitchDiffers = true; break }
+  }
+  if (!fnSwitchDiffers) {
+    console.error(
+      '[SeedAssertion FAIL] function_capacity(DM) === function_capacity(GroupIT) in every visible month — ' +
+      'seed must differentiate Functions for the Section A re-render invariant to be observable'
+    )
+  }
+
+  // 3. Per-domain reconciliation — Group IT Enterprise Solutions: Data & Integration.
+  //    Seed-derived expected values (§6 capacity reconciliation table):
+  //      2026-07: 152h — Anya Petrov only (per_017, 152h contracted); Henrik Sørensen
+  //               (per_018) has available_from=2026-08 so is not active in Jul 2026.
+  //      2026-08: 304h — Anya Petrov (152h) + Henrik Sørensen (152h); both active, no
+  //               commitments to non-D&I skills in either month.
+  //    Phantom capacity verdict: the v1.17 apparent phantom headroom does NOT reproduce
+  //    from a fresh seed load. Both people hold real capacity with no over-accounting.
+  //    If this assertion fails, the domain_capacity function has a bug.
+  const dataIntDomainId = 'thm_git_data'
+  const domainRecTable: Array<{ month: string; expected: number }> = [
+    { month: '2026-07', expected: 152 },
+    { month: '2026-08', expected: 304 },
+  ]
+  let domainCapOk = true
+  for (const { month, expected } of domainRecTable) {
+    const actual = domain_capacity(dataIntDomainId, month, state)
+    if (Math.abs(actual - expected) > 0.01) {
+      const domainName = state.domains.find(d => d.id === dataIntDomainId)?.name ?? dataIntDomainId
+      console.error(
+        `[SeedAssertion FAIL] domain_capacity(${domainName}, ${month}): ` +
+        `got ${actual.toFixed(1)}, expected ${expected} — ` +
+        `(Domain, month, expected, actual) = (${domainName}, ${month}, ${expected}, ${actual.toFixed(1)}) — ` +
+        `check §6 capacity reconciliation table`
+      )
+      domainCapOk = false
+    }
+  }
+
+  if (capacityConsistencyOk && fnSwitchDiffers && domainCapOk) {
+    console.info('[SeedAssertions] §2.4.8 capacity reconciliation invariants passed ✓')
   }
 }

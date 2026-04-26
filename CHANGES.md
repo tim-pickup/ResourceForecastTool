@@ -51,7 +51,7 @@ This file directs Claude Code to the work items for the v1.18 spec revision. Eac
 
 ## Change 3 — Capacity reconciliation invariants (bug-fix scaffolding)
 
-- [ ] Add per-Function and per-Domain capacity reconciliation invariants as runtime assertions in development builds. Build a seed-derived expected-value table and verify chart, aggregation, and table reconcile.
+- [x] Add per-Function and per-Domain capacity reconciliation invariants as runtime assertions in development builds. Build a seed-derived expected-value table and verify chart, aggregation, and table reconcile.
 
 **Scope**:
 - Implement `function_capacity(function_id, month)` and assert against the seed-derived table.

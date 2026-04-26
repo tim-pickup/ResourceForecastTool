@@ -422,6 +422,26 @@ export function team_capacity(month: string, state: AppState): number {
     .reduce((s, p) => s + p.contracted_hours_per_month, 0)
 }
 
+// ─── §2.4.8 function_capacity ────────────────────────────────────────────────
+// Sum of person_capacity for all active People whose Team belongs to this
+// Function. This is the value the Section A capacity line must equal (per the
+// capacity reconciliation invariant added in v1.18).
+//
+// People → Function path: person.teamId → team.functionId
+
+export function function_capacity(functionId: string, month: string, state: AppState): number {
+  const fnTeamIds = new Set(
+    state.teams.filter(t => t.functionId === functionId).map(t => t.id)
+  )
+  let total = 0
+  for (const person of state.people) {
+    if (!person.active) continue
+    if (!fnTeamIds.has(person.teamId)) continue
+    total += person_capacity(person.id, month, state)
+  }
+  return total
+}
+
 // ─── §2.4.9 Programme / Project roll-up aggregation ─────────────────────────
 //
 // Consistency rule: no view iterates over Demands/Phases/Requirements to
