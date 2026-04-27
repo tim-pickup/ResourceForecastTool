@@ -10,7 +10,6 @@ import DemandEdit from './views/DemandEdit'
 import ProjectEdit from './views/ProjectEdit'
 import ManageProjects from './views/ManageProjects'
 import Admin from './views/Admin'
-import Archive from './views/Archive'
 import { useAppStore } from './store/useAppStore'
 
 // §11.19 v1.18: Capacity Validation, Demand, Manage Projects, Manage Demand,
@@ -215,7 +214,6 @@ function AppShell() {
           <Route path="/manage-projects" element={<ManageProjects />} />
           <Route path="/manage-projects/new" element={<ProjectEdit />} />
           <Route path="/manage-projects/:id/edit" element={<ProjectEdit />} />
-          <Route path="/archive" element={<Archive />} />
           <Route path="/admin/*" element={<Admin />} />
         </Routes>
       </main>

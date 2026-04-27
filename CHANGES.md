@@ -193,7 +193,7 @@ This file directs Claude Code to the work items for the v1.18 spec revision. Eac
 
 ## Change 10 — Archive view removal + nav updates
 
-- [ ] Remove the Archive view route, remove the Archive nav item, update the nav order to the v1.18 sequence, update routing for the new `/manage-projects` route.
+- [x] Remove the Archive view route, remove the Archive nav item, update the nav order to the v1.18 sequence, update routing for the new `/manage-projects` route.
 
 **Scope**:
 - Delete the Archive view component and its route.
