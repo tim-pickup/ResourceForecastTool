@@ -249,7 +249,7 @@ This file directs Claude Code to the work items for the v1.18 spec revision. Eac
 
 ## Change 13 — Renderability invariants and final cleanup
 
-- [ ] Wire all v1.18 seed assertions as runtime assertions. Remove residual Park / Close / Revert / Revise / Duplicate / Archive references from code, route paths, fixtures, design system tokens.
+- [x] Wire all v1.18 seed assertions as runtime assertions. Remove residual Park / Close / Revert / Revise / Duplicate / Archive references from code, route paths, fixtures, design system tokens.
 
 **Scope**:
 - All seed assertions in §6 ("Seed assertions" block) wired as dev-build runtime assertions per the §2.4.8 pattern.

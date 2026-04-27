@@ -23,7 +23,8 @@ import {
   function_capacity,
   domain_capacity,
   person_capacity,
-  type DemandTarget,
+  programme_demand_by_funding,
+  direct_demand_by_funding,
 } from './capacity'
 import { generateMonths, getCurrentMonth } from '../utils/capacity'
 import seedRaw from '../../DEMOSEED.json'
@@ -367,12 +368,59 @@ export function runSeedAssertions(): void {
     console.error(`[SeedAssertion FAIL] Some spawned-name Demands have null parent_project_id: ${spawnedWithoutParent.map(d => d.id).join(', ')}`)
   }
 
+  // At least one direct Demand with null parent must exist for DM.
+  const directDmDemands = state.demandItems.filter(d => d.function_id === 'func_001' && d.parent_project_id === null)
+  if (directDmDemands.length === 0) {
+    console.error('[SeedAssertion FAIL] No direct DM Demands (parent_project_id = null) in seed — Direct Demands card will be hidden')
+  }
+
   const coverageOk =
     requiredStatuses.every(s => allStatuses.has(s)) &&
     requiredStatuses.every(s => dmStatuses.has(s)) &&
     reqProjectStatuses.every(s => projectStatuses.has(s)) &&
-    p4Demands.length === 2
+    p4Demands.length === 2 &&
+    directDmDemands.length > 0
   if (coverageOk) {
     console.info('[SeedAssertions] §6 demand and project pipeline coverage assertions passed ✓')
+  }
+
+  // ── §6 Demand view Function-lens assertions ───────────────────────────────
+  // Demand view Function lens applies: the same Programme must produce
+  // different total hours under DM vs GroupIT lens, demonstrating the re-render.
+  // prg_001 (MES Modernisation) in 2026-08:
+  //   DM lens (func_001): prj_004 DM Demand (PartiallyAllocated) contributes
+  //     MES Spe 80h + Workflow Adv 40h + Integration Adv 40h = 160h.
+  //   GroupIT lens (func_002): prj_004 GroupIT Demand (Approved) contributes
+  //     Data Engineering Spe 60h + Integration Architecture Adv 40h = 100h.
+  const REAL_SET = new Set<DemandStatus>(['Approved', 'PartiallyAllocated', 'Allocated'])
+  const dmSlice = programme_demand_by_funding('prg_001', '2026-08', { status_set: REAL_SET, function_id: 'func_001' }, state)
+  const gitSlice = programme_demand_by_funding('prg_001', '2026-08', { status_set: REAL_SET, function_id: 'func_002' }, state)
+  const dmSliceTotal = Object.values(dmSlice).reduce((s: number, v: number) => s + v, 0)
+  const gitSliceTotal = Object.values(gitSlice).reduce((s: number, v: number) => s + v, 0)
+  assert('programme_demand_by_funding(prg_001, 2026-08, DM lens) > 0', dmSliceTotal, '>', 0)
+  assert('programme_demand_by_funding(prg_001, 2026-08, GroupIT lens) > 0', gitSliceTotal, '>', 0)
+  if (Math.abs(dmSliceTotal - gitSliceTotal) < 0.01) {
+    console.error(
+      `[SeedAssertion FAIL] DM(${dmSliceTotal.toFixed(1)}h) and GroupIT(${gitSliceTotal.toFixed(1)}h) slices of prg_001 ` +
+      'are identical — Function lens is not differentiating; Demand view will not visibly re-render on Function switch'
+    )
+  }
+
+  // Direct Demands card: DM has active direct demands in committed statuses
+  // (D3 PartiallyAllocated steady-state + D5 Approved 2026-09 to 2026-10).
+  // GroupIT has none — card must be hidden when GroupIT is active.
+  const directDmFunding = direct_demand_by_funding('2026-09', { status_set: REAL_SET, function_id: 'func_001' }, state)
+  const directDmFundingTotal = Object.values(directDmFunding).reduce((s: number, v: number) => s + v, 0)
+  assert('direct_demand_by_funding(2026-09, DM) > 0', directDmFundingTotal, '>', 0)
+
+  const directGitFunding = direct_demand_by_funding('2026-09', { status_set: REAL_SET, function_id: 'func_002' }, state)
+  const directGitTotal = Object.values(directGitFunding).reduce((s: number, v: number) => s + v, 0)
+  assert('direct_demand_by_funding(2026-09, GroupIT) == 0 — no direct GroupIT demands', directGitTotal, '==', 0)
+
+  const lensOk = dmSliceTotal > 0 && gitSliceTotal > 0 &&
+    Math.abs(dmSliceTotal - gitSliceTotal) > 0.01 &&
+    directDmFundingTotal > 0 && directGitTotal === 0
+  if (lensOk) {
+    console.info('[SeedAssertions] §6 Demand view Function-lens assertions passed ✓')
   }
 }
