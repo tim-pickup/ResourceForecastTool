@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Plus, Trash2, Edit2, Check, X, AlertTriangle, RefreshCw, ToggleLeft, ToggleRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../../store/useAppStore'
 import type { AppFunction, Domain, Skill, Person, Level, PersonSkill, Team } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { Input, Select } from '../../components/ui/FormFields'
 import { DomainSkillSelector } from '../../components/DomainSkillSelector'
+import { project_internal_hours, project_external_hours } from '../../lib/capacity'
+import { generateMonths, getCurrentMonth } from '../../utils/capacity'
 import { clsx } from 'clsx'
 
 const LEVELS: Level[] = ['Basic', 'Advanced', 'Specialist']
@@ -739,102 +742,149 @@ function ProgrammesPanel() {
   )
 }
 
-// ─── Projects (global — unchanged) ───────────────────────────────────────────
+// ─── Projects (global, v1.18 — list view with cascade delete, no soft-delete) ──
+// §5: list all Projects across all Functions; edit via deep-link to Manage Projects.
+// §11.20: delete cascades to child Demands + allocations + ProjectTeamAssignments.
+
+const PROJECT_STATUS_COLORS: Record<string, string> = {
+  Draft: 'bg-gray-100 text-gray-600',
+  Scoping: 'bg-blue-50 text-blue-700',
+  Submitted: 'bg-yellow-50 text-yellow-700',
+  Approved: 'bg-green-50 text-green-700',
+  Allocated: 'bg-purple-50 text-purple-700',
+}
 
 function ProjectsPanel() {
   const store = useAppStore()
-  const [editId, setEditId] = useState<string | null>(null)
-  const [showNew, setShowNew] = useState(false)
-  const [newForm, setNewForm] = useState({ name: '', programme_id: '', description: '' })
-  const [editForm, setEditForm] = useState({ name: '', programme_id: '', description: '' })
+  const navigate = useNavigate()
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
+  // Rolled-up hours across next 12 months
+  const months = useMemo(() => generateMonths(getCurrentMonth(), 12), [])
   const progMap = new Map(store.programmes.map(p => [p.id, p.name]))
-  function demandCount(projId: string) { return store.demandItems.filter(d => d.parent_project_id === projId).length }
 
-  function handleDelete(projId: string) {
-    const hasDemands = store.demandItems.some(d => d.parent_project_id === projId)
-    if (hasDemands) { alert('Cannot delete: this Project has child Demands. Delete the Demands first.'); return }
-    store.deleteProject(projId)
+  function childDemandCount(projId: string) {
+    return store.demandItems.filter(d => d.parent_project_id === projId).length
   }
 
-  function startEdit(proj: typeof store.projects[0]) {
-    setEditId(proj.id)
-    setEditForm({ name: proj.name, programme_id: proj.programme_id ?? '', description: proj.description })
+  function allocationCount(projId: string) {
+    let count = 0
+    for (const d of store.demandItems) {
+      if (d.parent_project_id !== projId) continue
+      for (const phase of d.phases) {
+        for (const req of phase.requirements) count += req.allocations.length
+      }
+    }
+    const project = store.projects.find(p => p.id === projId)
+    if (project) {
+      for (const phase of project.phases) {
+        for (const req of phase.requirements) count += req.allocations.length
+      }
+    }
+    return count
   }
+
+  const deleteTarget = deleteConfirmId ? store.projects.find(p => p.id === deleteConfirmId) : null
+  const deleteCascadeInfo = deleteTarget ? {
+    demands: childDemandCount(deleteTarget.id),
+    allocations: allocationCount(deleteTarget.id),
+    phases: deleteTarget.phases.length,
+  } : null
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-1">
         <h3 className="text-sm font-semibold text-near-black">Projects ({store.projects.length})</h3>
-        <Button size="sm" variant="secondary" onClick={() => {
-          setNewForm({ name: '', programme_id: store.programmes[0]?.id ?? '', description: '' }); setShowNew(true)
-        }}><Plus size={12} /> Add Project</Button>
+        <Button size="sm" variant="secondary" onClick={() => navigate('/manage-projects')}>
+          Manage Projects →
+        </Button>
       </div>
+      <p className="text-xs text-gray-400 italic mb-4">
+        All Projects across all Functions. Click a row to open its edit page. Delete cascades to child Demands and allocations.
+      </p>
 
-      {showNew && (
-        <div className="border border-brand rounded-md p-3 mb-3 bg-blue-50/30 flex flex-col gap-2">
-          <Input label="Name" value={newForm.name} onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))} />
-          <Select label="Programme" value={newForm.programme_id} onChange={e => setNewForm(f => ({ ...f, programme_id: e.target.value }))}>
-            {store.programmes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </Select>
-          <Input label="Description" value={newForm.description} onChange={e => setNewForm(f => ({ ...f, description: e.target.value }))} />
+      {/* Cascade delete confirmation */}
+      {deleteTarget && deleteCascadeInfo && (
+        <div className="border border-red-300 rounded-md p-4 mb-4 bg-red-50">
+          <p className="text-sm font-semibold text-red-700 mb-2">Delete "{deleteTarget.name}"?</p>
+          <p className="text-xs text-red-600 mb-3">
+            This will permanently delete{' '}
+            <strong>{deleteCascadeInfo.demands}</strong> child Demand{deleteCascadeInfo.demands !== 1 ? 's' : ''},{' '}
+            <strong>{deleteCascadeInfo.allocations}</strong> allocation{deleteCascadeInfo.allocations !== 1 ? 's' : ''}, and{' '}
+            <strong>{deleteCascadeInfo.phases}</strong> phase{deleteCascadeInfo.phases !== 1 ? 's' : ''}. This cannot be undone.
+          </p>
           <div className="flex gap-2">
-            <Button size="sm" variant="primary" onClick={() => {
-              if (!newForm.name.trim()) return
-              const dupe = store.projects.some(p => p.programme_id === (newForm.programme_id || null) && p.name.toLowerCase() === newForm.name.trim().toLowerCase())
-              if (dupe) { alert('A Project with that name already exists in this Programme.'); return }
-              store.addProject({ name: newForm.name.trim(), owner: '', type: 'Group Strategy Project', programme_id: newForm.programme_id || null, description: newForm.description, status: 'Draft', phases: [], active: true })
-              setShowNew(false)
-            }}>Save</Button>
-            <Button size="sm" variant="ghost" onClick={() => setShowNew(false)}>Cancel</Button>
+            <Button size="sm" variant="danger" onClick={() => { store.deleteProject(deleteTarget.id); setDeleteConfirmId(null) }}>
+              Delete permanently
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
           </div>
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
-        {store.projects.map(proj => (
-          <div key={proj.id} className="border border-border rounded-md px-3 py-2.5">
-            {editId === proj.id ? (
-              <div className="flex flex-col gap-2">
-                <Input label="Name" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
-                <Select label="Programme" value={editForm.programme_id} onChange={e => setEditForm(f => ({ ...f, programme_id: e.target.value }))}>
-                  {store.programmes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </Select>
-                <Input label="Description" value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
-                <div className="flex gap-2">
-                  <Button size="sm" variant="primary" onClick={() => {
-                    if (!editForm.name.trim()) return
-                    const dupe = store.projects.some(p => p.id !== proj.id && p.programme_id === (editForm.programme_id || null) && p.name.toLowerCase() === editForm.name.trim().toLowerCase())
-                    if (dupe) { alert('A Project with that name already exists in this Programme.'); return }
-                    store.updateProject(proj.id, { name: editForm.name.trim(), programme_id: editForm.programme_id || null, description: editForm.description }); setEditId(null)
-                  }}>Save</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>Cancel</Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-start gap-2">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{proj.name}</span>
-                    {!proj.active && <span className="text-xs text-gray-400 bg-gray-100 rounded px-1">Inactive</span>}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    <span className="text-gray-400">{proj.programme_id ? (progMap.get(proj.programme_id) ?? proj.programme_id) : <em>No Programme</em>}</span>
-                  </div>
-                  {proj.description && <p className="text-xs text-gray-400 mt-0.5">{proj.description}</p>}
-                  <div className="text-xs text-gray-400 mt-1">{demandCount(proj.id)} aligned demands</div>
-                </div>
-                <div className="flex gap-1 items-center">
-                  <button onClick={() => store.updateProject(proj.id, { active: !proj.active })} className="text-gray-400 hover:text-brand p-1" title={proj.active ? 'Deactivate' : 'Activate'}>
-                    {proj.active ? <ToggleRight size={15} /> : <ToggleLeft size={15} />}
-                  </button>
-                  <button onClick={() => startEdit(proj)} className="text-gray-400 hover:text-near-black p-1"><Edit2 size={13} /></button>
-                  <button onClick={() => handleDelete(proj.id)} className="text-gray-300 hover:text-accent-red p-1"><Trash2 size={13} /></button>
-                </div>
-              </div>
+      <div className="rounded-lg border border-border overflow-hidden">
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="border-b border-border bg-gray-50 text-gray-400 uppercase tracking-wide text-[10px]">
+              <th className="text-left px-3 py-2 font-medium">Name</th>
+              <th className="text-left px-3 py-2 font-medium">Programme</th>
+              <th className="text-left px-3 py-2 font-medium">Status</th>
+              <th className="text-left px-3 py-2 font-medium">Owner</th>
+              <th className="text-left px-3 py-2 font-medium">Type</th>
+              <th className="text-right px-3 py-2 font-medium">Demands</th>
+              <th className="text-right px-3 py-2 font-medium">Int. hrs (12m)</th>
+              <th className="text-right px-3 py-2 font-medium">Ext. hrs (12m)</th>
+              <th className="px-2 py-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {store.projects.map(proj => {
+              const intHrs = Math.round(months.reduce((s, m) => s + project_internal_hours(proj.id, m, store), 0))
+              const extHrs = Math.round(months.reduce((s, m) => s + project_external_hours(proj.id, m, store), 0))
+              const demands = childDemandCount(proj.id)
+              return (
+                <tr
+                  key={proj.id}
+                  className="border-b border-border/50 hover:bg-gray-50 cursor-pointer"
+                  onClick={() => navigate(`/manage-projects/${proj.id}/edit`)}
+                >
+                  <td className="px-3 py-2 font-medium text-brand">{proj.name}</td>
+                  <td className="px-3 py-2 text-gray-500">
+                    {proj.programme_id
+                      ? (progMap.get(proj.programme_id) ?? '—')
+                      : <em className="text-gray-300">No Programme</em>}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className={clsx('px-1.5 py-0.5 rounded text-[10px] font-medium', PROJECT_STATUS_COLORS[proj.status] ?? 'bg-gray-100 text-gray-600')}>
+                      {proj.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-gray-500 truncate max-w-[90px]">{proj.owner || <em className="text-gray-300">—</em>}</td>
+                  <td className="px-3 py-2 text-gray-400 text-[10px] truncate max-w-[90px]">{proj.type}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-gray-600">{demands}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-gray-600">{intHrs > 0 ? `${intHrs}h` : '—'}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-gray-600">{extHrs > 0 ? `${extHrs}h` : '—'}</td>
+                  <td className="px-2 py-2" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => setDeleteConfirmId(proj.id)}
+                      className="text-gray-300 hover:text-accent-red p-1"
+                      title="Delete with cascade"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
+            {store.projects.length === 0 && (
+              <tr>
+                <td colSpan={9} className="px-3 py-6 text-center text-gray-400 italic text-xs">
+                  No projects yet. Create one from Manage Projects.
+                </td>
+              </tr>
             )}
-          </div>
-        ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )

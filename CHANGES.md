@@ -212,7 +212,7 @@ This file directs Claude Code to the work items for the v1.18 spec revision. Eac
 
 ## Change 11 — Admin updates (Programmes, Projects, Providers)
 
-- [ ] Update the admin Programmes screen for the new Project-as-planning-entity model. Build the admin Projects list (with Delete cascade dialog). Update Provider in-use indicator to reflect new model.
+- [x] Update the admin Programmes screen for the new Project-as-planning-entity model. Build the admin Projects list (with Delete cascade dialog). Update Provider in-use indicator to reflect new model.
 
 **Scope**:
 - Programmes admin: hard-delete blocked when Programme has Projects (no longer "Closed Projects" condition).
