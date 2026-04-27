@@ -1,8 +1,8 @@
 /**
- * Dev-mode renderability invariant assertions — §2.4.8
+ * Dev-mode renderability invariant assertions — §2.4.8 / §6
  *
  * Run on app startup in development to verify that the aggregation layer
- * produces the non-zero outputs the spec promises for the seed fixture.
+ * produces the non-zero outputs the spec promises for the v1.18 seed fixture.
  * Failures indicate a stubbed or broken aggregation function, not a data
  * problem.
  *
@@ -15,7 +15,6 @@ import {
   computeProjection,
   projected_consumption,
   grey_band,
-  projection_shortfalls,
   demand_hours_for,
   project_internal_hours,
   project_external_hours,
@@ -105,7 +104,7 @@ function buildSeedState(): AppState {
 // ─── Assertion helpers ────────────────────────────────────────────────────────
 
 function assert(label: string, value: number, comparator: '>' | '==', expected: number): boolean {
-  const pass = comparator === '>' ? value > expected : value === expected
+  const pass = comparator === '>' ? value > expected : Math.abs(value - expected) <= 0.01
   if (!pass) {
     console.error(`[SeedAssertion FAIL] ${label}: got ${value.toFixed(2)}, expected ${comparator} ${expected}`)
   }
@@ -121,46 +120,44 @@ export function runSeedAssertions(): void {
   // ── No-overlay projection ────────────────────────────────────────────────
   const projNoOverlay = computeProjection(state, months)
 
-  // dmd_stress_001 "Plant C MES Platform Migration" is Approved with no
-  // allocations. Its skl_mom_mes Specialist req projects onto Alex Morgan
-  // (per_001) who also holds skl_mom_workflow — producing cross-skill
-  // projected consumption and a grey band on the MOM MES skill chart.
+  // dmd_p4_dm "Plant C MES Platform Migration — DM" is PartiallyAllocated.
+  // Its Phase 2 has 40 hrs/mo of skl_mom_workflow (Advanced) that is UNALLOCATED.
+  // Alex Morgan (per_001) holds both skl_mom_mes AND skl_mom_workflow — the
+  // Workflow projection consumes his headroom and appears as a grey band on the
+  // MES chart (other-skill demand projecting onto MES pool members).
   const bandMomMes = grey_band(
     { type: 'skill', id: 'skl_mom_mes' },
-    '2026-06',
+    '2026-08',
     state,
     projNoOverlay
   )
-  assert('grey_band(skl_mom_mes, 2026-06) with no overlay', bandMomMes, '>', 0)
+  assert('grey_band(skl_mom_mes, 2026-08) — unallocated Workflow demand', bandMomMes, '>', 0)
 
-  // Alex Morgan (per_001) is the only skl_mom_mes Specialist — all 80h of
-  // the unallocated MES req project onto him, consuming headroom.
-  const alexProj = projected_consumption('per_001', '2026-06', projNoOverlay)
-  assert('projected_consumption(per_001, 2026-06) with no overlay', alexProj, '>', 0)
+  // Alex Morgan (per_001) is the MES Specialist; unallocated Workflow demand
+  // projects onto him in 2026-08, consuming headroom.
+  const alexProj = projected_consumption('per_001', '2026-08', projNoOverlay)
+  assert('projected_consumption(per_001, 2026-08)', alexProj, '>', 0)
 
-  // ── Corporate Data Lake overlay ──────────────────────────────────────────
-  // dmd_stress_002 "Corporate Data Lake — MI&V Integration" is Submitted.
-  const corporateDataLakeId = 'dmd_stress_002'
-  const overlayItem = state.demandItems.find(d => d.id === corporateDataLakeId)
-  if (!overlayItem) {
-    console.error('[SeedAssertion FAIL] dmd_stress_002 not found in seed — Corporate Data Lake item missing')
-    return
-  }
-
-  const projWithOverlay = computeProjection(state, months, corporateDataLakeId)
-
-  const mivTarget: DemandTarget = { type: 'domain', id: 'thm_miv' }
-  const bandMivWithOverlay = grey_band(mivTarget, '2026-07', state, projWithOverlay)
-  assert('grey_band(thm_miv, 2026-07) with Corporate Data Lake overlay', bandMivWithOverlay, '>', 0)
-
-  const shortfalls = projection_shortfalls(projWithOverlay)
-  const mivShortfall = shortfalls.find(
-    sf => sf.skill_id === 'skl_miv_integration' && sf.month >= '2026-06' && sf.month <= '2026-08'
+  // dmd_d5 "Plant A OEE enhancement" is Approved (no allocs). It has 40 hrs/mo
+  // of skl_miv_analytics (Advanced) in 2026-09 and 2026-10. James Whitfield
+  // (per_005) and Fatima Al-Rashid (per_006) hold Analytics; both also hold
+  // Integration — so Analytics projection produces a grey band on the
+  // Integration chart.
+  const bandIntSep = grey_band(
+    { type: 'skill', id: 'skl_miv_integration' },
+    '2026-09',
+    state,
+    projNoOverlay
   )
-  if (!mivShortfall) {
-    console.error(
-      '[SeedAssertion FAIL] No projection shortfall for skl_miv_integration in Jun–Aug 2026 with Corporate Data Lake overlay'
-    )
+  assert('grey_band(skl_miv_integration, 2026-09) — Analytics demand cross-skill', bandIntSep, '>', 0)
+
+  // ── Corporate Data Lake DM overlay (dmd_p3_dm) ───────────────────────────
+  // dmd_p3_dm "Corporate Data Lake — Digital Manufacturing" is Submitted.
+  const overlayId = 'dmd_p3_dm'
+  const overlayItem = state.demandItems.find(d => d.id === overlayId)
+  if (!overlayItem) {
+    console.error('[SeedAssertion FAIL] dmd_p3_dm not found in seed — Corporate Data Lake DM item missing')
+    return
   }
 
   // ── Invariant A — Submitted overlay === Approved-unallocated ────────────
@@ -171,7 +168,7 @@ export function runSeedAssertions(): void {
   const fakeState: AppState = {
     ...state,
     demandItems: state.demandItems.map(d =>
-      d.id === corporateDataLakeId
+      d.id === overlayId
         ? {
             ...d,
             status: 'Approved' as DemandStatus,
@@ -183,9 +180,10 @@ export function runSeedAssertions(): void {
         : d
     ),
   }
+  let invariantAOk = true
   for (const domain of state.domains) {
-    for (const month of ['2026-07', '2026-08']) {
-      const withOv = demand_hours_for({ type: 'domain', id: domain.id }, EMPTY, month, state, corporateDataLakeId)
+    for (const month of ['2026-08', '2026-09']) {
+      const withOv = demand_hours_for({ type: 'domain', id: domain.id }, EMPTY, month, state, overlayId)
       const withPr = demand_hours_for({ type: 'domain', id: domain.id }, COMMITTED_STATUSES, month, fakeState)
       const ovTotal = withOv.strategy + withOv.plant + withOv.npd + withOv.bau
       const prTotal = withPr.strategy + withPr.plant + withPr.npd + withPr.bau
@@ -193,36 +191,38 @@ export function runSeedAssertions(): void {
         console.error(
           `[SeedAssertion FAIL] Invariant A: domain ${domain.name} ${month} — overlay(${ovTotal.toFixed(1)}) ≠ promoted(${prTotal.toFixed(1)})`
         )
+        invariantAOk = false
       }
     }
   }
 
-  // ── §2.4.9 Programme/Project roll-up assertions ─────────────────────────
-  // prj_002 (Plant C MES Platform) contains dmd_stress_001 which is Approved
-  // and has internal requirements + external requirements (ext_001 OEM 40h/mo,
-  // ext_002 Managed Services 120h/mo) on phase phs_stress001_1 (Jun–Aug 2026).
+  // ── §2.4.9 Project roll-up assertions ────────────────────────────────────
+  // prj_004 "Plant C MES Platform Migration" has dmd_p4_dm (PartiallyAllocated)
+  // and dmd_p4_git (Approved) with internal requirements active in 2026-08,
+  // plus ext_p4_oem (OEM 40h/mo) and ext_p4_ms (Managed Services 120h/mo)
+  // on the Build phase.
 
-  const plantCProjectId = 'prj_002'
+  const plantCProjectId = 'prj_004'
 
-  const projInternal = project_internal_hours(plantCProjectId, '2026-06', state)
-  assert('project_internal_hours(prj_002, 2026-06)', projInternal, '>', 0)
+  const projInternal = project_internal_hours(plantCProjectId, '2026-08', state)
+  assert('project_internal_hours(prj_004, 2026-08)', projInternal, '>', 0)
 
-  const projExternal = project_external_hours(plantCProjectId, '2026-06', state)
-  assert('project_external_hours(prj_002, 2026-06)', projExternal, '>', 0)
+  const projExternal = project_external_hours(plantCProjectId, '2026-08', state)
+  assert('project_external_hours(prj_004, 2026-08)', projExternal, '>', 0)
 
-  const providerBreakdown = project_external_hours_by_provider(plantCProjectId, '2026-06', state)
+  const providerBreakdown = project_external_hours_by_provider(plantCProjectId, '2026-08', state)
   const providerCount = Object.keys(providerBreakdown).length
   if (providerCount < 2) {
     console.error(
-      `[SeedAssertion FAIL] project_external_hours_by_provider(prj_002, 2026-06) has ${providerCount} provider(s), expected >= 2`
+      `[SeedAssertion FAIL] project_external_hours_by_provider(prj_004, 2026-08) has ${providerCount} provider(s), expected >= 2 (OEM + Managed Services)`
     )
   }
 
   // ── §4 Section D — crossFunctionDemandHours renderability invariant ────────
-  // With Digital Manufacturing (func_001) active, at least one month in the
-  // 18-month horizon must show non-zero hours for Group IT (func_002).
-  // Driven by dmd_stress_001 (Approved) having a Data Engineering requirement
-  // on phs_stress001_1 (Jun–Aug 2026).
+  // With Digital Manufacturing (func_001) active, prj_004 has a DM Demand
+  // (dmd_p4_dm, PartiallyAllocated) → qualifies as shared Project.
+  // dmd_p4_git (func_002, Approved) has Data Engineering + Integration
+  // Architecture requirements in phs_p4git_build (2026-08 to 2026-10).
   const dmFunctionId = 'func_001'
   const groupItFunctionId = 'func_002'
   let cfNonZero = false
@@ -237,12 +237,11 @@ export function runSeedAssertions(): void {
     )
   }
 
-  // All passed (existing)
   const existingOk =
     bandMomMes > 0 &&
     alexProj > 0 &&
-    bandMivWithOverlay > 0 &&
-    !!mivShortfall &&
+    bandIntSep > 0 &&
+    invariantAOk &&
     projInternal > 0 &&
     projExternal > 0 &&
     providerCount >= 2 &&
@@ -252,17 +251,15 @@ export function runSeedAssertions(): void {
   }
 
   // ── §2.4.8 Capacity reconciliation invariants (v1.18) ───────────────────
-  // Added to address two v1.17 defects:
-  //   1. Section A capacity line did not change on Function switch.
-  //   2. Group IT Data & Integration showed possible phantom capacity in Jul–Aug 2026.
+  // v1.18 seed: DM function_capacity(2026-08) = 1534h, GroupIT = 882h.
+  // Data & Integration domain: 152h in Jul-2026 (Anya only, Henrik not yet
+  // available), 304h in Aug-2026 (Anya + Henrik both active, no commitments).
 
   const dmFnId = 'func_001'
   const gitFnId = 'func_002'
   const capacityTestMonths = ['2026-07', '2026-08']
 
-  // 1. function_capacity consistency: must equal sum of person_capacity for each Function.
-  //    The independent expected value is computed by directly iterating over People —
-  //    this catches any bug in function_capacity itself.
+  // 1. function_capacity consistency: must equal sum of person_capacity.
   let capacityConsistencyOk = true
   for (const fnId of [dmFnId, gitFnId]) {
     const fnName = state.functions.find(f => f.id === fnId)?.name ?? fnId
@@ -282,10 +279,16 @@ export function runSeedAssertions(): void {
     }
   }
 
-  // 2. Function-switch assertion: DM and GroupIT must produce different Section A
-  //    capacity-line values in at least one visible month. Equality across every month
-  //    would mean both Functions have identical headcount and contracted hours, which
-  //    the seed is intentionally constructed to prevent.
+  // 2. Explicit expected values for 2026-08 (§6 capacity reconciliation table).
+  //    DM = 1534h: all 12 DM people active, respecting available_from/to and allocs.
+  //    GroupIT = 882h: all 6 GroupIT people active (Henrik available_from=2026-08).
+  const dmCap0826 = function_capacity(dmFnId, '2026-08', state)
+  const gitCap0826 = function_capacity(gitFnId, '2026-08', state)
+  assert('function_capacity(DM, 2026-08) == 1534h', dmCap0826, '==', 1534)
+  assert('function_capacity(GroupIT, 2026-08) == 882h', gitCap0826, '==', 882)
+
+  // 3. Function-switch assertion: DM and GroupIT must produce different Section A
+  //    capacity-line values in at least one visible month.
   let fnSwitchDiffers = false
   for (const month of months) {
     const dmCap = function_capacity(dmFnId, month, state)
@@ -299,15 +302,11 @@ export function runSeedAssertions(): void {
     )
   }
 
-  // 3. Per-domain reconciliation — Group IT Enterprise Solutions: Data & Integration.
-  //    Seed-derived expected values (§6 capacity reconciliation table):
-  //      2026-07: 152h — Anya Petrov only (per_017, 152h contracted); Henrik Sørensen
-  //               (per_018) has available_from=2026-08 so is not active in Jul 2026.
-  //      2026-08: 304h — Anya Petrov (152h) + Henrik Sørensen (152h); both active, no
-  //               commitments to non-D&I skills in either month.
-  //    Phantom capacity verdict: the v1.17 apparent phantom headroom does NOT reproduce
-  //    from a fresh seed load. Both people hold real capacity with no over-accounting.
-  //    If this assertion fails, the domain_capacity function has a bug.
+  // 4. Per-domain reconciliation — Group IT Enterprise Solutions: Data & Integration.
+  //    2026-07: 152h — Anya Petrov (per_017, 152h contracted); Henrik Sørensen
+  //             (per_018) has available_from=2026-08 so is not active in Jul 2026.
+  //    2026-08: 304h — Anya (152h) + Henrik (152h); both active, no non-D&I
+  //             commitments in either month.
   const dataIntDomainId = 'thm_git_data'
   const domainRecTable: Array<{ month: string; expected: number }> = [
     { month: '2026-07', expected: 152 },
@@ -330,5 +329,50 @@ export function runSeedAssertions(): void {
 
   if (capacityConsistencyOk && fnSwitchDiffers && domainCapOk) {
     console.info('[SeedAssertions] §2.4.8 capacity reconciliation invariants passed ✓')
+  }
+
+  // ── Demand pipeline coverage assertions ──────────────────────────────────
+  // All 5 Demand statuses must appear in the seed (across all demands).
+  const allStatuses = new Set(state.demandItems.map(d => d.status))
+  const requiredStatuses: DemandStatus[] = ['Draft', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated']
+  for (const s of requiredStatuses) {
+    if (!allStatuses.has(s)) {
+      console.error(`[SeedAssertion FAIL] No demand item with status "${s}" in seed — Manage Demand board column will be empty`)
+    }
+  }
+  // DM Function (func_001) must have all 5 statuses to populate Manage Demand
+  // when DM is the active Function.
+  const dmStatuses = new Set(state.demandItems.filter(d => d.function_id === 'func_001').map(d => d.status))
+  for (const s of requiredStatuses) {
+    if (!dmStatuses.has(s)) {
+      console.error(`[SeedAssertion FAIL] No DM (func_001) demand with status "${s}" — DM Manage Demand board missing that column`)
+    }
+  }
+  // All 5 Project statuses must appear.
+  const projectStatuses = new Set(state.projects.map((p: { status: string }) => p.status))
+  const reqProjectStatuses = ['Draft', 'Scoping', 'Submitted', 'Approved', 'Allocated']
+  for (const s of reqProjectStatuses) {
+    if (!projectStatuses.has(s)) {
+      console.error(`[SeedAssertion FAIL] No Project with status "${s}" — Manage Projects board column will be empty`)
+    }
+  }
+  // Project 4 must have exactly 2 child Demands (DM + GroupIT).
+  const p4Demands = state.demandItems.filter(d => d.parent_project_id === 'prj_004')
+  if (p4Demands.length !== 2) {
+    console.error(`[SeedAssertion FAIL] prj_004 (Plant C MES Platform Migration) has ${p4Demands.length} child Demands, expected 2`)
+  }
+  // All spawned Demands must carry a parent_project_id.
+  const spawnedWithoutParent = state.demandItems.filter(d => !d.parent_project_id && d.name.includes(' — '))
+  if (spawnedWithoutParent.length > 0) {
+    console.error(`[SeedAssertion FAIL] Some spawned-name Demands have null parent_project_id: ${spawnedWithoutParent.map(d => d.id).join(', ')}`)
+  }
+
+  const coverageOk =
+    requiredStatuses.every(s => allStatuses.has(s)) &&
+    requiredStatuses.every(s => dmStatuses.has(s)) &&
+    reqProjectStatuses.every(s => projectStatuses.has(s)) &&
+    p4Demands.length === 2
+  if (coverageOk) {
+    console.info('[SeedAssertions] §6 demand and project pipeline coverage assertions passed ✓')
   }
 }

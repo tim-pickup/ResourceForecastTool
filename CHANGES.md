@@ -230,7 +230,7 @@ This file directs Claude Code to the work items for the v1.18 spec revision. Eac
 
 ## Change 12 — Seed rebuild
 
-- [ ] Rebuild the seed around the new Project + direct Demand model: 6 Projects across all 5 statuses, 4 direct Demands across all 5 statuses, headline cross-Function Project with 2 spawned Demands, and the capacity reconciliation table.
+- [x] Rebuild the seed around the new Project + direct Demand model: 6 Projects across all 5 statuses, 4 direct Demands across all 5 statuses, headline cross-Function Project with 2 spawned Demands, and the capacity reconciliation table.
 
 **Scope**:
 - 6 Projects per the table in §6 (covering Draft, Scoping, Submitted, Approved, Allocated).

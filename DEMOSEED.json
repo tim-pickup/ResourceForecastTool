@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "version": "1.5",
-    "description": "Seed for v1.10 data model. Mix of realistic and stress-test data: some themes/skills are comfortably within capacity while others deliberately push into over-capacity, projection shortfall, and over-allocated states so v1.10 visual features (grey bands, over-capacity signals, projection shortfalls, cell-background tints) have exemplars to render. BAU = demand of type BAU. Phases can be finite (hours_by_month) or indefinite (steady_state_hours). Requirements are skill-shaped with allocations.",
+    "version": "1.18",
+    "description": "v1.18 seed: 6 Projects (Draft/Scoping/Submitted/Approved/Allocated), 6 spawned Demands, 5 direct DM Demands (all 5 statuses). Cross-Function Project 4 (DM PartiallyAllocated + GroupIT Approved). DM function_capacity Aug-2026 = 1534h. GroupIT function_capacity Aug-2026 = 882h. Data & Integration domain_capacity: 152h Jul-2026, 304h Aug-2026.",
     "today": "2026-05-01"
   },
   "functions": [
@@ -46,7 +46,7 @@
     {
       "id": "team_004",
       "name": "Infrastructure Team",
-      "description": "Group IT infrastructure and platform services \u00e2\u20ac\u201d cloud, network, and platform engineering.",
+      "description": "Group IT infrastructure and platform services â€” cloud, network, and platform engineering.",
       "functionId": "func_002",
       "type": "Central",
       "active": true
@@ -54,7 +54,7 @@
     {
       "id": "team_005",
       "name": "Applications Team",
-      "description": "Group IT enterprise applications and data integration \u00e2\u20ac\u201d ERP, CRM, data engineering.",
+      "description": "Group IT enterprise applications and data integration â€” ERP, CRM, data engineering.",
       "functionId": "func_002",
       "type": "Central",
       "active": true
@@ -64,19 +64,19 @@
     {
       "id": "thm_mom",
       "name": "MOM",
-      "description": "Manufacturing Operations Management \u00e2\u20ac\u201d MES, order execution, production tracking, OEE.",
+      "description": "Manufacturing Operations Management â€” MES, order execution, production tracking, OEE.",
       "functionId": "func_001"
     },
     {
       "id": "thm_miv",
       "name": "MI&V",
-      "description": "Manufacturing Intelligence & Visualisation \u00e2\u20ac\u201d historians, analytics, dashboards, reporting.",
+      "description": "Manufacturing Intelligence & Visualisation â€” historians, analytics, dashboards, reporting.",
       "functionId": "func_001"
     },
     {
       "id": "thm_mbm",
       "name": "MBM",
-      "description": "Model-Based Manufacturing \u00e2\u20ac\u201d simulation, digital twins, process modelling.",
+      "description": "Model-Based Manufacturing â€” simulation, digital twins, process modelling.",
       "functionId": "func_001"
     },
     {
@@ -602,7 +602,7 @@
     },
     {
       "id": "per_018",
-      "name": "Henrik S\u00c3\u00b8rensen",
+      "name": "Henrik SÃ¸rensen",
       "primary_domain_id": "thm_git_data",
       "contracted_hours_per_month": 152,
       "available_from": "2026-08",
@@ -619,1860 +619,6 @@
           "level": "Advanced"
         }
       ]
-    }
-  ],
-  "demand_items": [
-    {
-      "id": "dmd_001",
-      "name": "Plant B MES Phase 2 Rollout",
-      "type": "Plant Project",
-      "status": "Allocated",
-      "owner": "Priya Kumar",
-      "description": "Extension of MES Phase 1 deployment at Plant B covering Lines 3\u00e2\u20ac\u201c5, with genealogy and SCADA integration.",
-      "phases": [
-        {
-          "id": "phs_001a",
-          "name": "Design",
-          "start_month": "2026-05",
-          "end_month": "2026-07",
-          "funding_source": "Investment Scheme",
-          "funding_notes": "IS-2025-18 Plant B MES",
-          "requirements": [
-            {
-              "id": "req_m1000",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Advanced",
-              "notes": "Lead architect",
-              "hours_by_month": {
-                "2026-05": 60,
-                "2026-06": 60,
-                "2026-07": 60
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0001",
-                  "person_id": "per_002",
-                  "hours_by_month": {
-                    "2026-05": 60,
-                    "2026-06": 60,
-                    "2026-07": 60
-                  },
-                  "notes": null
-                }
-              ]
-            },
-            {
-              "id": "req_m1001",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Specialist",
-              "notes": null,
-              "hours_by_month": {
-                "2026-05": 40,
-                "2026-06": 40,
-                "2026-07": 40
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0002",
-                  "person_id": "per_001",
-                  "hours_by_month": {
-                    "2026-05": 40,
-                    "2026-06": 40,
-                    "2026-07": 40
-                  },
-                  "notes": null
-                }
-              ]
-            },
-            {
-              "id": "req_m1002",
-              "shape": "skill",
-              "skill_id": "skl_miv_historian",
-              "level": "Basic",
-              "notes": "HMI mockups",
-              "hours_by_month": {
-                "2026-05": 20,
-                "2026-06": 20,
-                "2026-07": 20
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0003",
-                  "person_id": "per_007",
-                  "hours_by_month": {
-                    "2026-05": 20,
-                    "2026-06": 20,
-                    "2026-07": 20
-                  },
-                  "notes": null
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "phs_001b",
-          "name": "Build",
-          "start_month": "2026-08",
-          "end_month": "2026-11",
-          "funding_source": "Investment Scheme",
-          "funding_notes": "IS-2025-18 Plant B MES",
-          "requirements": [
-            {
-              "id": "req_m1003",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-08": 80,
-                "2026-09": 80,
-                "2026-10": 80,
-                "2026-11": 80
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0004",
-                  "person_id": "per_002",
-                  "hours_by_month": {
-                    "2026-08": 80,
-                    "2026-09": 80,
-                    "2026-10": 80,
-                    "2026-11": 80
-                  },
-                  "notes": null
-                }
-              ]
-            },
-            {
-              "id": "req_m1004",
-              "shape": "skill",
-              "skill_id": "skl_mom_workflow",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-08": 60,
-                "2026-09": 60,
-                "2026-10": 60,
-                "2026-11": 60
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0005",
-                  "person_id": "per_003",
-                  "hours_by_month": {
-                    "2026-08": 60,
-                    "2026-09": 60,
-                    "2026-10": 60,
-                    "2026-11": 60
-                  },
-                  "notes": null
-                }
-              ]
-            },
-            {
-              "id": "req_m1005",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Basic",
-              "notes": null,
-              "hours_by_month": {
-                "2026-08": 40,
-                "2026-09": 40,
-                "2026-10": 40,
-                "2026-11": 40
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0006",
-                  "person_id": "per_004",
-                  "hours_by_month": {
-                    "2026-08": 40,
-                    "2026-09": 40,
-                    "2026-10": 40,
-                    "2026-11": 40
-                  },
-                  "notes": null
-                }
-              ]
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": "prj_001"
-    },
-    {
-      "id": "dmd_002",
-      "name": "Group OEE Reporting Standard",
-      "type": "Group Strategy Project",
-      "status": "Allocated",
-      "owner": "Fatima Al-Rashid",
-      "description": "Group-wide OEE reporting standardisation covering 5 plants. Defines KPI taxonomy and delivers a unified dashboard.",
-      "phases": [
-        {
-          "id": "phs_002a",
-          "name": "Specification",
-          "start_month": "2026-05",
-          "end_month": "2026-06",
-          "funding_source": "Investment Scheme",
-          "funding_notes": "GS-2026-02 OEE Standardisation",
-          "requirements": [
-            {
-              "id": "req_m1006",
-              "shape": "skill",
-              "skill_id": "skl_miv_reporting",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-05": 60,
-                "2026-06": 60
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0007",
-                  "person_id": "per_006",
-                  "hours_by_month": {
-                    "2026-05": 60,
-                    "2026-06": 60
-                  },
-                  "notes": null
-                }
-              ]
-            },
-            {
-              "id": "req_m1007",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Advanced",
-              "notes": "MOM KPI input",
-              "hours_by_month": {
-                "2026-05": 20,
-                "2026-06": 20
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0008",
-                  "person_id": "per_002",
-                  "hours_by_month": {
-                    "2026-05": 20,
-                    "2026-06": 20
-                  },
-                  "notes": null
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "phs_002b",
-          "name": "Build & Pilot",
-          "start_month": "2026-07",
-          "end_month": "2026-10",
-          "funding_source": "Investment Scheme",
-          "funding_notes": "GS-2026-02 OEE Standardisation",
-          "requirements": [
-            {
-              "id": "req_m1008",
-              "shape": "skill",
-              "skill_id": "skl_miv_reporting",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-07": 50,
-                "2026-08": 50,
-                "2026-09": 50,
-                "2026-10": 50
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0009",
-                  "person_id": "per_006",
-                  "hours_by_month": {
-                    "2026-07": 50,
-                    "2026-08": 50,
-                    "2026-09": 50,
-                    "2026-10": 50
-                  },
-                  "notes": null
-                }
-              ]
-            },
-            {
-              "id": "req_m1009",
-              "shape": "skill",
-              "skill_id": "skl_miv_historian",
-              "level": "Basic",
-              "notes": "Dashboard build",
-              "hours_by_month": {
-                "2026-07": 50,
-                "2026-08": 50,
-                "2026-09": 50,
-                "2026-10": 50
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0010",
-                  "person_id": "per_007",
-                  "hours_by_month": {
-                    "2026-07": 50,
-                    "2026-08": 50,
-                    "2026-09": 50,
-                    "2026-10": 50
-                  },
-                  "notes": null
-                }
-              ]
-            },
-            {
-              "id": "req_m1010",
-              "shape": "skill",
-              "skill_id": "skl_miv_historian",
-              "level": "Specialist",
-              "notes": "Historian integration",
-              "hours_by_month": {
-                "2026-07": 30,
-                "2026-08": 30,
-                "2026-09": 30,
-                "2026-10": 30
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0011",
-                  "person_id": "per_005",
-                  "hours_by_month": {
-                    "2026-07": 30,
-                    "2026-08": 30,
-                    "2026-09": 30,
-                    "2026-10": 30
-                  },
-                  "notes": null
-                }
-              ]
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": "prj_006"
-    },
-    {
-      "id": "dmd_003",
-      "name": "Line Y Digital Twin Pilot",
-      "type": "Group Strategy Project",
-      "status": "PartiallyAllocated",
-      "owner": "Marcus Vogel",
-      "description": "Pilot digital twin for Line Y covering thermal and throughput behaviour. Success criteria feed into Group Strategy for a broader rollout.",
-      "phases": [
-        {
-          "id": "phs_003a",
-          "name": "Model Definition",
-          "start_month": "2026-06",
-          "end_month": "2026-08",
-          "funding_source": "Investment Scheme",
-          "funding_notes": "GS-2026-07 Digital Twin Pilot",
-          "requirements": [
-            {
-              "id": "req_m1011",
-              "shape": "skill",
-              "skill_id": "skl_mbm_simulation",
-              "level": "Specialist",
-              "notes": null,
-              "hours_by_month": {
-                "2026-06": 60,
-                "2026-07": 60,
-                "2026-08": 60
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0012",
-                  "person_id": "per_009",
-                  "hours_by_month": {
-                    "2026-06": 60,
-                    "2026-07": 60,
-                    "2026-08": 60
-                  },
-                  "notes": null
-                }
-              ]
-            },
-            {
-              "id": "req_m1012",
-              "shape": "skill",
-              "skill_id": "skl_mbm_twin",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-06": 40,
-                "2026-07": 40,
-                "2026-08": 40
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0013",
-                  "person_id": "per_010",
-                  "hours_by_month": {
-                    "2026-06": 40,
-                    "2026-07": 40,
-                    "2026-08": 40
-                  },
-                  "notes": null
-                }
-              ]
-            },
-            {
-              "id": "req_014",
-              "shape": "skill",
-              "skill_id": "skl_miv_integration",
-              "level": "Advanced",
-              "notes": "Historian \u00e2\u2020\u2019 model data pipeline",
-              "hours_by_month": {
-                "2026-06": 20,
-                "2026-07": 20,
-                "2026-08": 20
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0015",
-                  "person_id": "per_005",
-                  "hours_by_month": {
-                    "2026-06": 10,
-                    "2026-07": 10,
-                    "2026-08": 10
-                  },
-                  "notes": "Partial allocation \u00e2\u20ac\u201d awaiting confirmation of remaining hours"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "phs_003b",
-          "name": "Build & Validate",
-          "start_month": "2026-09",
-          "end_month": "2027-02",
-          "funding_source": "Investment Scheme",
-          "funding_notes": "GS-2026-07 Digital Twin Pilot",
-          "requirements": [
-            {
-              "id": "req_015",
-              "shape": "skill",
-              "skill_id": "skl_mbm_twin",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-09": 80,
-                "2026-10": 80,
-                "2026-11": 80,
-                "2026-12": 80,
-                "2027-01": 80,
-                "2027-02": 80
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_016",
-              "shape": "skill",
-              "skill_id": "skl_mbm_modelling",
-              "level": "Specialist",
-              "notes": null,
-              "hours_by_month": {
-                "2026-09": 40,
-                "2026-10": 40,
-                "2026-11": 40,
-                "2026-12": 40,
-                "2027-01": 40,
-                "2027-02": 40
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_017",
-              "shape": "skill",
-              "skill_id": "skl_mbm_optimisation",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-09": 30,
-                "2026-10": 30,
-                "2026-11": 30,
-                "2026-12": 30,
-                "2027-01": 30,
-                "2027-02": 30
-              },
-              "allocations": []
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": "prj_004"
-    },
-    {
-      "id": "dmd_004",
-      "name": "Plant C Historian Refresh",
-      "type": "Plant Project",
-      "status": "Approved",
-      "owner": "James Whitfield",
-      "description": "Upgrade Plant C historian to current platform version, migrate tags, and rebuild critical dashboards.",
-      "phases": [
-        {
-          "id": "phs_004a",
-          "name": "Assessment & Plan",
-          "start_month": "2026-07",
-          "end_month": "2026-08",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "Plant C infrastructure allocation",
-          "requirements": [
-            {
-              "id": "req_m1013",
-              "shape": "skill",
-              "skill_id": "skl_miv_historian",
-              "level": "Specialist",
-              "notes": null,
-              "hours_by_month": {
-                "2026-07": 40,
-                "2026-08": 40
-              },
-              "allocations": [
-                {
-                  "id": "alloc_0014",
-                  "person_id": "per_005",
-                  "hours_by_month": {
-                    "2026-07": 40,
-                    "2026-08": 40
-                  },
-                  "notes": null
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "phs_004b",
-          "name": "Migration",
-          "start_month": "2026-09",
-          "end_month": "2026-12",
-          "funding_source": "Mixed",
-          "funding_notes": "Plant C allocation + IS-2026-11 Historian Programme",
-          "requirements": [
-            {
-              "id": "req_019",
-              "shape": "skill",
-              "skill_id": "skl_miv_historian",
-              "level": "Specialist",
-              "notes": null,
-              "hours_by_month": {
-                "2026-09": 60,
-                "2026-10": 60,
-                "2026-11": 60,
-                "2026-12": 60
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_020",
-              "shape": "skill",
-              "skill_id": "skl_miv_integration",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-09": 40,
-                "2026-10": 40,
-                "2026-11": 40,
-                "2026-12": 40
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_021",
-              "shape": "skill",
-              "skill_id": "skl_miv_hmi",
-              "level": "Advanced",
-              "notes": "Dashboard rebuild",
-              "hours_by_month": {
-                "2026-09": 30,
-                "2026-10": 30,
-                "2026-11": 30,
-                "2026-12": 30
-              },
-              "allocations": []
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_005",
-      "name": "Site X MES Upgrade",
-      "type": "Plant Project",
-      "status": "Submitted",
-      "owner": "Alex Morgan",
-      "description": "Major upgrade of Site X MES to add genealogy, improve SCADA integration, and introduce OEE dashboards. Largest single demand in the pipeline.",
-      "phases": [
-        {
-          "id": "phs_005a",
-          "name": "Design",
-          "start_month": "2026-05",
-          "end_month": "2026-08",
-          "funding_source": "Investment Scheme",
-          "funding_notes": "IS-2026-04 Site X MES",
-          "requirements": [
-            {
-              "id": "req_022",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Specialist",
-              "notes": "Lead architect \u00e2\u20ac\u201d must have done a full MES rollout",
-              "hours_by_month": {
-                "2026-05": 40,
-                "2026-06": 40,
-                "2026-07": 40,
-                "2026-08": 40
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_023",
-              "shape": "skill",
-              "skill_id": "skl_mom_workflow",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-05": 80,
-                "2026-06": 80,
-                "2026-07": 80,
-                "2026-08": 80
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_024",
-              "shape": "skill",
-              "skill_id": "skl_mom_workflow",
-              "level": "Advanced",
-              "notes": "Second slot",
-              "hours_by_month": {
-                "2026-05": 40,
-                "2026-06": 40,
-                "2026-07": 40,
-                "2026-08": 40
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_025",
-              "shape": "skill",
-              "skill_id": "skl_miv_hmi",
-              "level": "Basic",
-              "notes": "HMI screen design",
-              "hours_by_month": {
-                "2026-05": 20,
-                "2026-06": 20,
-                "2026-07": 20,
-                "2026-08": 20
-              },
-              "allocations": []
-            }
-          ]
-        },
-        {
-          "id": "phs_005b",
-          "name": "Build",
-          "start_month": "2026-09",
-          "end_month": "2026-12",
-          "funding_source": "Mixed",
-          "funding_notes": "IS-2026-04 + Site X allocation",
-          "requirements": [
-            {
-              "id": "req_026",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Specialist",
-              "notes": null,
-              "hours_by_month": {
-                "2026-09": 40,
-                "2026-10": 40,
-                "2026-11": 40,
-                "2026-12": 40
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_027",
-              "shape": "skill",
-              "skill_id": "skl_mom_workflow",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-09": 80,
-                "2026-10": 80,
-                "2026-11": 80,
-                "2026-12": 80
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_028",
-              "shape": "skill",
-              "skill_id": "skl_miv_historian",
-              "level": "Advanced",
-              "notes": "Historian integration",
-              "hours_by_month": {
-                "2026-09": 40,
-                "2026-10": 40,
-                "2026-11": 40,
-                "2026-12": 40
-              },
-              "allocations": []
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": "prj_003"
-    },
-    {
-      "id": "dmd_006",
-      "name": "NPD Line Y Integration",
-      "type": "NPD Demand",
-      "status": "Submitted",
-      "owner": "Ishani Bhatia",
-      "description": "New product introduction on Line Y \u00e2\u20ac\u201d cross-theme demand spanning MOM workflow changes, MI&V instrumentation, and MBM model updates. Demonstrates the cross-theme composition.",
-      "phases": [
-        {
-          "id": "phs_006a",
-          "name": "Specification",
-          "start_month": "2026-08",
-          "end_month": "2026-09",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "NPD Line Y sector budget",
-          "requirements": [
-            {
-              "id": "req_029",
-              "shape": "skill",
-              "skill_id": "skl_mom_workflow",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-08": 30,
-                "2026-09": 30
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_030",
-              "shape": "skill",
-              "skill_id": "skl_miv_historian",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-08": 20,
-                "2026-09": 20
-              },
-              "allocations": []
-            }
-          ]
-        },
-        {
-          "id": "phs_006b",
-          "name": "Build",
-          "start_month": "2026-10",
-          "end_month": "2026-12",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "NPD Line Y sector budget",
-          "requirements": [
-            {
-              "id": "req_031",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Specialist",
-              "notes": null,
-              "hours_by_month": {
-                "2026-10": 40,
-                "2026-11": 40,
-                "2026-12": 40
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_032",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Specialist",
-              "notes": "Second slot",
-              "hours_by_month": {
-                "2026-10": 40,
-                "2026-11": 40,
-                "2026-12": 40
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_033",
-              "shape": "skill",
-              "skill_id": "skl_mbm_modelling",
-              "level": "Basic",
-              "notes": null,
-              "hours_by_month": {
-                "2026-10": 20,
-                "2026-11": 20,
-                "2026-12": 20
-              },
-              "allocations": []
-            }
-          ]
-        },
-        {
-          "id": "phs_006c",
-          "name": "Deploy",
-          "start_month": "2027-01",
-          "end_month": "2027-02",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "NPD Line Y sector budget",
-          "requirements": [
-            {
-              "id": "req_034",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Basic",
-              "notes": null,
-              "hours_by_month": {
-                "2027-01": 30,
-                "2027-02": 30
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_035",
-              "shape": "skill",
-              "skill_id": "skl_miv_reporting",
-              "level": "Basic",
-              "notes": null,
-              "hours_by_month": {
-                "2027-01": 20,
-                "2027-02": 20
-              },
-              "allocations": []
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": "prj_004"
-    },
-    {
-      "id": "dmd_007",
-      "name": "Plant A Genealogy Enhancement",
-      "type": "Plant Project",
-      "status": "Draft",
-      "owner": "Alex Morgan",
-      "description": "Enhance genealogy capture at Plant A to support new regulatory traceability requirements. Being shaped \u00e2\u20ac\u201d requirements still being gathered from Quality.",
-      "phases": [
-        {
-          "id": "phs_007a",
-          "name": "Scoping",
-          "start_month": "2026-09",
-          "end_month": "2026-10",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "Plant A quality allocation",
-          "requirements": [
-            {
-              "id": "req_036",
-              "shape": "skill",
-              "skill_id": "skl_mom_genealogy",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-09": 30,
-                "2026-10": 30
-              },
-              "allocations": []
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_008",
-      "name": "Predictive Maintenance Dashboard POC",
-      "type": "Group Strategy Project",
-      "status": "Draft",
-      "owner": "Fatima Al-Rashid",
-      "description": "POC dashboard combining historian data and simulation output to predict maintenance needs on critical assets. Still being shaped with Reliability team.",
-      "phases": [
-        {
-          "id": "phs_008a",
-          "name": "POC Build",
-          "start_month": "2026-11",
-          "end_month": "2027-02",
-          "funding_source": "Investment Scheme",
-          "funding_notes": "GS-2026-12 Predictive Maintenance (pending approval)",
-          "requirements": [
-            {
-              "id": "req_037",
-              "shape": "skill",
-              "skill_id": "skl_miv_analytics",
-              "level": "Specialist",
-              "notes": null,
-              "hours_by_month": {
-                "2026-11": 50,
-                "2026-12": 50,
-                "2027-01": 50,
-                "2027-02": 50
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_038",
-              "shape": "skill",
-              "skill_id": "skl_miv_integration",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-11": 30,
-                "2026-12": 30,
-                "2027-01": 30,
-                "2027-02": 30
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_039",
-              "shape": "skill",
-              "skill_id": "skl_mbm_optimisation",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-11": 20,
-                "2026-12": 20,
-                "2027-01": 20,
-                "2027-02": 20
-              },
-              "allocations": []
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_009",
-      "name": "Plant D MES Greenfield",
-      "type": "Plant Project",
-      "status": "Draft",
-      "owner": "Priya Kumar",
-      "description": "Greenfield MES deployment at new Plant D facility.",
-      "phases": [
-        {
-          "id": "phs_009a",
-          "name": "Design",
-          "start_month": "2026-06",
-          "end_month": "2026-10",
-          "funding_source": "Investment Scheme",
-          "funding_notes": "IS-2025-22 Plant D Greenfield",
-          "requirements": [
-            {
-              "id": "req_040",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Specialist",
-              "notes": null,
-              "hours_by_month": {
-                "2026-06": 60,
-                "2026-07": 60,
-                "2026-08": 60,
-                "2026-09": 60,
-                "2026-10": 60
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_041",
-              "shape": "skill",
-              "skill_id": "skl_mom_workflow",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-06": 80,
-                "2026-07": 80,
-                "2026-08": 80,
-                "2026-09": 80,
-                "2026-10": 80
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_042",
-              "shape": "skill",
-              "skill_id": "skl_mom_scada",
-              "level": "Specialist",
-              "notes": null,
-              "hours_by_month": {
-                "2026-06": 40,
-                "2026-07": 40,
-                "2026-08": 40,
-                "2026-09": 40,
-                "2026-10": 40
-              },
-              "allocations": []
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_010",
-      "name": "Plant B Advanced Analytics",
-      "type": "Plant Project",
-      "status": "Draft",
-      "owner": "James Whitfield",
-      "description": "Advanced analytics layer on top of Plant B historian to support yield optimisation.",
-      "phases": [
-        {
-          "id": "phs_010a",
-          "name": "Build",
-          "start_month": "2026-09",
-          "end_month": "2026-12",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "Plant B operations budget",
-          "requirements": [
-            {
-              "id": "req_043",
-              "shape": "skill",
-              "skill_id": "skl_miv_analytics",
-              "level": "Specialist",
-              "notes": null,
-              "hours_by_month": {
-                "2026-09": 60,
-                "2026-10": 60,
-                "2026-11": 60,
-                "2026-12": 60
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_044",
-              "shape": "skill",
-              "skill_id": "skl_miv_integration",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-09": 30,
-                "2026-10": 30,
-                "2026-11": 30,
-                "2026-12": 30
-              },
-              "allocations": []
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_bau_bau_001",
-      "name": "MES Super User \u00e2\u20ac\u201d Plant A",
-      "type": "BAU",
-      "status": "Allocated",
-      "owner": "Alex Morgan",
-      "description": "Day-to-day MES support for Plant A super users, batch troubleshooting, recipe queries.",
-      "phases": [
-        {
-          "id": "phs_bau_001_1",
-          "name": "Ongoing support",
-          "start_month": "2026-05",
-          "end_month": null,
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "MOM BAU budget",
-          "requirements": [
-            {
-              "id": "req_bau9000",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Basic",
-              "notes": null,
-              "steady_state_hours": 40,
-              "allocations": [
-                {
-                  "id": "alloc_bau9000",
-                  "person_id": "per_001",
-                  "steady_state_hours": 20,
-                  "notes": null
-                },
-                {
-                  "id": "alloc_bau9001",
-                  "person_id": "per_002",
-                  "steady_state_hours": 12,
-                  "notes": null
-                },
-                {
-                  "id": "alloc_bau9002",
-                  "person_id": "per_003",
-                  "steady_state_hours": 8,
-                  "notes": null
-                }
-              ]
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_bau_bau_002",
-      "name": "MES Super User \u00e2\u20ac\u201d Plant B",
-      "type": "BAU",
-      "status": "Allocated",
-      "owner": "Priya Kumar",
-      "description": "Day-to-day MES support for Plant B. Planned handoff to business super users through 2026.",
-      "phases": [
-        {
-          "id": "phs_bau002_1",
-          "name": "Current support",
-          "start_month": "2026-05",
-          "end_month": "2026-08",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "Plant B operations budget",
-          "requirements": [
-            {
-              "id": "req_bau9001",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Basic",
-              "notes": "Super user support",
-              "hours_by_month": {
-                "2026-05": 50,
-                "2026-06": 50,
-                "2026-07": 50,
-                "2026-08": 50
-              },
-              "allocations": [
-                {
-                  "id": "alloc_bau9003",
-                  "person_id": "per_002",
-                  "hours_by_month": {
-                    "2026-05": 30,
-                    "2026-06": 30,
-                    "2026-07": 30,
-                    "2026-08": 30
-                  },
-                  "notes": null
-                },
-                {
-                  "id": "alloc_bau9004",
-                  "person_id": "per_004",
-                  "hours_by_month": {
-                    "2026-05": 20,
-                    "2026-06": 20,
-                    "2026-07": 20,
-                    "2026-08": 20
-                  },
-                  "notes": null
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "phs_bau002_2",
-          "name": "Handover period",
-          "start_month": "2026-09",
-          "end_month": "2026-12",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "Plant B operations budget",
-          "requirements": [
-            {
-              "id": "req_bau9002",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Basic",
-              "notes": "Super user support",
-              "hours_by_month": {
-                "2026-09": 35,
-                "2026-10": 35,
-                "2026-11": 35,
-                "2026-12": 35
-              },
-              "allocations": [
-                {
-                  "id": "alloc_bau9005",
-                  "person_id": "per_002",
-                  "hours_by_month": {
-                    "2026-09": 15,
-                    "2026-10": 15,
-                    "2026-11": 15,
-                    "2026-12": 15
-                  },
-                  "notes": null
-                },
-                {
-                  "id": "alloc_bau9006",
-                  "person_id": "per_004",
-                  "hours_by_month": {
-                    "2026-09": 20,
-                    "2026-10": 20,
-                    "2026-11": 20,
-                    "2026-12": 20
-                  },
-                  "notes": null
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "phs_bau002_3",
-          "name": "Residual support",
-          "start_month": "2027-01",
-          "end_month": null,
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "Plant B operations budget (residual)",
-          "requirements": [
-            {
-              "id": "req_bau9003",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Basic",
-              "notes": "Super user support \u00e2\u20ac\u201d steady residual",
-              "steady_state_hours": 5,
-              "allocations": [
-                {
-                  "id": "alloc_bau9007",
-                  "person_id": "per_002",
-                  "steady_state_hours": 5,
-                  "notes": null
-                }
-              ]
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_bau_bau_003",
-      "name": "Historian Day-to-Day Support",
-      "type": "BAU",
-      "status": "Allocated",
-      "owner": "James Whitfield",
-      "description": "Tag management, historian health, data quality investigations.",
-      "phases": [
-        {
-          "id": "phs_bau_003_1",
-          "name": "Ongoing support",
-          "start_month": "2026-05",
-          "end_month": null,
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "MI&V BAU budget",
-          "requirements": [
-            {
-              "id": "req_bau9004",
-              "shape": "skill",
-              "skill_id": "skl_miv_historian",
-              "level": "Basic",
-              "notes": null,
-              "steady_state_hours": 40,
-              "allocations": [
-                {
-                  "id": "alloc_bau9008",
-                  "person_id": "per_005",
-                  "steady_state_hours": 25,
-                  "notes": null
-                },
-                {
-                  "id": "alloc_bau9009",
-                  "person_id": "per_006",
-                  "steady_state_hours": 15,
-                  "notes": null
-                }
-              ]
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_bau_bau_004",
-      "name": "Reporting Maintenance",
-      "type": "BAU",
-      "status": "Allocated",
-      "owner": "Ben Carter",
-      "description": "Dashboard fixes, report tweaks, ad-hoc reporting requests.",
-      "phases": [
-        {
-          "id": "phs_bau_004_1",
-          "name": "Ongoing support",
-          "start_month": "2026-05",
-          "end_month": null,
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "MI&V BAU budget",
-          "requirements": [
-            {
-              "id": "req_bau9005",
-              "shape": "skill",
-              "skill_id": "skl_miv_historian",
-              "level": "Basic",
-              "notes": null,
-              "steady_state_hours": 40,
-              "allocations": [
-                {
-                  "id": "alloc_bau9010",
-                  "person_id": "per_007",
-                  "steady_state_hours": 30,
-                  "notes": null
-                },
-                {
-                  "id": "alloc_bau9011",
-                  "person_id": "per_006",
-                  "steady_state_hours": 10,
-                  "notes": null
-                }
-              ]
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_bau_bau_005",
-      "name": "Simulation Tooling Support",
-      "type": "BAU",
-      "status": "Allocated",
-      "owner": "Marcus Vogel",
-      "description": "Licence admin, tooling updates, model troubleshooting for existing simulation users.",
-      "phases": [
-        {
-          "id": "phs_bau_005_1",
-          "name": "Ongoing support",
-          "start_month": "2026-05",
-          "end_month": null,
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "MBM BAU budget",
-          "requirements": [
-            {
-              "id": "req_bau9006",
-              "shape": "skill",
-              "skill_id": "skl_mbm_simulation",
-              "level": "Basic",
-              "notes": null,
-              "steady_state_hours": 25,
-              "allocations": [
-                {
-                  "id": "alloc_bau9012",
-                  "person_id": "per_009",
-                  "steady_state_hours": 15,
-                  "notes": null
-                },
-                {
-                  "id": "alloc_bau9013",
-                  "person_id": "per_011",
-                  "steady_state_hours": 10,
-                  "notes": null
-                }
-              ]
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_npd_002",
-      "name": "NPD Trial Line A \u00e2\u20ac\u201d MES Integration",
-      "type": "NPD Demand",
-      "status": "Submitted",
-      "owner": "Daniel Okafor",
-      "description": "Integration of MES genealogy and workflow coverage for the new NPD trial line in Plant A. Needed to unlock scaled production trials in Q4 2026.",
-      "phases": [
-        {
-          "id": "phs_npd002_1",
-          "name": "Specification",
-          "start_month": "2026-09",
-          "end_month": "2026-10",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "NPD Trial A sector budget",
-          "requirements": [
-            {
-              "id": "req_npd002_1",
-              "shape": "skill",
-              "skill_id": "skl_mom_workflow",
-              "level": "Advanced",
-              "notes": "Workflow specification for NPD trial line",
-              "hours_by_month": {
-                "2026-09": 40,
-                "2026-10": 40
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_npd002_2",
-              "shape": "skill",
-              "skill_id": "skl_mom_genealogy",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-09": 20,
-                "2026-10": 20
-              },
-              "allocations": []
-            }
-          ]
-        },
-        {
-          "id": "phs_npd002_2",
-          "name": "Build",
-          "start_month": "2026-11",
-          "end_month": "2027-01",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "NPD Trial A sector budget",
-          "requirements": [
-            {
-              "id": "req_npd002_3",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Specialist",
-              "notes": "MES config for trial line",
-              "hours_by_month": {
-                "2026-11": 50,
-                "2026-12": 50,
-                "2027-01": 50
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_npd002_4",
-              "shape": "skill",
-              "skill_id": "skl_miv_integration",
-              "level": "Advanced",
-              "notes": "Historian data pipeline",
-              "hours_by_month": {
-                "2026-11": 30,
-                "2026-12": 30,
-                "2027-01": 30
-              },
-              "allocations": []
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_npd_003",
-      "name": "NPD Line C \u00e2\u20ac\u201d Quality Reporting",
-      "type": "NPD Demand",
-      "status": "Allocated",
-      "owner": "Naomi Chen",
-      "description": "Quality reporting build-out for the NPD Line C rollout \u00e2\u20ac\u201d dashboards and yield tracking for early-phase trials.",
-      "phases": [
-        {
-          "id": "phs_npd003_1",
-          "name": "Build",
-          "start_month": "2026-07",
-          "end_month": "2026-10",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "NPD Line C sector budget",
-          "requirements": [
-            {
-              "id": "req_npd003_1",
-              "shape": "skill",
-              "skill_id": "skl_miv_reporting",
-              "level": "Advanced",
-              "notes": "Dashboard build",
-              "hours_by_month": {
-                "2026-07": 40,
-                "2026-08": 40,
-                "2026-09": 40,
-                "2026-10": 40
-              },
-              "allocations": [
-                {
-                  "id": "alloc_npd003_1",
-                  "person_id": "per_007",
-                  "hours_by_month": {
-                    "2026-07": 40,
-                    "2026-08": 40,
-                    "2026-09": 40,
-                    "2026-10": 40
-                  },
-                  "notes": null
-                }
-              ]
-            },
-            {
-              "id": "req_npd003_2",
-              "shape": "skill",
-              "skill_id": "skl_miv_analytics",
-              "level": "Advanced",
-              "notes": "Yield tracking analytics",
-              "hours_by_month": {
-                "2026-07": 20,
-                "2026-08": 20,
-                "2026-09": 20,
-                "2026-10": 20
-              },
-              "allocations": [
-                {
-                  "id": "alloc_npd003_2",
-                  "person_id": "per_006",
-                  "hours_by_month": {
-                    "2026-07": 20,
-                    "2026-08": 20,
-                    "2026-09": 20,
-                    "2026-10": 20
-                  },
-                  "notes": null
-                }
-              ]
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_npd_004",
-      "name": "NPD Product Family Z \u00e2\u20ac\u201d Process Model",
-      "type": "NPD Demand",
-      "status": "Draft",
-      "owner": "Marcus Vogel",
-      "description": "Process simulation model for the Product Family Z NPD programme. Still being scoped with R&D.",
-      "phases": [
-        {
-          "id": "phs_npd004_1",
-          "name": "Model Setup",
-          "start_month": "2026-11",
-          "end_month": "2027-02",
-          "funding_source": "Investment Scheme",
-          "funding_notes": "NPD-Z model scheme (pending)",
-          "requirements": [
-            {
-              "id": "req_npd004_1",
-              "shape": "skill",
-              "skill_id": "skl_mbm_simulation",
-              "level": "Specialist",
-              "notes": null,
-              "hours_by_month": {
-                "2026-11": 60,
-                "2026-12": 60,
-                "2027-01": 60,
-                "2027-02": 60
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_npd004_2",
-              "shape": "skill",
-              "skill_id": "skl_mbm_modelling",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-11": 40,
-                "2026-12": 40,
-                "2027-01": 40,
-                "2027-02": 40
-              },
-              "allocations": []
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": "prj_004"
-    },
-    {
-      "id": "dmd_stress_001",
-      "name": "Plant C MES Platform Migration",
-      "type": "Plant Project",
-      "status": "Approved",
-      "owner": "David Lin",
-      "description": "Full MES platform migration at Plant C. Approved but awaiting resource planning - heavy MOM Specialist requirement creates downstream capacity tension.",
-      "phases": [
-        {
-          "id": "phs_stress001_1",
-          "name": "Design & Build",
-          "start_month": "2026-06",
-          "end_month": "2026-08",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "Plant C capital budget",
-          "requirements": [
-            {
-              "id": "req_stress001_1",
-              "shape": "skill",
-              "skill_id": "skl_mom_mes",
-              "level": "Specialist",
-              "notes": "Lead platform architect required",
-              "hours_by_month": {
-                "2026-06": 80,
-                "2026-07": 80,
-                "2026-08": 80
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_stress001_2",
-              "shape": "skill",
-              "skill_id": "skl_mom_workflow",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-06": 40,
-                "2026-07": 40,
-                "2026-08": 40
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_stress001_3",
-              "shape": "skill",
-              "skill_id": "skl_git_data_eng",
-              "level": "Specialist",
-              "notes": "Data integration layer for MES platform migration",
-              "hours_by_month": {
-                "2026-06": 60,
-                "2026-07": 60,
-                "2026-08": 60
-              },
-              "owningTeamId": "team_005",
-              "allocations": []
-            },
-            {
-              "id": "req_stress001_4",
-              "shape": "skill",
-              "skill_id": "skl_git_data_int_arch",
-              "level": "Advanced",
-              "notes": "Integration architecture for MES to enterprise data layer",
-              "hours_by_month": {
-                "2026-06": 40,
-                "2026-07": 40,
-                "2026-08": 40
-              },
-              "owningTeamId": "team_005",
-              "allocations": []
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": "prj_002"
-    },
-    {
-      "id": "dmd_stress_002",
-      "name": "Corporate Data Lake \u00e2\u20ac\u201d MI&V Integration",
-      "type": "Group Strategy Project",
-      "status": "Submitted",
-      "owner": "Elena Richter",
-      "description": "Strategic integration of plant data into group-level analytics lake. Pending Prioritisation Board review. Heavy MI&V Specialist requirement.",
-      "phases": [
-        {
-          "id": "phs_stress002_1",
-          "name": "Architecture & Integration",
-          "start_month": "2026-07",
-          "end_month": "2026-10",
-          "funding_source": "Investment Scheme",
-          "funding_notes": "Group Digital Strategy 2026",
-          "requirements": [
-            {
-              "id": "req_stress002_1",
-              "shape": "skill",
-              "skill_id": "skl_miv_integration",
-              "level": "Specialist",
-              "notes": "Specialist-level data pipeline design",
-              "hours_by_month": {
-                "2026-07": 80,
-                "2026-08": 80,
-                "2026-09": 80,
-                "2026-10": 80
-              },
-              "allocations": []
-            },
-            {
-              "id": "req_stress002_2",
-              "shape": "skill",
-              "skill_id": "skl_miv_historian",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-07": 40,
-                "2026-08": 40,
-                "2026-09": 40,
-                "2026-10": 40
-              },
-              "allocations": []
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": "prj_005"
-    },
-    {
-      "id": "dmd_stress_003",
-      "name": "Plant A OEE Enhancement",
-      "type": "Plant Project",
-      "status": "Submitted",
-      "owner": "Martin Hughes",
-      "description": "Enhancement to OEE tracking at Plant A. Submitted for prioritisation. Would directly increase MOM demand in already-congested months.",
-      "phases": [
-        {
-          "id": "phs_stress003_1",
-          "name": "Build",
-          "start_month": "2026-06",
-          "end_month": "2026-08",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "Plant A operations improvement",
-          "requirements": [
-            {
-              "id": "req_stress003_1",
-              "shape": "skill",
-              "skill_id": "skl_mom_oee",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-06": 60,
-                "2026-07": 60,
-                "2026-08": 60
-              },
-              "allocations": []
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_stress_004",
-      "name": "Genealogy Traceability Rollout",
-      "type": "Plant Project",
-      "status": "PartiallyAllocated",
-      "owner": "Priya Kumar",
-      "description": "Rollout of genealogy & traceability tracking across plants. Priya partially allocated; further Advanced MOM capacity still needed.",
-      "phases": [
-        {
-          "id": "phs_stress004_1",
-          "name": "Rollout",
-          "start_month": "2026-06",
-          "end_month": "2026-08",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": null,
-          "requirements": [
-            {
-              "id": "req_stress004_1",
-              "shape": "skill",
-              "skill_id": "skl_mom_genealogy",
-              "level": "Advanced",
-              "notes": null,
-              "hours_by_month": {
-                "2026-06": 120,
-                "2026-07": 120,
-                "2026-08": 120
-              },
-              "allocations": [
-                {
-                  "id": "alloc_stress004_1",
-                  "person_id": "per_002",
-                  "hours_by_month": {
-                    "2026-06": 40,
-                    "2026-07": 40,
-                    "2026-08": 40
-                  },
-                  "notes": "Priya covers part; remainder needs Advanced-level MOM resource"
-                }
-              ]
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_stress_005",
-      "name": "Plant B Historian Upgrade",
-      "type": "Plant Project",
-      "status": "Allocated",
-      "owner": "Fatima Al-Rashid",
-      "description": "Historian platform upgrade. Fatima leading; overlaps with her other MI&V commitments to test cross-project headroom tracking.",
-      "phases": [
-        {
-          "id": "phs_stress005_1",
-          "name": "Implementation",
-          "start_month": "2026-07",
-          "end_month": "2026-09",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "Plant B capital",
-          "requirements": [
-            {
-              "id": "req_stress005_1",
-              "shape": "skill",
-              "skill_id": "skl_miv_historian",
-              "level": "Specialist",
-              "notes": null,
-              "hours_by_month": {
-                "2026-07": 40,
-                "2026-08": 40,
-                "2026-09": 40
-              },
-              "allocations": [
-                {
-                  "id": "alloc_stress005_1",
-                  "person_id": "per_006",
-                  "hours_by_month": {
-                    "2026-07": 40,
-                    "2026-08": 40,
-                    "2026-09": 40
-                  },
-                  "notes": null
-                }
-              ]
-            }
-          ]
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
-    },
-    {
-      "id": "dmd_scoping_001",
-      "name": "Plant A MES Line 6 Extension",
-      "type": "Plant Project",
-      "status": "Draft",
-      "owner": "Alex Morgan",
-      "description": "Extension of the Plant A MES to cover Line 6. Submitted for scoping \u00e2\u20ac\u201d teams are being assigned to define the skill-shaped requirements.",
-      "phases": [
-        {
-          "id": "phs_scoping_001",
-          "name": "Design & Build",
-          "start_month": "2026-09",
-          "end_month": "2026-12",
-          "funding_source": "Plant/Sector Allocation",
-          "funding_notes": "Plant A capital budget",
-          "requirements": []
-        }
-      ],
-      "function_id": "func_001",
-      "parent_project_id": null
     }
   ],
   "programmes": [
@@ -2498,69 +644,848 @@
   "projects": [
     {
       "id": "prj_001",
-      "name": "Plant B MES Phase 2",
+      "name": "Plant D MES Concept Study",
+      "owner": "Sarah Chen",
+      "type": "Plant Project",
       "programme_id": "prg_001",
-      "description": "Extension of MES Phase 1 at Plant B covering Lines 3-5, with genealogy and SCADA integration.",
-      "active": true,
-      "owner": "",
-      "type": "Group Strategy Project",
+      "description": "Feasibility study for Plant D MES infrastructure upgrade. Draft — requirements not yet defined. PTAs in place for DM and GroupIT teams.",
       "status": "Draft",
-      "phases": []
+      "active": true,
+      "phases": [
+        {
+          "id": "phs_prj001_concept",
+          "name": "Concept & Feasibility",
+          "start_month": "2026-09",
+          "end_month": "2026-10",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": []
+        },
+        {
+          "id": "phs_prj001_design",
+          "name": "Design",
+          "start_month": "2026-11",
+          "end_month": "2027-01",
+          "funding_source": "Investment Scheme",
+          "funding_notes": "",
+          "requirements": []
+        }
+      ]
     },
     {
       "id": "prj_002",
-      "name": "Plant C MES Platform",
+      "name": "Plant E MES Refresh",
+      "owner": "Marcus Vogel",
+      "type": "Plant Project",
       "programme_id": "prg_001",
-      "description": "Full MES platform migration at Plant C. Includes vendor-supported hardware commissioning.",
+      "description": "MES refresh at Plant E. DM MOM/MI&V + GroupIT Data & Integration. Teams assigned; DM confirmed, GroupIT pending.",
+      "status": "Scoping",
       "active": true,
-      "owner": "",
-      "type": "Group Strategy Project",
-      "status": "Draft",
-      "phases": []
+      "phases": [
+        {
+          "id": "phs_prj002_spec",
+          "name": "Design & Specification",
+          "start_month": "2026-08",
+          "end_month": "2026-09",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_prj002_spec_1",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 60,
+                "2026-09": 60
+              },
+              "notes": null,
+              "owningTeamId": "team_001",
+              "allocations": []
+            },
+            {
+              "id": "req_prj002_spec_2",
+              "shape": "skill",
+              "skill_id": "skl_miv_integration",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40
+              },
+              "notes": null,
+              "owningTeamId": "team_001",
+              "allocations": []
+            },
+            {
+              "id": "req_prj002_spec_3",
+              "shape": "skill",
+              "skill_id": "skl_git_data_eng",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40
+              },
+              "notes": null,
+              "owningTeamId": "team_005",
+              "allocations": []
+            }
+          ]
+        },
+        {
+          "id": "phs_prj002_build",
+          "name": "Build & Integration",
+          "start_month": "2026-10",
+          "end_month": "2026-12",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_prj002_build_1",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-10": 80,
+                "2026-11": 80,
+                "2026-12": 80
+              },
+              "notes": null,
+              "owningTeamId": "team_001",
+              "allocations": []
+            },
+            {
+              "id": "req_prj002_build_2",
+              "shape": "skill",
+              "skill_id": "skl_mom_scada",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-10": 40,
+                "2026-11": 40,
+                "2026-12": 40
+              },
+              "notes": null,
+              "owningTeamId": "team_002",
+              "allocations": []
+            },
+            {
+              "id": "req_prj002_build_3",
+              "shape": "skill",
+              "skill_id": "skl_git_data_eng",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-10": 60,
+                "2026-11": 60,
+                "2026-12": 60
+              },
+              "notes": null,
+              "owningTeamId": "team_005",
+              "allocations": []
+            },
+            {
+              "id": "req_prj002_build_4",
+              "shape": "skill",
+              "skill_id": "skl_git_data_int_arch",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-10": 40,
+                "2026-11": 40,
+                "2026-12": 40
+              },
+              "notes": null,
+              "owningTeamId": "team_005",
+              "allocations": []
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "prj_003",
-      "name": "Site X MES Upgrade",
-      "programme_id": "prg_001",
-      "description": "MES upgrade at Site X covering new line integration and workflow re-engineering.",
-      "active": true,
-      "owner": "",
+      "name": "Corporate Data Lake",
+      "owner": "Anya Petrov",
       "type": "Group Strategy Project",
-      "status": "Draft",
+      "programme_id": null,
+      "description": "Enterprise data lake build. Cross-Function: DM MI&V + GroupIT Data & Integration. No Programme — demonstrates Unaligned Projects card.",
+      "status": "Submitted",
+      "active": true,
       "phases": []
     },
     {
       "id": "prj_004",
-      "name": "Line Y Digital Twin",
-      "programme_id": "prg_002",
-      "description": "Pilot digital twin for Line Y covering thermal and throughput behaviour.",
+      "name": "Plant C MES Platform Migration",
+      "owner": "David Lin",
+      "type": "Plant Project",
+      "programme_id": "prg_001",
+      "description": "Full MES platform migration at Plant C. Headline cross-Function flagship. DM (MOM+MI&V) PartiallyAllocated; GroupIT (Data & Integration) Approved.",
+      "status": "Approved",
       "active": true,
-      "owner": "",
-      "type": "Group Strategy Project",
-      "status": "Draft",
       "phases": []
     },
     {
       "id": "prj_005",
-      "name": "Corporate Data Lake",
-      "programme_id": "prg_003",
-      "description": "Strategic integration of plant data into the group-level analytics data lake.",
-      "active": true,
-      "owner": "",
+      "name": "MBM Foundation Library",
+      "owner": "Marcus Vogel",
       "type": "Group Strategy Project",
-      "status": "Draft",
+      "programme_id": "prg_002",
+      "description": "Digital twin foundation library for process simulation. Single-Function DM (MBM). Fully allocated.",
+      "status": "Allocated",
+      "active": true,
       "phases": []
     },
     {
       "id": "prj_006",
-      "name": "Group OEE Standard",
-      "programme_id": "prg_003",
-      "description": "Group-wide OEE reporting standardisation covering five plants.",
+      "name": "Plant B MES Refresh",
+      "owner": "Priya Kumar",
+      "type": "Plant Project",
+      "programme_id": "prg_001",
+      "description": "MES platform refresh at Plant B. Single-Function DM (MOM). Fully allocated.",
+      "status": "Allocated",
       "active": true,
-      "owner": "",
-      "type": "Group Strategy Project",
-      "status": "Draft",
       "phases": []
+    }
+  ],
+  "demand_items": [
+    {
+      "id": "dmd_p3_dm",
+      "name": "Corporate Data Lake — Digital Manufacturing",
+      "type": "Group Strategy Project",
+      "status": "Submitted",
+      "owner": "James Whitfield",
+      "description": "DM MI&V integration slice for the Corporate Data Lake.",
+      "function_id": "func_001",
+      "parent_project_id": "prj_003",
+      "phases": [
+        {
+          "id": "phs_p3dm_main",
+          "name": "Build & Deploy",
+          "start_month": "2026-07",
+          "end_month": "2026-10",
+          "funding_source": "Investment Scheme",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_p3dm_1",
+              "shape": "skill",
+              "skill_id": "skl_miv_integration",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-07": 40,
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "notes": "MI&V data integration pipelines for lake ingestion",
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_p3_git",
+      "name": "Corporate Data Lake — Group IT Enterprise Solutions",
+      "type": "Group Strategy Project",
+      "status": "Submitted",
+      "owner": "Anya Petrov",
+      "description": "GroupIT Data & Integration platform build for the Corporate Data Lake.",
+      "function_id": "func_002",
+      "parent_project_id": "prj_003",
+      "phases": [
+        {
+          "id": "phs_p3git_main",
+          "name": "Build & Deploy",
+          "start_month": "2026-07",
+          "end_month": "2026-10",
+          "funding_source": "Investment Scheme",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_p3git_1",
+              "shape": "skill",
+              "skill_id": "skl_git_data_eng",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-07": 80,
+                "2026-08": 80,
+                "2026-09": 80,
+                "2026-10": 80
+              },
+              "notes": null,
+              "owningTeamId": "team_005",
+              "allocations": []
+            },
+            {
+              "id": "req_p3git_2",
+              "shape": "skill",
+              "skill_id": "skl_git_data_int_arch",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-07": 40,
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "notes": null,
+              "owningTeamId": "team_005",
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_p4_dm",
+      "name": "Plant C MES Platform Migration — Digital Manufacturing",
+      "type": "Plant Project",
+      "status": "PartiallyAllocated",
+      "owner": "David Lin",
+      "description": "DM MOM and MI&V work for Plant C MES Platform Migration. Phase 1 fully allocated; Phase 2 partially in progress.",
+      "function_id": "func_001",
+      "parent_project_id": "prj_004",
+      "phases": [
+        {
+          "id": "phs_p4dm_spec",
+          "name": "Design & Specification",
+          "start_month": "2026-06",
+          "end_month": "2026-07",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant C capital budget",
+          "requirements": [
+            {
+              "id": "req_p4dm_spec_mes",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-06": 60,
+                "2026-07": 60
+              },
+              "notes": "Lead platform architect",
+              "owningTeamId": "team_002",
+              "allocations": [
+                {
+                  "id": "alc_p4dm_spec_mes",
+                  "person_id": "per_001",
+                  "hours_by_month": {
+                    "2026-06": 60,
+                    "2026-07": 60
+                  },
+                  "notes": null
+                }
+              ]
+            },
+            {
+              "id": "req_p4dm_spec_int",
+              "shape": "skill",
+              "skill_id": "skl_miv_integration",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-06": 40,
+                "2026-07": 40
+              },
+              "notes": "Data integration design",
+              "owningTeamId": "team_001",
+              "allocations": [
+                {
+                  "id": "alc_p4dm_spec_int",
+                  "person_id": "per_005",
+                  "hours_by_month": {
+                    "2026-06": 40,
+                    "2026-07": 40
+                  },
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "phs_p4dm_build",
+          "name": "Build & Integration",
+          "start_month": "2026-08",
+          "end_month": "2026-10",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant C capital budget",
+          "requirements": [
+            {
+              "id": "req_p4dm_build_mes",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-08": 80,
+                "2026-09": 80,
+                "2026-10": 80
+              },
+              "notes": "Platform build lead — 20 hrs/mo gap remains",
+              "allocations": [
+                {
+                  "id": "alc_p4dm_build_mes",
+                  "person_id": "per_001",
+                  "hours_by_month": {
+                    "2026-08": 60,
+                    "2026-09": 60,
+                    "2026-10": 60
+                  },
+                  "notes": "Partial — 20 hrs/mo unplanned"
+                }
+              ]
+            },
+            {
+              "id": "req_p4dm_build_wf",
+              "shape": "skill",
+              "skill_id": "skl_mom_workflow",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_p4dm_build_int",
+              "shape": "skill",
+              "skill_id": "skl_miv_integration",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "notes": null,
+              "owningTeamId": "team_001",
+              "allocations": [
+                {
+                  "id": "alc_p4dm_build_int",
+                  "person_id": "per_005",
+                  "hours_by_month": {
+                    "2026-08": 40,
+                    "2026-09": 40,
+                    "2026-10": 40
+                  },
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_p4_git",
+      "name": "Plant C MES Platform Migration — Group IT Enterprise Solutions",
+      "type": "Plant Project",
+      "status": "Approved",
+      "owner": "Anya Petrov",
+      "description": "GroupIT Data & Integration work for Plant C MES Platform Migration. Approved, pending resource planning.",
+      "function_id": "func_002",
+      "parent_project_id": "prj_004",
+      "phases": [
+        {
+          "id": "phs_p4git_spec",
+          "name": "Design & Specification",
+          "start_month": "2026-06",
+          "end_month": "2026-07",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_p4git_spec_1",
+              "shape": "skill",
+              "skill_id": "skl_git_data_eng",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-06": 40,
+                "2026-07": 40
+              },
+              "notes": null,
+              "owningTeamId": "team_005",
+              "allocations": []
+            }
+          ]
+        },
+        {
+          "id": "phs_p4git_build",
+          "name": "Build & Integration",
+          "start_month": "2026-08",
+          "end_month": "2026-10",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_p4git_build_1",
+              "shape": "skill",
+              "skill_id": "skl_git_data_eng",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-08": 60,
+                "2026-09": 60,
+                "2026-10": 60
+              },
+              "notes": "Data integration layer for MES platform",
+              "owningTeamId": "team_005",
+              "allocations": []
+            },
+            {
+              "id": "req_p4git_build_2",
+              "shape": "skill",
+              "skill_id": "skl_git_data_int_arch",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "notes": null,
+              "owningTeamId": "team_005",
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_p5_dm",
+      "name": "MBM Foundation Library — Digital Manufacturing",
+      "type": "Group Strategy Project",
+      "status": "Allocated",
+      "owner": "Marcus Vogel",
+      "description": "DM MBM work for the MBM Foundation Library. Fully allocated.",
+      "function_id": "func_001",
+      "parent_project_id": "prj_005",
+      "phases": [
+        {
+          "id": "phs_p5dm_build",
+          "name": "Foundation Build",
+          "start_month": "2026-05",
+          "end_month": "2026-08",
+          "funding_source": "Investment Scheme",
+          "funding_notes": "Digital Twin innovation budget",
+          "requirements": [
+            {
+              "id": "req_p5dm_sim",
+              "shape": "skill",
+              "skill_id": "skl_mbm_simulation",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-05": 80,
+                "2026-06": 80,
+                "2026-07": 80,
+                "2026-08": 80
+              },
+              "notes": "Core simulation framework",
+              "allocations": [
+                {
+                  "id": "alc_p5dm_sim",
+                  "person_id": "per_009",
+                  "hours_by_month": {
+                    "2026-05": 80,
+                    "2026-06": 80,
+                    "2026-07": 80,
+                    "2026-08": 80
+                  },
+                  "notes": null
+                }
+              ]
+            },
+            {
+              "id": "req_p5dm_twin",
+              "shape": "skill",
+              "skill_id": "skl_mbm_twin",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-05": 60,
+                "2026-06": 60,
+                "2026-07": 60,
+                "2026-08": 60
+              },
+              "notes": "Digital twin integration",
+              "allocations": [
+                {
+                  "id": "alc_p5dm_twin",
+                  "person_id": "per_010",
+                  "hours_by_month": {
+                    "2026-05": 60,
+                    "2026-06": 60,
+                    "2026-07": 60,
+                    "2026-08": 60
+                  },
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_p6_dm",
+      "name": "Plant B MES Refresh — Digital Manufacturing",
+      "type": "Plant Project",
+      "status": "Allocated",
+      "owner": "Priya Kumar",
+      "description": "DM MOM work for Plant B MES Refresh. Fully allocated.",
+      "function_id": "func_001",
+      "parent_project_id": "prj_006",
+      "phases": [
+        {
+          "id": "phs_p6dm_rollout",
+          "name": "Rollout",
+          "start_month": "2026-05",
+          "end_month": "2026-07",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant B budget",
+          "requirements": [
+            {
+              "id": "req_p6dm_mes",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-05": 60,
+                "2026-06": 60,
+                "2026-07": 60
+              },
+              "notes": null,
+              "allocations": [
+                {
+                  "id": "alc_p6dm_mes",
+                  "person_id": "per_002",
+                  "hours_by_month": {
+                    "2026-05": 60,
+                    "2026-06": 60,
+                    "2026-07": 60
+                  },
+                  "notes": null
+                }
+              ]
+            },
+            {
+              "id": "req_p6dm_scada",
+              "shape": "skill",
+              "skill_id": "skl_mom_scada",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-05": 40,
+                "2026-06": 40,
+                "2026-07": 40
+              },
+              "notes": null,
+              "allocations": [
+                {
+                  "id": "alc_p6dm_scada",
+                  "person_id": "per_004",
+                  "hours_by_month": {
+                    "2026-05": 40,
+                    "2026-06": 40,
+                    "2026-07": 40
+                  },
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_d1",
+      "name": "Ad-hoc shift pattern review",
+      "type": "Plant Project",
+      "status": "Draft",
+      "owner": "Daniel Okafor",
+      "description": "Ad-hoc review of MES shift patterns at Plant A. 1 phase, 1 MOM Basic requirement. No external.",
+      "function_id": "func_001",
+      "parent_project_id": null,
+      "phases": [
+        {
+          "id": "phs_d1_review",
+          "name": "Review",
+          "start_month": "2026-07",
+          "end_month": "2026-08",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_d1_1",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Basic",
+              "hours_by_month": {
+                "2026-07": 20,
+                "2026-08": 20
+              },
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_d2",
+      "name": "Plant A SCADA migration assist",
+      "type": "Plant Project",
+      "status": "Submitted",
+      "owner": "Priya Kumar",
+      "description": "Assist with SCADA migration at Plant A. Submitted — Approve is the next-step CTA.",
+      "function_id": "func_001",
+      "parent_project_id": null,
+      "phases": [
+        {
+          "id": "phs_d2_support",
+          "name": "Migration Support",
+          "start_month": "2026-07",
+          "end_month": "2026-09",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_d2_1",
+              "shape": "skill",
+              "skill_id": "skl_mom_scada",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-07": 60,
+                "2026-08": 60,
+                "2026-09": 60
+              },
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_d3",
+      "name": "MES Super User support — Plant B",
+      "type": "BAU",
+      "status": "PartiallyAllocated",
+      "owner": "Alex Morgan",
+      "description": "Ongoing BAU MES super user support at Plant B. Indefinite phase; partial allocation in place. Has Other Internal Team external requirement.",
+      "function_id": "func_001",
+      "parent_project_id": null,
+      "phases": [
+        {
+          "id": "phs_d3_ongoing",
+          "name": "Ongoing support",
+          "start_month": "2026-05",
+          "end_month": null,
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant B BAU budget",
+          "requirements": [
+            {
+              "id": "req_d3_1",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Basic",
+              "steady_state_hours": 40,
+              "notes": "Day-to-day MES support",
+              "allocations": [
+                {
+                  "id": "alc_d3_1",
+                  "person_id": "per_003",
+                  "steady_state_hours": 20,
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_d4",
+      "name": "Historian configuration handover",
+      "type": "Plant Project",
+      "status": "Allocated",
+      "owner": "James Whitfield",
+      "description": "Configuration handover for historian upgrade at Plant B. Fully allocated.",
+      "function_id": "func_001",
+      "parent_project_id": null,
+      "phases": [
+        {
+          "id": "phs_d4_handover",
+          "name": "Handover",
+          "start_month": "2026-05",
+          "end_month": "2026-06",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_d4_1",
+              "shape": "skill",
+              "skill_id": "skl_miv_historian",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-05": 60,
+                "2026-06": 60
+              },
+              "notes": null,
+              "allocations": [
+                {
+                  "id": "alc_d4_1",
+                  "person_id": "per_005",
+                  "hours_by_month": {
+                    "2026-05": 60,
+                    "2026-06": 60
+                  },
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_d5",
+      "name": "Plant A OEE enhancement",
+      "type": "Plant Project",
+      "status": "Approved",
+      "owner": "Fatima Al-Rashid",
+      "description": "OEE metric enhancement at Plant A. Approved, ready for resource planning.",
+      "function_id": "func_001",
+      "parent_project_id": null,
+      "phases": [
+        {
+          "id": "phs_d5_impl",
+          "name": "Implementation",
+          "start_month": "2026-09",
+          "end_month": "2026-10",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_d5_1",
+              "shape": "skill",
+              "skill_id": "skl_mom_oee",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_d5_2",
+              "shape": "skill",
+              "skill_id": "skl_miv_analytics",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
     }
   ],
   "providers": [
@@ -2591,34 +1516,34 @@
   ],
   "external_resource_requirements": [
     {
-      "id": "ext_001",
-      "phase_id": "phs_stress001_1",
+      "id": "ext_p4_oem",
+      "phase_id": "phs_p4dm_build",
       "provider_id": "prv_003",
       "role": "MES Platform Vendor Support",
       "notes": "OEM provides specialist platform configuration support during build.",
       "hours_by_month": {
-        "2026-06": 40,
-        "2026-07": 40,
-        "2026-08": 40
+        "2026-08": 40,
+        "2026-09": 40,
+        "2026-10": 40
       },
       "steady_state_hours": null
     },
     {
-      "id": "ext_002",
-      "phase_id": "phs_stress001_1",
+      "id": "ext_p4_ms",
+      "phase_id": "phs_p4dm_build",
       "provider_id": "prv_001",
       "role": "SCADA Engineer",
-      "notes": "Managed Services SCADA resource required for integration work.",
+      "notes": "Managed Services SCADA resource for integration work.",
       "hours_by_month": {
-        "2026-06": 120,
-        "2026-07": 120,
-        "2026-08": 120
+        "2026-08": 120,
+        "2026-09": 120,
+        "2026-10": 120
       },
       "steady_state_hours": null
     },
     {
-      "id": "ext_003",
-      "phase_id": "phs_stress002_1",
+      "id": "ext_p3_contractor",
+      "phase_id": "phs_p3git_main",
       "provider_id": "prv_002",
       "role": "Data Engineer",
       "notes": "Contract data engineer for pipeline build and integration testing.",
@@ -2631,14 +1556,51 @@
       "steady_state_hours": null
     },
     {
-      "id": "ext_004",
-      "phase_id": "phs_bau_001_1",
+      "id": "ext_d3_oit",
+      "phase_id": "phs_d3_ongoing",
       "provider_id": "prv_005",
       "role": "Plant Electrician Support",
-      "notes": "Plant A electricians provide hardware first-line support for MES-connected equipment.",
+      "notes": "Plant B electricians provide hardware first-line support for MES-connected equipment.",
       "hours_by_month": {},
       "steady_state_hours": 10
     }
   ],
-  "project_team_assignments": []
+  "project_team_assignments": [
+    {
+      "id": "pta_prj001_dm",
+      "projectId": "prj_001",
+      "phaseId": "phs_prj001_concept",
+      "teamId": "team_001",
+      "confirmed": false,
+      "confirmedBy": null,
+      "confirmedAt": null
+    },
+    {
+      "id": "pta_prj001_git",
+      "projectId": "prj_001",
+      "phaseId": "phs_prj001_concept",
+      "teamId": "team_004",
+      "confirmed": false,
+      "confirmedBy": null,
+      "confirmedAt": null
+    },
+    {
+      "id": "pta_prj002_dm",
+      "projectId": "prj_002",
+      "phaseId": "phs_prj002_spec",
+      "teamId": "team_001",
+      "confirmed": true,
+      "confirmedBy": "Marcus Vogel",
+      "confirmedAt": "2026-05-10"
+    },
+    {
+      "id": "pta_prj002_git",
+      "projectId": "prj_002",
+      "phaseId": "phs_prj002_spec",
+      "teamId": "team_005",
+      "confirmed": false,
+      "confirmedBy": null,
+      "confirmedAt": null
+    }
+  ]
 }
