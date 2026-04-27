@@ -178,6 +178,7 @@ function AppShell() {
           <span className="text-xs font-semibold tracking-widest uppercase text-near-black select-none">
             DM Resource Tool
           </span>
+          <span className="text-[10px] text-gray-400 font-mono select-none" title="Spec v1.18">v1.18</span>
           <nav className="flex gap-0.5">
             {navItems.map(n => (
               <NavLink

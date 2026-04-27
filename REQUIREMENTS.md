@@ -1,6 +1,6 @@
 # Digital Manufacturing Resource Load & Capacity Tool
 
-## Requirements Specification — v1.17
+## Requirements Specification — v1.18
 
 ---
 
@@ -74,79 +74,127 @@ The data model has three layers: **structure** (domains, skills, people), **dema
 
 ### 2.1.1 Programme / Project hierarchy
 
-Demand items optionally belong to a **Project**, which in turn belongs to a **Programme**. This is a lightweight grouping layer for roll-up and filtering — not a gate on demand workflow and not tracked as its own state machine.
+*Substantially redefined in v1.18.* The Project entity is now the planning unit users scope (replacing today's grouping-layer-only Project). Programmes remain as the optional parent grouping for Projects.
 
 **Programme**
 - Name (free text, required, unique)
 - Description (free text, optional)
 - Active flag (for soft-hiding; inactive Programmes remain on their existing Projects but don't appear in pickers)
+- Programmes have **no status**, no approval gates, and no transitions. They are organisational labels with roll-up power.
 
-**Project**
-- Name (free text, required, unique within its parent Programme)
-- Parent Programme (required — a Project must belong to exactly one Programme)
-- Description (free text, optional)
-- Active flag (for soft-hiding)
+**Project** *(redefined in v1.18 — replaces today's Demand-as-planning-unit and today's Project grouping layer)*
+
+The Project is the planning vehicle. Users create, scope, and approve a Project; the Project then spawns one Demand per Function involved (see section 2.2 and section 3).
+
+| Field | Notes |
+|---|---|
+| Name | Free text, required |
+| Owner | Free-text field (person or role name) |
+| Type | One of: `Group Strategy Project`, `Plant Project`, `NPD Demand`, `BAU` (carried through to spawned Demands; reused from prior Demand-type taxonomy) |
+| Programme | **Optional** — nullable. A Project may belong to one Programme, or be unaligned. Editable in every status. |
+| Description | Free text |
+| Status | One of: `Draft`, `Scoping`, `Submitted`, `Approved`, `Allocated` (see section 3) |
+| **Phases** | One or more — see section 2.2 |
+| **Functions involved** | Derived (read-only) — the distinct set of Functions touched by any of the Project's requirements across all phases |
+| Active flag | Soft-hide for terminal/cancelled Projects; not the same as deletion |
 
 **Relationships**
 
-- A Programme has 1..n Projects. (1 is allowed — it's legitimate for a Programme to have only a single Project, especially early on.)
-- A Project has 0..n Demand items. (0 is allowed — a Project can exist before any Demand is aligned to it.)
-- A Demand item has **0..1 Project** — alignment is optional. Unaligned demand is legitimate, particularly for BAU and small ad-hoc items that don't fit a project shape. Unaligned demand appears under a virtual "No Project" grouping in any view that groups by Project.
+- A Programme has 0..n Projects.
+- A Project has 0..1 Programme (optional).
+- A Project has 0..n Demands (0 in Draft and Scoping; ≥1 from Submitted onwards once spawned). The set of Demands is determined by the Functions touched by the Project's requirements at spawn time.
+- A Demand has **0..1 Project**. Project-spawned Demands have a `parent_project_id` set; direct Demands (created without a Project — see section 2.2 and section 3 "Direct Demand path") have null. A Demand belongs to exactly one Function regardless of origin.
 
-**What this hierarchy deliberately is not**
+**Function-agnostic at the Project level**
 
-- It is **not a status workflow**. Programmes and Projects have no states, no approval gates, no transitions. They're labels with roll-up power.
-- It **does not carry its own resourcing data**. Skill requirements, allocations, and phases all sit on Demand items, exactly as before. A Project's "resource requirement" is just the aggregate of its Demand items' requirements.
-- It **does not gate Demand workflow**. A Demand item can move through its full state machine with or without a Project alignment. The alignment field is freely editable in every status (see section 3 — Allocation editing: Programme/Project is deliberately excluded from the "locked once approved" rule, because changing the alignment has zero effect on capacity calculations; it only re-points roll-ups).
+A Project is Function-agnostic in the same sense today's Demand was: it does not "belong to" any Function. The Functions involved are derived from its requirements. A Project with requirements spanning Digital Manufacturing and Group IT spawns one Demand for each of those Functions when it transitions to Submitted.
+
+**Direct Demand path — bypasses the Project model**
+
+Not all Demand on a team belongs to a wider Project. A team may receive ad-hoc requests, BAU streams, or single-Function pieces of work that don't justify cross-Function planning. The **direct Demand path** lets users create a Demand directly: single-Function from creation (`function_id` required, `parent_project_id = null`), with its own Draft swimlane on Manage Demand. Direct Demands flow through `Draft → Submitted → Approved → PartiallyAllocated → Allocated`, skipping Scoping entirely (Scoping exists for cross-Function coordination — moot when only one Function is involved).
+
+Project-spawned Demands and direct Demands converge at the Submitted swimlane on Manage Demand. From Submitted onwards their behaviour, drawer footers, edit page, and capacity treatment are identical — the only persistent difference is that Project-spawned Demands carry a `parent_project_id` and roll up to that Project (and through it, the Programme). Direct Demands roll up directly to a virtual "Direct Demands" grouping on the Demand view (section 4.10).
+
+**Conversion between paths is not supported in v1.18**: a direct Demand cannot be retroactively attached to a Project after creation, and a Project-spawned Demand cannot be detached from its parent. If a user realises mid-Draft that a direct Demand is really part of a wider Project, they should Delete the direct Demand and create the Project instead. This is a deliberate v1.18 simplification — supporting attach/detach later is straightforward but adds ambiguity (whose definition is authoritative — the Project's or the Demand's?) that we don't need to resolve yet.
 
 **Aggregation semantics**
 
-For any Programme or Project, roll-up totals are computed by summing across its child Demand items. See section 2.4.9 for the full definition of Programme/Project roll-up functions — these are additional named aggregation functions that must live in the shared aggregation module.
+For any Programme or Project, roll-up totals are computed by summing across its phases' requirements (Project level) and its child Demands' allocations (Project and Programme level). See section 2.4.9 for the named aggregation functions — these all live in the shared aggregation module.
 
 Worked example:
 
 - Programme "MES Modernisation" contains Projects "Plant A MES Refresh", "Plant B MES Refresh", "Plant C MES Platform Migration".
-- Each Project has 1–3 Demand items covering its scoping, build, and cutover work.
-- Rolling up to Programme level aggregates internal committed hours across all those Demand items, plus external hours (see section 2.6) required across them.
+- "Plant C MES Platform Migration" has phases with requirements targeting Digital Manufacturing Skills (MOM, MI&V) and Group IT Skills (Data & Integration). On Submit, it spawns a Digital Manufacturing Demand (carrying the DM-Skill requirements) and a Group IT Demand (carrying the GroupIT-Skill requirements).
+- Allocation happens per Demand: the DM Demand names DM people; the Group IT Demand names Group IT people. Each tracks its own PartiallyAllocated/Allocated state independently.
+- The Project rolls up to Allocated when both child Demands are Allocated.
+- Separately, the Digital Manufacturing team also has a direct Demand "MES Super User support — Plant B" (BAU type, Function = Digital Manufacturing, no parent Project). It went through Draft → Submitted directly on Manage Demand and now sits in PartiallyAllocated. It rolls up to the Demand view's "Direct Demands" virtual card, not to any Programme.
 
-### 2.2 Demand
+**Migration note for seed data**
 
-**Demand Item** — the unit of work the tool tracks.
+In the v1.18 seed, every today-Demand becomes a Project (carrying its phases and requirements). Cross-Function today-Demands spawn the appropriate per-Function child Demands at the appropriate Project status. See section 6.
 
-| Field | Notes |
-|---|---|
-| Name | Free text |
-| Type | One of: `Group Strategy Project`, `Plant Project`, `NPD Demand`, `BAU` |
-| Status | One of: `Draft`, `Scoping`, `Submitted`, `Approved`, `PartiallyAllocated`, `Allocated`, `Parked`, `Closed` (see section 3) |
-| Owner | Free-text field (person or role name) |
-| Project | Optional — the Project this Demand item is aligned to. Nullable. Parent Programme is derived via the Project's parent and not stored separately on the Demand. See section 2.1.1. Editable in every status. |
-| Description | Free text |
-| Parked reason | Free text, shown when status = Parked. Captures why it was parked and any context for revival. |
-| **Phases** | One or more — see below |
+### 2.2 Demand and Project requirements
 
-**Function-agnostic by design**: a Demand item does not "belong to" any Function. The Functions involved in a Demand are revealed by its requirements — each skill-shaped requirement targets a Skill, which belongs to a Domain, which belongs to a Function. A single Demand can carry requirements spanning multiple Functions (e.g. a Plant C MES migration with MOM Specialist requirements in Digital Manufacturing and Data Integration requirements in Group IT Enterprise Solutions). That same Demand appears in both Functions' Demand page lists when each Function is the active lens. Programmes and Projects are likewise Function-agnostic — they group Demands regardless of which Functions those Demands touch.
+*Substantially redefined in v1.18.* The "Demand item" of v1.17 is split into two entities: a **Project** (the planning vehicle, defined in section 2.1.1, holding phases and requirements) and a **Demand** (the per-Function execution slice, holding allocations). Direct Demands additionally hold their own phases and requirements when they have no parent Project.
 
-**Phase** — a demand item consists of one or more phases. A phase is the unit of capacity validation.
+#### 2.2.1 Demand entity
+
+A Demand is the unit of work a single Function commits to and allocates against.
 
 | Field | Notes |
 |---|---|
-| Name | Free text, with autocomplete from phase names used on recent demand items |
+| Function | **Required** — the single Function this Demand belongs to. Set on creation, immutable after. Project-spawned Demands inherit Function from the spawn rule (one Demand per touched Function); direct Demands have Function chosen at creation. |
+| Parent Project | `parent_project_id` — nullable. Populated for Project-spawned Demands; null for direct Demands. |
+| Name | Required. For Project-spawned Demands the name is auto-generated as `<Project name> — <Function name>` at spawn time and then editable; for direct Demands the name is user-entered. |
+| Type | One of: `Group Strategy Project`, `Plant Project`, `NPD Demand`, `BAU`. For Project-spawned Demands, inherited from the parent Project at spawn time and not separately editable on the Demand. For direct Demands, user-entered at creation. |
+| Status | One of: `Draft`, `Submitted`, `Approved`, `PartiallyAllocated`, `Allocated` (see section 3). Project-spawned Demands skip Draft (they enter at Submitted on Project-Submit). Direct Demands begin at Draft. |
+| Owner | Free-text (person or role name). For Project-spawned Demands inherited from the Project at spawn time, then editable. |
+| Description | Free text. For Project-spawned Demands inherited from the Project at spawn time, then editable. |
+
+**Demand requirements and phases — two cases**
+
+The data model differs depending on whether the Demand is Project-spawned or direct:
+
+- **Project-spawned Demand**: phases and skill-shaped requirements live on the **parent Project** (section 2.2.2). The Demand presents a Function-scoped view: only phases that have at least one requirement targeting the Demand's Function are shown, and within each phase only the requirements targeting the Demand's Function are surfaced. The Demand stores **named allocations only** — one set of allocations per visible requirement. External resource requirements (section 2.6) live on the Project and are surfaced read-only on Project-spawned Demands; they are not allocated against (external requirements have no allocation layer).
+- **Direct Demand**: phases and skill-shaped requirements live **on the Demand itself**, exactly as in v1.17's Demand-with-phases model. Single-Function by definition — every requirement's Skill must belong to a Domain in the Demand's Function. External resource requirements are also on the Demand directly. Named allocations live on the Demand alongside its requirements.
+
+In both cases, allocations attach to skill-shaped internal requirements via reference. The skill-shaped → named relationship described in section 3 is unchanged.
+
+**Function consistency rule**
+
+For a direct Demand, every internal skill-shaped requirement must target a Skill belonging to the Demand's Function (i.e. `requirement.skill.domain.function_id === demand.function_id`). The DOMAIN > SKILL selector on a direct Demand's edit page is scoped to the Demand's Function. Cross-Function requirements on a direct Demand are not permitted — that's what Projects exist for.
+
+For a Project-spawned Demand, the Function-consistency rule is enforced at the Project level: requirements on the Project that target Skills in this Demand's Function are the requirements visible on this Demand. Other Functions' requirements on the Project are visible on those Functions' Demands.
+
+#### 2.2.2 Phase
+
+A phase is the unit of capacity validation. Phases live on the entity that owns the requirements:
+
+- For Project-spawned work, phases are defined on the **Project**. One Project may carry requirements across multiple Functions on a single phase — this is the central cross-Function-on-a-shared-timeline pattern.
+- For direct Demand, phases are defined on the **Demand**. Single-Function by construction.
+
+| Field | Notes |
+|---|---|
+| Name | Free text, with autocomplete from phase names used on recent Projects/Demands |
 | Start month | YYYY-MM — required |
 | End month | YYYY-MM — **nullable**. If null, the phase is indefinite (see below). |
 | Funding source | One of: `Investment Scheme`, `Plant/Sector Allocation`, `Mixed` |
 | Funding notes | Free text — e.g. scheme name or sector |
-| **Resource requirements** | One or more — see below |
+| **Resource requirements** | Zero or more — see below. A phase with zero requirements is permitted (e.g. a placeholder phase whose detail hasn't been worked yet). |
 
 **Finite vs indefinite phases**
 
 - A **finite phase** has a populated `end_month`. Hours are captured in `hours_by_month` — an object keyed by YYYY-MM with one entry per month the phase spans.
-- An **indefinite phase** has a null `end_month`. Hours are captured as `steady_state_hours` — a single flat rate that applies every month from `start_month` onwards, forever (or until the demand is Closed or Parked).
+- An **indefinite phase** has a null `end_month`. Hours are captured as `steady_state_hours` — a single flat rate that applies every month from `start_month` onwards, until the parent Project/Demand is Deleted.
 - A requirement only ever uses one or the other: finite phases exclusively use `hours_by_month`; indefinite phases exclusively use `steady_state_hours`.
 - Changing a phase from finite to indefinite clears `hours_by_month` and prompts the user for a steady-state value (suggest the average of the existing per-month hours as the default). Changing a phase from indefinite to finite prompts for an end month and pre-fills `hours_by_month` with the steady-state value for every month.
 
-**Resource Requirement** — how a phase consumes capacity. **A phase has many resource requirements.** All requirements are skill-shaped: `{skill, level, hours representation, owning_team_id, notes}`. Named people fulfilling the requirement are held as separate **allocations** attached to the requirement (see section 3 — allocations).
+#### 2.2.3 Resource Requirement
 
-- `owning_team_id` (nullable) — the Team responsible for supplying this requirement. Set during the Scoping workflow when a team's requirements for a phase are filled in. Null for demand items that bypass Scoping (Draft → Submitted directly via legacy flow or BAU). When set, the person picker in the allocation workspace defaults to filtering candidates from that team; the "Show all" toggle lifts this filter. Cross-team allocation (a person from a different team) is permitted but flagged visually.
+How a phase consumes capacity. **A phase has many resource requirements.** All internal requirements are skill-shaped: `{skill, level, hours representation, function_id (derived), owning_team_id, notes}`. Named people fulfilling the requirement are held as separate **allocations** attached to the requirement (see section 3).
+
+- `function_id` is **derived** from the requirement's Skill (Skill → Domain → Function). Not a separately editable field. Used by the spawn rule and by the Function-scoped Demand view.
+- `owning_team_id` (nullable) — the Team responsible for supplying this requirement. Set during the Project Scoping workflow when a team's requirements for a phase are filled in (Project-spawned path) or set manually on direct Demands. When set, the person picker in the allocation workspace defaults to filtering candidates from that team; the "Show all" toggle lifts this filter. Cross-team allocation (a person from a different team) is permitted but flagged visually.
 
 The "hours representation" depends on the parent phase type:
 - In a finite phase: `hours_by_month` (object keyed by YYYY-MM).
@@ -161,33 +209,53 @@ The "hours representation" depends on the parent phase type:
 
 - A single numeric input: "Hours per month (indefinite)".
 - The capacity calculation treats this value as applying to every month from the phase's `start_month` onwards, with no end.
-- Closing the demand item ends its contribution to capacity. Parking the demand also removes it from capacity calculations.
+- Deleting the parent Project/Demand ends its contribution to capacity.
 
 A single phase can hold multiple requirements of the same skill at the same or different levels — this is how a phase that needs two MOM Specialists or three different skills gets modelled. See section 2.5 for worked examples.
 
 The `notes` field on a requirement captures tacit context that skill+level alone can't express (e.g. "needs S7 experience specifically", "must have been through site induction").
 
+#### 2.2.4 The spawn rule (Project → Demands)
+
+When a Project transitions Scoping → Submitted (section 3), the system spawns one child Demand per Function whose Skills are touched by any of the Project's requirements:
+
+1. Compute the set of Functions involved: `{r.skill.domain.function_id for r in project.phases.flatMap(requirements)}`. Empty Project (no requirements) blocks the transition with an inline error.
+2. For each Function in the set, create a new Demand:
+   - `function_id` = the Function
+   - `parent_project_id` = the Project's id
+   - `name` = `<Project name> — <Function name>` (editable thereafter)
+   - `type` = the Project's type
+   - `owner` = the Project's owner
+   - `description` = the Project's description
+   - `status` = `Submitted`
+3. The Demands and the Project's status flip from Scoping to Submitted are atomic — either all spawn and the Project transitions, or none do and the Project stays in Scoping with the error surfaced.
+4. The Project's phases and requirements are **not** copied to the Demands; they remain on the Project and the Demands present a Function-scoped view.
+
+If a Project's requirements change after spawn (only possible if the Project re-enters editable state — but Project becomes read-only at Submitted; see section 3) those changes would alter what each Demand presents. v1.18 does not support post-Submit Project edits; the Project is read-only from Submitted onwards.
+
 ### 2.3 BAU
 
-BAU is modelled as **demand of type `BAU`** — using exactly the same data structure as project demand, just with the type flag set. There are no separate BAU streams, no separate BAU allocations, and no BAU admin surface. A BAU engagement is a demand item in the main Demand list, alongside projects.
+BAU is modelled as **Demand of type `BAU`** — using the Demand entity directly via the **direct Demand path** (section 2.1.1). BAU is single-Function by definition (a support stream is owned by one team in one Function), so the direct path is the natural fit — there's no cross-Function planning to do, and routing BAU through a Project would add a Scoping step that has no value for known support engagements.
 
-Typical shape of a BAU demand item:
+Typical shape of a BAU Demand:
 
+- **Function**: set at creation (e.g. Digital Manufacturing).
 - **Type**: `BAU`.
+- **Parent Project**: null (direct Demand).
 - **Phases**: often a single indefinite phase (no end date, steady-state hours) for ongoing support streams. Declining BAU (e.g. ramp-down toward business handover) is modelled as multiple sequential finite phases with decreasing hours, optionally followed by a final indefinite residual phase.
-- **Requirements**: skill-shaped, using the same DOMAIN > SKILL selector as project demand.
-- **Allocations**: named people allocated to requirements, same mechanism as project demand.
+- **Requirements**: skill-shaped, using the same DOMAIN > SKILL selector as Project work, scoped to the Demand's Function.
+- **Allocations**: named people allocated to requirements, same mechanism as Project-spawned Demands.
 
 Example — declining BAU handover:
 
-Demand item: "MES Super User — Plant B", type BAU.
+Direct Demand: "MES Super User — Plant B", type BAU, Function = Digital Manufacturing.
 - Phase 1 "Current support" — Jan 2026 to Jun 2026, 30 hrs/month (finite).
 - Phase 2 "Handover period" — Jul 2026 to Dec 2026, 15 hrs/month (finite).
 - Phase 3 "Residual support" — Jan 2027 onwards, 5 hrs/month (indefinite).
 
-This turns BAU into a first-class tracked part of the pipeline — it shows on Capacity Validation as the BAU stack layer, contributes to Team Activity via its named allocations, and benefits from the same workflow and visualisations as project demand.
+This turns BAU into a first-class tracked part of the pipeline — it shows on Capacity Validation as the BAU stack layer, contributes to Team Activity via its named allocations, and benefits from the same workflow and visualisations as Project work.
 
-Statuses for BAU items follow the same state machine as projects (section 3). In practice BAU items move through Draft → Submitted → Approved → Allocated quickly since there's usually no real review gate for known support engagements.
+BAU Demands follow the direct Demand state machine (section 3): `Draft → Submitted → Approved → PartiallyAllocated → Allocated`. In practice BAU items move through this quickly since there's usually no real review gate for known support engagements.
 
 ### 2.4 Capacity model
 
@@ -210,7 +278,7 @@ else:
 
 Named allocation hours are read from the allocation's `hours_by_month[month]` (finite phase) or `steady_state_hours` (indefinite phase), identically to how they're read anywhere else.
 
-**Submitted, Draft, Parked and Closed demand items do not consume person-level capacity**, because those statuses have no real commitment of people — either because no allocations exist yet (Draft, Submitted) or because the work has been set aside (Parked, Closed).
+**Submitted and Draft Demand items do not consume person-level capacity**, because those statuses have no real commitment of people — no allocations exist yet (Project-spawned Demands enter at Submitted with zero allocations; direct Demands hold zero allocations through Draft and Submitted).
 
 #### 2.4.2 Domain-level and skill-level capacity
 
@@ -338,53 +406,91 @@ These are not optional checks. If any of them returns zero when the seed is load
 
 This is the v1.10 invariants' missing enforcement layer. An aggregation function that silently returns zero is indistinguishable from one that correctly returns zero; the seed was designed specifically so that "correctly zero" and "silently broken zero" produce observably different behaviour. This invariant was added in v1.12 after the v1.11 build shipped with a grey_band function that returned zero for every input and no rendered band anywhere.
 
+**Capacity reconciliation invariants — added v1.18 to address Function-switch and Domain-capacity bugs**
+
+The v1.17 build shipped with two latent capacity defects observed against the live deployment:
+
+1. The Capacity Validation Section A chart ("Overall Function Capacity") did not change when a different Function was selected — it remained anchored to the initially-loaded Function regardless of the active Function selector value. The selector-not-prop pattern (section 11.17) was not being honoured by Section A's chart component.
+2. Capacity Validation by Skill for Group IT Enterprise Solutions showed Data & Integration with apparent capacity for July–August 2026 when no Approved Demand existed there — pointing to either (a) capacity calculations including hours that should be netted off, or (b) a seed/aggregation mismatch that produced phantom headroom.
+
+Both are evidence that capacity numbers were not being independently verified against the seed. The renderability invariant pattern from v1.12 (grey_band) closes this gap for grey-band; v1.18 extends the same pattern to capacity:
+
+**Per-Function capacity reconciliation invariants** — on a fresh seed load with no overlay selected and the 12-month horizon, the following must hold for each active Function and each visible month:
+
+- `function_capacity(function_id, month)` — must equal the sum of `person_capacity(person, month)` for all active People in that Function, with `available_from`/`available_to` respected. The Section A chart's capacity line in any given month must equal this number; if it doesn't, the chart and the aggregation are inconsistent.
+- Switching the active Function from Digital Manufacturing to Group IT Enterprise Solutions must produce a **different** Section A capacity-line value in at least one visible month — verified as a runtime assertion. (Equality across Functions in every month would only happen if both Functions had identical headcount and contracted hours, which the seed is intentionally constructed to prevent.)
+- Section A's chart component must read its data via the active-Function-aware selector pattern from section 11.17 — `selectActiveFunctionCapacityLine(store, month)` rather than a hard-coded function id captured at mount time. A regression test must verify that a Function-switch action causes Section A's data to recompute and the chart to re-render.
+
+**Per-Domain capacity reconciliation invariants** — on a fresh seed load:
+
+- For every Domain in every Function, `domain_capacity(domain_id, month)` for every visible month must equal the sum of `person_capacity(person, month) - real_committed_hours_outside_domain(person, month)` for People holding any Skill in that Domain. The values are independently computable from the seed and must be added to the seed assertion table in section 11.8.
+- Specifically: on the Group IT Enterprise Solutions Function, `domain_capacity('data_integration', '2026-07')` and `domain_capacity('data_integration', '2026-08')` must be reconciled against an explicit seed-derived table in section 6 ("Group IT Enterprise Solutions — capacity reconciliation table"). Any mismatch between chart, aggregation, and table is a bug to investigate; the live deployment's apparent phantom headroom must be reproduced or shown not to occur from a fresh seed load.
+- A runtime assertion (development builds) checks `domain_capacity` against the seed-derived table at load time; mismatches log a clear console error naming the (Domain, month, expected, actual) tuple.
+
+Together with the existing grey-band invariant, these three layers (capacity, domain capacity, projection) form a complete renderability check across every chart on the Capacity Validation page. Their failure mode is loud (console errors with diagnostic detail) rather than silent (a chart that renders but is wrong).
+
 #### 2.4.9 Programme / Project roll-up aggregation
 
 Programme and Project roll-ups are named aggregation functions, implemented in the same shared module as the rest (section 2.4.8) and called from every view that surfaces roll-up numbers. Inline summation over child Demand items by individual callers is not acceptable.
 
 Required functions:
 
-- `project_internal_hours(project_id, month)` → number. Sum of all internal skill-shaped requirement target hours across Demand items aligned to this Project, for Demand items in status `Approved`, `PartiallyAllocated`, or `Allocated`. Excludes Draft, Submitted, Parked, Closed. Excludes external requirements.
-- `project_external_hours(project_id, month)` → number. Sum of all external requirement `hours_by_month` / `steady_state_hours` across Demand items aligned to this Project, across every Phase regardless of Demand status except Parked and Closed. External hours are demand-shaped only (no allocation layer) so the committed/unallocated distinction does not apply; any non-Parked, non-Closed Demand's external requirements count.
+- `project_internal_hours(project_id, month)` → number. Sum of all internal skill-shaped requirement target hours on this Project's phases, scoped to the Functions whose child Demands are in status `Approved`, `PartiallyAllocated`, or `Allocated`. Excludes Functions whose Demand is in `Draft` or `Submitted`. Excludes external requirements. Direct Demands (which have no Project) are not included — they roll up via `direct_demand_internal_hours` instead.
+- `project_external_hours(project_id, month)` → number. Sum of all external requirement `hours_by_month` / `steady_state_hours` on this Project's phases. External requirements live on the Project and are independent of which Demands have been spawned or their statuses; any Project that is not Deleted contributes its external hours.
 - `project_external_hours_by_provider(project_id, month)` → `{provider_id: number}`. Same as above, broken down per provider.
-- `project_demand_count(project_id, status_filter?)` → number. Count of child Demand items, optionally filtered by status set.
-- `programme_internal_hours(programme_id, month)` → number. Sum of `project_internal_hours` across all Projects in this Programme, plus internal hours from any unaligned Demand explicitly attached to the Programme (note: this spec does not currently support direct Programme attachment — all Demand goes via a Project — but the function signature is stable for a v2 extension).
+- `project_demand_count(project_id, status_filter?)` → number. Count of child Demands, optionally filtered by status set. (For Project-spawned Demands only — by definition there are no direct Demands under a Project.)
+- `programme_internal_hours(programme_id, month)` → number. Sum of `project_internal_hours` across all Projects in this Programme.
 - `programme_external_hours(programme_id, month)` → number. Sum across Projects.
 - `programme_external_hours_by_provider(programme_id, month)` → `{provider_id: number}`. Sum across Projects.
 - `programme_project_count(programme_id)` → number. Count of active Projects in this Programme.
-- `unaligned_demand_hours(month, {internal|external})` → number. For the virtual "No Project" grouping in roll-up views.
+- `direct_demand_internal_hours(month, {function_id?})` → number. Sum of internal skill-shaped requirement target hours across all **direct Demands** (those with `parent_project_id = null`) in status `Approved`, `PartiallyAllocated`, or `Allocated`. Optional `function_id` filter scopes to a single Function; omitted means all Functions.
+- `direct_demand_external_hours(month, {function_id?})` → number. External hours across direct Demands.
+- `unaligned_project_hours(month, {internal|external})` → number. For Projects whose Programme is null. Replaces the v1.17 `unaligned_demand_hours`.
 
-**Functions added in v1.17 — for the new Demand view (section 4.10)**
+**Functions for the Demand view (section 4.10) — v1.17, signatures revised in v1.18**
 
-These functions answer "how much demand does a Programme/Project create over time, decomposed in different ways". They differ from the existing `project_internal_hours` / `programme_internal_hours` family in three respects: (1) they take a configurable `status_set` parameter so callers can include or exclude Submitted demand on the fly; (2) they combine internal and external hours into a single number per stack key, treating External as a virtual Function; (3) they return a decomposition `{key: number}` rather than a single scalar, so the caller can render a stacked chart directly.
+These functions answer "how much demand does a Programme/Project create over time, scoped to the active Function and respecting the user's external/other-Functions toggles?" They differ from `project_internal_hours` / `programme_internal_hours` in three respects: (1) configurable `status_set`; (2) configurable Function lens and toggles; (3) decomposition by funding source rather than a single scalar.
 
-- `programme_demand_by_funding(programme_id, month, {status_set})` → `{InvestmentScheme: number, PlantSectorAllocation: number, Mixed: number}`. Sum of all internal skill-shaped requirement target hours **plus** all external requirement hours, across Demand items aligned to any Project under this Programme, where the Demand's status is in `status_set`. Each phase contributes its hours to the bucket for that phase's `funding_source` value. The `status_set` parameter is required and is one of: `["Approved", "PartiallyAllocated", "Allocated"]` (the default for the Demand view) or `["Submitted", "Approved", "PartiallyAllocated", "Allocated"]` (when the user has toggled "Include Submitted" on the view). Parked and Closed are never included. Demands aligned to Projects whose Programme is inactive are still counted — the active flag governs picker visibility, not aggregation.
+- `programme_demand_by_funding(programme_id, month, opts)` → `{InvestmentScheme: number, PlantSectorAllocation: number, Mixed: number}`. The opts object carries: `status_set` (`["Approved", "PartiallyAllocated", "Allocated"]` by default; `["Submitted", ...]` when "Include Submitted" is on); `function_id` (the active Function lens — required); `include_external` (boolean, default false — when true adds external hours to the same buckets); `include_other_functions` (boolean, default false — when true also includes hours from Demands belonging to other Functions on the same Project).
 
-- `programme_demand_by_team(programme_id, month, {status_set})` → `{key: number, meta: {key, label, parent_function_label, source: "internal"|"external"}}[]`. Same scope as `programme_demand_by_funding` but decomposed by team. For internal requirements, the key is `team:<team_id>` and the label is the Team's name with parent Function as `parent_function_label`. For external requirements, the key is `provider:<provider_id>` and the label is the Provider's name with `parent_function_label = "External"`. The function returns an array (not a map) so the caller can preserve a stable visual ordering: sort first by `parent_function_label` ascending (with "External" placed last), then by `label` ascending within each group. Internal requirements with `owning_team_id = null` (orphaned by team removal) get a synthetic key `team:unassigned` with `parent_function_label = "Unassigned"` placed between the Functions and "External" in the sort order.
+  Computation: for each Project in the Programme, take its phases. For each phase, compute the in-scope hours: sum the internal requirements whose Function matches `function_id` AND whose parent Demand is in `status_set` (Project-spawned). If `include_other_functions` is true, also include requirements whose Function is *not* `function_id` and whose corresponding sibling Demand on the same Project is in `status_set`. If `include_external` is true, also include all external requirements on the phase (external hours are unfiltered by Function — externals do not have a Function — and unfiltered by `status_set`; rationale below). Add this hours total to the bucket for the phase's `funding_source`.
 
-- `project_demand_by_funding(project_id, month, {status_set})` → `{InvestmentScheme: number, PlantSectorAllocation: number, Mixed: number}`. Same semantics as the programme-level version but scoped to a single Project's Demands.
+- `project_demand_by_funding(project_id, month, opts)` → `{InvestmentScheme: number, PlantSectorAllocation: number, Mixed: number}`. Same semantics scoped to a single Project's phases.
 
-- `project_demand_by_team(project_id, month, {status_set})` → same shape as the programme-level version, scoped to a single Project's Demands.
+- `direct_demand_by_funding(month, opts)` → `{InvestmentScheme: number, PlantSectorAllocation: number, Mixed: number}`. For the "Direct Demands" virtual card on the Demand view (section 4.10). Sums hours across all direct Demands matching `function_id` and `status_set`, bucketed by each direct Demand's phase funding sources. `include_external` adds the direct Demand's external hours; `include_other_functions` is meaningless for direct Demands (they have no sibling Demands on a shared Project) and is ignored when set.
 
-**Implementation notes for v1.17 functions**:
+**Removed in v1.18**:
 
-- These functions must live in the same shared aggregation module as the rest of section 2.4.8 / 2.4.9. No view may compute these decompositions inline.
-- Memoisation key includes the `status_set` array (sorted to canonicalise order). This means flipping the "Include Submitted" toggle on the Demand view triggers a fresh computation — that's correct; it's a different aggregation, not a filter applied client-side.
-- The functions read external hours from any non-Parked, non-Closed Demand regardless of `status_set`. Rationale: external resource is often known and being lined up well before a Demand is Approved, so excluding Submitted external hours would understate the external effort being planned. This deliberately differs from the internal-hours rule and matches the existing semantics of `project_external_hours` (see "Semantics notes" above). The `status_set` parameter applies only to the internal-hours portion. Callers consuming these functions should be aware that toggling "Include Submitted" therefore only changes the internal slice of each stack.
-- Programme-level functions sum the corresponding Project-level functions across the Programme's active Projects. Inactive Projects contribute zero (consistent with their picker-hidden semantics).
+- `programme_demand_by_team` and `project_demand_by_team` — the By-Team stacking option on the Demand view (section 4.10) is removed in v1.18. These functions are dead code and must be deleted from the aggregation module.
+
+**`cross_function_demand_hours` — reframed in v1.18**
+
+The original v1.16 semantics ("demand my Function's Demands are placing on other Functions") relied on a Demand being able to span multiple Functions, which is no longer possible in v1.18 (Demands belong to exactly one Function). The function is reframed for the v1.18 Project model:
+
+- `cross_function_demand_hours(active_function_id, month, opts)` → `{by: 'function' | 'team'} → array`. Returns hours from **other Functions' Demands on Projects shared with the active Function** — i.e. for each Project that has at least one Demand belonging to `active_function_id`, sum the requirements on that Project's phases that target **non-active-Function** Skills, where the corresponding sibling Demand is in `status_set` (default Approved-onwards). Decomposed by receiving Function (the Skill's parent Function) or by receiving Team (the requirement's `owning_team_id`).
+
+This is what Capacity Validation Section D consumes (section 4 View 1). Direct Demands are not surfaced through this function — they are not on shared Projects by definition.
+
+**Implementation notes for v1.18 aggregation**:
+
+- All functions live in the shared aggregation module (sections 2.4.8 / 2.4.9). No view computes these decompositions inline.
+- Memoisation key includes the full `opts` object (sorted `status_set`, `function_id`, both toggle booleans). Flipping any toggle triggers fresh computation — the toggles change *what the aggregation is*, not just what's filtered client-side.
+- External hours are unfiltered by Function (externals belong to a Project's phases, not to a Function) and unfiltered by `status_set` (externals are committed and lined up before internal Demand work — same rationale as v1.17). The `status_set` parameter applies to the internal-hours portion only.
+- Programme-level functions sum the corresponding Project-level functions across the Programme's active Projects. Inactive Projects contribute zero.
+- Direct Demands are aggregated separately (`direct_demand_by_funding`); they are not summed into Programme or Project functions.
 
 **Semantics notes**:
 
-- External hours include Submitted and Draft. Rationale: external resource is often known and being lined up well before the Demand is Approved internally — a Project roll-up that excluded Submitted external hours would understate the external effort being planned. If a user wants to see only "committed" external effort they can filter by Demand status at the view layer.
-- Internal hours follow the same committed-demand definition as the rest of the aggregation layer (`Approved` / `PartiallyAllocated` / `Allocated` only) so numbers reconcile with the Capacity Validation charts.
-- Roll-ups over a month range (for the Programme/Project summary blocks on the Demand page) are computed by summing the monthly function over the range.
+- External hours include all non-Deleted Projects regardless of `status_set` or sibling Demand status. Rationale: external resource is often known and being lined up well before any internal Demand is Approved.
+- Internal hours follow the same committed-demand definition as the rest of the aggregation layer (`Approved` / `PartiallyAllocated` / `Allocated` only by default; `Submitted+` when "Include Submitted" is on).
+- Roll-ups over a month range (for the Programme/Project summary blocks on the Demand view) are computed by summing the monthly function over the range.
 
 **Where these functions are called**:
 
-- Demand page — when grouped by Programme/Project (section 4.6), each group header shows internal hours total, external hours total (with provider breakdown tooltip), and child Demand count across the visible horizon.
-- Programme/Project admin screens (section 5) — compact roll-up block per record.
-- **Demand view (section 4.10)** — calls the v1.17 `programme_demand_by_funding`, `programme_demand_by_team`, `project_demand_by_funding`, and `project_demand_by_team` functions for the stacked-area charts on the Programme list and Project drill-down pages.
-- Future: any Programme/Project detail view (function signatures are stable for further extension).
+- **Demand view (section 4.10)** — `programme_demand_by_funding`, `project_demand_by_funding`, `direct_demand_by_funding` for the stacked-area charts on the Programme list, Project drill-down, and Direct Demands card.
+- **Manage Demand (section 4.6) and Manage Projects (section 4.6.A)** — the existing scalar functions (`project_internal_hours`, `programme_internal_hours`, `direct_demand_internal_hours`) for group-header roll-up summaries.
+- **Capacity Validation Section D (section 4 View 1)** — `cross_function_demand_hours`.
+- **Programme/Project admin screens (section 5)** — compact roll-up blocks.
 
 ### 2.5 Worked examples of requirement composition
 
@@ -491,210 +597,271 @@ The internal R1 + R2 hours contribute to MOM domain and skill charts exactly as 
 
 ---
 
-## 3. Demand workflow
+## 3. Project and Demand workflow
 
-Demand items move through a defined state machine. Unlike earlier versions of this spec, transitions are **gated** — only the specific transitions described below are permitted. The Board view and the demand drawer/edit page surface only the valid transitions from the current status.
+*Substantially rewritten in v1.18.* The workflow now has **two state machines**: one for the Project (the planning vehicle) and one for the Demand (the per-Function execution slice). They are coupled at the spawn point: when a Project transitions Scoping → Submitted, it spawns one Demand per Function involved.
 
-### Statuses
+The Manage Projects view (section 4.6.A) surfaces the Project state machine; the Manage Demand view (section 4.6) surfaces the Demand state machine.
+
+### Project statuses
+
+| Status | Meaning | Capacity impact | Demand visibility |
+|---|---|---|---|
+| **Draft** | Being shaped by the originator. Name, type, owner, description, optional Programme, phases (name, dates, funding source, funding notes), and per-phase Teams Assigned. **No skills, levels, or hours are entered in Draft** — Draft establishes the shape and the participants, not the technical detail. | None — excluded from all capacity views. | No child Demands exist. |
+| **Scoping** | Being scoped collaboratively by the assigned teams across the Functions involved. The phases and team assignments from Draft are now visible to assigned teams, who fill in skill-shaped requirements (skill, level, hours) and external resource requirements for their phases. The user who initiated scoping (typically the originator or the primary owning Function) decides when to submit — there is no auto-advance. | None — excluded from all capacity views. | No child Demands exist. |
+| **Submitted** | The Project has been submitted; one Demand per Function involved has been spawned in `Submitted` status. The Project itself becomes read-only on its definition. | None at the Project level. The spawned Demands are now individually visible on Capacity Validation as Submitted overlays. | One child Demand per Function involved, all in `Submitted`. |
+| **Approved** | **Auto** — every child Demand has reached `Approved` or beyond. | None at the Project level (the child Demands carry the capacity treatment). | One child Demand per Function involved, all in `Approved` / `PartiallyAllocated` / `Allocated`. |
+| **Allocated** | **Auto** — every child Demand has reached `Allocated`. | None at the Project level. | All child Demands in `Allocated`. |
+
+### Demand statuses
 
 | Status | Meaning | Capacity impact |
 |---|---|---|
-| **Draft** | Being shaped. The Demand owner captures metadata (name, type, owner, description, optional Project alignment), defines phases (name, dates, funding source), and assigns the Functions/Teams expected to scope each phase. **No skills, levels, or hours are entered in Draft** — Draft establishes the shape and the participants, not the technical detail. | None — excluded from all capacity views. |
-| **Scoping** | Being scoped collaboratively. The phases and team assignments defined in Draft are now visible to the assigned teams, who fill in skill-shaped requirements (skill, level, hours) and external resource requirements for their phases. The user who initiated scoping (typically the creator) decides when to submit for capacity assessment — there is no auto-advance. | None — excluded from all capacity views. Can be Closed directly (unlike Draft/Submitted) and restored from Archive. |
-| **Submitted** | Ready for capacity assessment. Requirements are populated with skill-shaped demand. | Shown as overlay on Capacity Validation charts when selected (see View 1). Not counted as committed. |
-| **Approved** | The team has committed to doing this work. Named allocation has not yet started. | Counted as committed at domain/skill level. Contributes to demand stacks on charts. No individual capacity is consumed yet (no named people). |
+| **Draft** | **Direct Demands only.** Being shaped by the originator. Single Function from creation. Phases, internal requirements, and external requirements all live on the Demand. | None — excluded from all capacity views. |
+| **Submitted** | Ready for capacity assessment. For Project-spawned Demands: created in this status when the parent Project is Submitted. For direct Demands: reached via Submit from Draft. The Demand definition is read-only from this status onwards. | Shown as overlay on Capacity Validation charts when selected (see View 1). Not counted as committed. |
+| **Approved** | The Function has committed to doing this work. Named allocation has not yet started. | Counted as committed at domain/skill level. Contributes to demand stacks on charts. No individual capacity is consumed yet (no named people). |
 | **PartiallyAllocated** | Allocation has started but is incomplete — at least one named allocation exists, but not every requirement-month is fully covered. | Counted as committed. Named allocations consume individual capacity; unfilled portions remain as skill-shaped demand at domain/skill level. |
-| **Allocated** | Every requirement's per-month hours are fully covered by named allocations across every month of every phase. | Fully counted. All demand lands on named individuals. |
-| **Parked** | Temporarily set aside. | Excluded from all capacity calculations. |
-| **Closed** | Archived. The work is complete, cancelled, or otherwise concluded. | Excluded from all capacity calculations. Not shown in the main Demand list — only in the Archive view. |
+| **Allocated** | Every requirement's per-month hours are fully covered by named allocations across every month of every visible phase. | Fully counted. All demand lands on named individuals. |
 
-### State machine
+There is no `Parked` status, no `Closed` status, and no `Archive` view in v1.18. The only off-flow action is **Delete** (with cascade — see "Deletion" below).
+
+### Project state machine
 
 ```
   ┌────────┐
-  │ DRAFT  │◄───────────────────────┐
-  └───┬────┘                        │ (Revert to Draft)
-      │                             │
-      │ (Submit for Scoping)        │
-      ▼                             │
-  ┌─────────┐                       │
-  │ SCOPING │◄─────────────────────-┘
+  │ DRAFT  │
+  └───┬────┘
+      │
+      │ (Submit for Scoping — manual)
+      ▼
+  ┌─────────┐
+  │ SCOPING │
   └────┬────┘
-       │  (Submit for capacity assessment — manual)
+       │  (Submit — manual; spawns child Demands atomically)
        ▼
   ┌───────────┐
   │ SUBMITTED │
-  └─┬──┬────┬─┘
-    │  │    │
-    │  │    └──── (Park) ────┐
-    │  │                     ▼
-    │  └──── (Approve) ──► APPROVED ────► (Park) ──┐
-    │                         │                    │
-    │                         ▼ (auto: first alloc ▼
-    │                             added)           │
-    │                     PARTIALLYALLOCATED ───► (Park) ──┐
-    │                         │    ▲                       │
-    │                         │    │ (auto: drops          │
-    │                         │    │  below 100%)          │
-    │                         ▼    │                       │
-    │                     ALLOCATED ─────► (Park) ─────────┤
-    │                         │                            │
-    │                         │                            ▼
-    │                                              ┌─────────┐
-    │                                              │ PARKED  │
-    │                                              └────┬────┘
-    │                                                   │
-    │                 (Revive to Submitted)             │
-    └───────────────────────────────────────────────────┘
-
-  SCOPING / APPROVED / PARTIALLYALLOCATED / ALLOCATED ──(Close)──► CLOSED ──► (Restore from Archive)
+  └────┬──────┘
+       │
+       ▼ (auto: all child Demands ≥ Approved)
+  ┌──────────┐
+  │ APPROVED │
+  └────┬─────┘
+       │
+       ▼ (auto: all child Demands = Allocated)
+  ┌───────────┐
+  │ ALLOCATED │
+  └───────────┘
 ```
 
-### Transition reference
+The reverse system transitions are also defined (a child Demand reverting from Allocated to PartiallyAllocated drops the parent Project from Allocated to Approved). See "System-driven Project transitions" below.
 
-User-driven transitions (the user clicks a button):
+### Demand state machine
+
+```
+  Direct Demand only:
+  ┌────────┐
+  │ DRAFT  │
+  └───┬────┘
+      │
+      │ (Submit — manual)
+      ▼
+  ┌───────────┐
+  │ SUBMITTED │  ◄── Project-spawned Demand entry point
+  └─────┬─────┘
+        │
+        │ (Approve — manual, per Demand)
+        ▼
+  ┌──────────┐
+  │ APPROVED │
+  └────┬─────┘
+       │
+       │ (auto: first named allocation added)
+       ▼
+  ┌─────────────────────┐
+  │ PARTIALLYALLOCATED  │
+  └────┬────────────────┘
+       │
+       │ (auto: every req-month fully covered)
+       ▼ ▲ (auto: drops below 100%)
+  ┌────────────┐
+  │ ALLOCATED  │
+  └────────────┘
+```
+
+### Project transition reference
+
+User-driven Project transitions:
 
 | From | To | Action label | Notes |
 |---|---|---|---|
-| Draft | Scoping | **Submit for Scoping** | Phases and team assignments must be defined before this transition is enabled (see Scoping workflow). The button is disabled when the Demand has zero phases or any phase has zero teams assigned, with an inline hint explaining what's missing. The transition itself is a pure status flip — no team-assignment dialog, because team assignments are already defined in Draft. |
-| Scoping | Submitted | **Submit for capacity assessment** | **Manual** — the user who is scoping (any user with access, typically the Demand creator) decides when the scoping is complete and clicks Submit. Confirmation progress (which teams have filled in their requirements) is surfaced on the page as information but does not gate the transition. If any assigned team has not filled in requirements, a warning is shown on the confirmation dialog listing those teams — the user can still proceed if they choose. |
-| Scoping | Draft | **Revert to Draft** | For when the scoping needs further shaping before teams are engaged. |
-| Scoping | Parked | **Park** | With optional reason note. |
-| Scoping | Closed | **Close** | Scoping is a full status — can be Closed and restored from Archive, unlike Draft and Submitted. |
-| Submitted | Draft | **Revert to Draft** | For when a submission needs further shaping. |
-| Submitted | Approved | **Approve** | Confirms the team will do this work. |
-| Submitted | Parked | **Park** | With optional reason note. |
-| Approved | Submitted | **Revise** | Low-friction path back to Submitted to correct demand definition issues discovered after approval but before allocation work is underway. Existing named allocations are preserved but ignored from capacity calculations while in Submitted. On re-Approval, they're re-validated against the (possibly edited) requirements and flagged if they no longer fit. |
-| Approved | Parked | **Park** | Rare — used if the work is pulled post-approval. |
-| PartiallyAllocated | Parked | **Park** | Pulls work mid-allocation. Named allocations are preserved but not counted. |
-| Allocated | Parked | **Park** | Pulls fully-allocated work. Named allocations are preserved but not counted. |
-| Parked | Submitted | **Revive** | Always revives to Submitted. From there the normal flow applies. |
-| Approved / PartiallyAllocated / Allocated | Closed | **Close** | Explicit, manual. Archives the demand; excludes it from the main list and from all charts. |
-| Closed (in Archive view) | previous status | **Restore** | Restores to whatever status the item held immediately before it was closed. |
+| Draft | Scoping | **Submit for Scoping** | Phases must be defined and every phase must have at least one team assigned. Button is disabled otherwise with an inline hint identifying what's missing. The transition is a pure status flip — no team-assignment dialog, because team assignments are already defined in Draft. |
+| Scoping | Submitted | **Submit Project** | **Manual.** On click, the spawn rule (section 2.2.4) executes: one Demand per Function involved is created in `Submitted` status atomically with the Project's status flip. If the Project has zero requirements (no Functions involved), the action is blocked with an inline error. If any assigned team's `ProjectTeamAssignment.confirmed = false`, a confirmation dialog surfaces the unconfirmed list (see section 11.18) — the user can still proceed if they choose. |
 
-System-driven transitions (automatic, no user action):
+System-driven Project transitions:
 
 | From | To | Trigger |
 |---|---|---|
-| Approved | PartiallyAllocated | The first named allocation is added to any requirement on the demand. |
-| PartiallyAllocated | Allocated | Every requirement's per-month hours are fully covered by named allocations (see "Full allocation definition" below). |
+| Submitted | Approved | All child Demands have transitioned to `Approved`, `PartiallyAllocated`, or `Allocated`. |
+| Approved | Submitted | A child Demand reverts to `Submitted` (rare in v1.18 — there are no user transitions back to Submitted, but a child Demand could be Deleted and re-created via Project edit; see Project edit rules below). |
+| Approved | Allocated | All child Demands have transitioned to `Allocated`. |
+| Allocated | Approved | A child Demand drops from `Allocated` to `PartiallyAllocated` (e.g. an allocation is removed). |
+
+Transitions that are **not** permitted at the Project level:
+
+- Project Draft → anywhere except Scoping.
+- Project Scoping → anywhere except Submitted.
+- Submitted, Approved, Allocated → backwards. The Project is not user-mutable from Submitted onwards; lifecycle progresses or completes via its child Demands.
+
+### Demand transition reference
+
+User-driven Demand transitions:
+
+| From | To | Action label | Notes |
+|---|---|---|---|
+| Draft *(direct only)* | Submitted | **Submit Demand** | Direct Demands only. Button is disabled when the Demand has zero phases or zero requirements, with an inline hint. The Demand becomes read-only on its definition from Submitted onwards. |
+| Submitted | Approved | **Approve** | Confirms the Function will do this work. Same action regardless of origin (Project-spawned or direct). |
+
+System-driven Demand transitions:
+
+| From | To | Trigger |
+|---|---|---|
+| Approved | PartiallyAllocated | The first named allocation is added to any requirement on the Demand. |
+| PartiallyAllocated | Allocated | Every requirement's per-month hours are fully covered by named allocations across every month of every visible phase (see "Full allocation definition" below). |
 | Allocated | PartiallyAllocated | A named allocation is removed or reduced such that coverage drops below 100% on any requirement-month. |
 
-Transitions that are **not** permitted:
+Transitions that are **not** permitted at the Demand level:
 
-- Draft → anywhere except Scoping.
-- Scoping → anywhere except Draft / Submitted (manual) / Parked / Closed.
-- Submitted → anywhere except Draft / Approved / Parked.
-- PartiallyAllocated / Allocated → Submitted directly. (Must go via Park → Revive. These statuses have active allocations consuming capacity; direct-to-Submitted would be ambiguous.)
-- PartiallyAllocated / Allocated → Approved. (Editing allocations is permitted in these states without changing status; see 4.5.2. A direct downgrade is not needed.)
-- Closed → any state except via Restore from the Archive view.
-- Any state → Closed except from Scoping / Approved / PartiallyAllocated / Allocated. (You can't close a Draft or a Submitted — Park them instead.)
+- Submitted → Draft. (Removed in v1.18 — this was Revert-to-Draft.)
+- Approved → Submitted. (Removed in v1.18 — this was Revise.)
+- PartiallyAllocated / Allocated → Submitted or Approved directly. (No user-driven backwards transitions; status is auto from allocation coverage.)
+- Project-spawned Demand: any transition that would orphan it from the parent Project. The parent Project's lifecycle constrains the Demand's lifecycle — child Demands cannot be Deleted independently of the Project (see Deletion).
 
-### Demand workflow narrative
+### Project workflow narrative
 
-The four working stages of a Demand — Draft, Scoping, Submitted, Approved (and beyond) — each have a single dominant purpose. Keeping these purposes distinct is what makes the workflow legible. Each stage's UI surfaces only what belongs to that stage; subsequent detail is deliberately deferred to the next stage.
+The three working stages of a Project — Draft, Scoping, Submitted — each have a single dominant purpose. Approved and Allocated are status reflections of the underlying Demands' progress, not user actions.
 
-**Draft — shape the demand and decide who will scope it.**
+**Draft — shape the project and decide who will scope it.**
 
-In Draft, the Demand owner captures everything that defines the *shape* of the work without committing any specific resourcing detail. The fields available are:
+In Draft, the Project owner (typically an end user in the business) captures everything that defines the *shape* of the work without committing any specific resourcing detail. Fields available:
 
 - Name, type, owner, description.
-- Optional Project alignment (Programme › Project).
+- Optional Programme.
 - Phases — for each phase: name, start month, end month (or indefinite toggle), funding source, funding notes.
-- Per-phase **Teams Assigned** (see "Teams Assigned picker" below) — the Demand owner selects which Teams across which Functions are expected to contribute requirements during Scoping. Selecting a team creates a `DemandTeamAssignment` record `{demandId, phaseId, teamId, confirmed=false}` immediately; deselecting removes it.
+- Per-phase **Teams Assigned** — the Project owner selects which Teams across which Functions are expected to contribute requirements during Scoping. Selecting a team creates a `ProjectTeamAssignment` record `{projectId, phaseId, teamId, confirmed=false}` immediately; deselecting removes it.
 
-Skills, levels, hours, named allocations, and external resource requirements are **not entered in Draft**. The skill-shaped requirements list is hidden on each phase card. The "+ Add Internal Requirement" and "+ Add External Requirement" actions are not present. The Mode A page in Draft is therefore intentionally lighter than in Scoping — it is a composition surface for the Demand's outline.
+Skills, levels, hours, and external resource requirements are **not entered in Draft**. The skill-shaped requirements list is hidden on each phase card. The "+ Add Internal Requirement" and "+ Add External Requirement" actions are not present.
 
-**Submit for Scoping** is enabled when the Demand has at least one phase and every phase has at least one team assigned. It is disabled otherwise, with an inline hint identifying which phases are missing teams or whether any phase is missing entirely.
+**Submit for Scoping** is enabled when the Project has at least one phase and every phase has at least one team assigned. It is disabled otherwise with an inline hint identifying which phases are missing teams or whether any phase is missing entirely.
 
 **Scoping — assigned teams fill in the technical detail.**
 
-On entry to Scoping, the phases and team assignments from Draft become visible to the assigned teams. The same Mode A page now reveals the skill-shaped requirements UI and the external resource requirements UI on each phase card. For each `(phase, team)` pair a user can:
+On entry to Scoping, the phases and team assignments from Draft become visible to the assigned teams (typically led by the primary owning Function). The same Mode A page now reveals the skill-shaped requirements UI and the external resource requirements UI on each phase card. For each `(phase, team)` pair a user can:
 
 - Add, edit, or remove internal skill-shaped requirements against that team's Function's Skills.
 - Add, edit, or remove external resource requirements (provider + role + hours).
-- Click **Confirm requirements for [Team Name]** to mark that team's `DemandTeamAssignment.confirmed = true`. This is an informational signal — it indicates the team considers its requirements complete — not a gate.
+- Click **Confirm requirements for [Team Name]** to mark that team's `ProjectTeamAssignment.confirmed = true`. Informational signal — not a gate.
 - Un-confirm (if previously confirmed) by editing requirements afterwards — editing requirements for a `(phase, team)` whose assignment is confirmed resets `confirmed = false` and prompts the user to re-confirm when done.
 
-Team assignments themselves remain editable during Scoping — any user can add or remove a team from a phase. Removing a team deletes its `DemandTeamAssignment` record and any requirements flagged with that team's `owning_team_id` become orphaned (their `owning_team_id` is cleared to null; the requirements themselves remain so the work isn't lost).
+Team assignments themselves remain editable during Scoping. Removing a team deletes its `ProjectTeamAssignment` record and any requirements flagged with that team's `owning_team_id` become orphaned (their `owning_team_id` is cleared to null; the requirements themselves remain so the work isn't lost).
 
-**Exit from Scoping**: the user clicks **Submit for capacity assessment** from the drawer footer (see section 4.5.1) or the edit page. If any assigned team's `DemandTeamAssignment.confirmed = false`, a confirmation dialog surfaces the list of pending teams (see section 11.18). The transition is manual and at the user's discretion — there is no auto-advance based on confirmation state.
+**Exit from Scoping — Submit Project**: the user clicks **Submit Project** from the drawer footer (section 4.5.1 — Project drawer) or the edit page. If any assigned team's `ProjectTeamAssignment.confirmed = false`, a confirmation dialog surfaces the unconfirmed list (see section 11.18). On confirmation, the spawn rule (section 2.2.4) executes atomically. If the Project has zero requirements the dialog is replaced by a blocking error explaining that no Demands can be spawned.
 
-**Alternatives to forward motion from Scoping**: Revert to Draft (for major reshaping — be aware that requirements added during Scoping are preserved when reverting to Draft, but become hidden in the Mode A UI; reverting back to Scoping or moving on to Submitted re-reveals them), Park (optional reason), or Close (Scoping is a full status and can be closed directly).
+**Submitted — Demands are out for capacity assessment.**
+
+The Project is now read-only on its definition. Editing phases, requirements, or team assignments is not permitted in v1.18 — to change them, the user would Delete the Project (cascading delete of all child Demands and allocations) and recreate.
+
+The page surfaces the spawned Demands as a read-only summary: one row per child Demand showing Function, status, hours summary, and a deep-link to the Demand's drawer. The user navigates to the individual Demands via Manage Demand to take any further action.
+
+**Approved — all Functions have committed.**
+
+Auto status. The Project's child Demands have all transitioned to Approved or beyond. No user action exists at the Project level — the lifecycle continues through allocation work on each Demand individually.
+
+**Allocated — all Functions have fully allocated.**
+
+Auto status. Every child Demand is `Allocated`. The Project remains visible in the Allocated column of Manage Projects until manually Deleted.
+
+### Demand workflow narrative
+
+**Draft *(direct Demands only)* — shape the demand fully.**
+
+A direct Demand in Draft is created from Manage Demand via the "+ New Direct Demand" button. The Demand owner captures:
+
+- Function (set at creation, immutable).
+- Name, type, owner, description.
+- Phases (name, dates, funding source, funding notes).
+- Internal skill-shaped requirements (skill — DOMAIN > SKILL selector scoped to the Demand's Function — level, hours, optional owning team, notes).
+- External resource requirements.
+
+There is no separate Scoping step — the originator is the same Function that will execute, so the technical detail is captured in Draft directly.
+
+**Submit Demand** is enabled when the Demand has at least one phase and at least one internal requirement. The transition flips status to Submitted; the Demand definition becomes read-only.
 
 **Submitted — capacity assessment and approval.**
 
-The Demand is now read-only on its definition. The drawer and edit page show requirements but do not permit edits to skills, hours, phases, or teams (Revert to Draft is the path back if changes are needed). The user assessing the Demand has two actions available:
+The Demand is now read-only on its definition. The drawer and edit page show requirements but do not permit edits. The user assessing the Demand has two footer actions:
 
-- **Model Capacity** *(renamed from Model Impact in v1.17)* — opens the Capacity Validation view with this Demand pre-selected as the overlay, allowing the user to see what approving this Demand would do to capacity (see section 11.11).
+- **Model Capacity** — opens the Capacity Validation view with this Demand pre-selected as the overlay (see section 11.11). Decision-support; does not change state.
 - **Approve** — primary forward action, commits the Demand.
 
-Revert to Draft and Park remain valid alternatives in the footer.
+There are no Revert-to-Draft, Park, or other footer alternatives in v1.18.
 
 **Approved — pending allocation.**
 
-The Demand is committed at skill level and counted on the Capacity Validation charts. The primary action is **Allocate**, which navigates to the edit page in Mode B (Allocation Workspace) — see section 4.5.2 Mode B. Revise (back to Submitted) and Park sit in the overflow menu.
+The Demand is committed at skill level and counted on the Capacity Validation charts. The primary action is **Allocate**, which navigates to the edit page in Mode B (Allocation Workspace) — see section 4.5.2 Mode B.
 
-**Partially Allocated, Allocated** — see section 3 transition rules and 4.5.2 Mode B. No changes in v1.17.
+**PartiallyAllocated, Allocated** — auto status from allocation coverage. Allocate remains the primary action on PartiallyAllocated (more allocation work to do); Allocated has no footer primary CTA.
 
----
+### Scoping workflow — detailed reference (Project)
 
-### Scoping workflow — detailed reference
+This applies to Projects in Scoping status. The behaviour above describes the user-visible flow; this section captures the data-model rules.
 
-Scoping is a collaborative status where a Demand is being scoped for capacity assessment. The behaviour above (Demand workflow narrative) describes the user-visible flow. This section captures the data-model rules.
+**Entry into Scoping**: the user clicks **Submit for Scoping** from a Project Draft. The button is enabled only when the Project has phases and each phase has at least one team assigned. On click, the status flips from Draft to Scoping. No assignment dialog is shown — assignments were already captured in Draft.
 
-**Entry into Scoping**: the user clicks **Submit for Scoping** from a Draft. The button is enabled only when the Demand has phases and each phase has at least one team assigned (see Draft above). On click, the status flips from Draft to Scoping. No assignment dialog is shown — assignments were already captured in Draft.
+**During Scoping**: any user (typically members of the assigned teams) opens the Project in Mode A (see section 4.5.2). The skill-shaped and external requirement UIs are now visible on each phase card. For each `(phase, team)` pair a user can add/edit/remove internal requirements against that team's Function's Skills, add/edit/remove external requirements, and confirm/un-confirm the team's assignment.
 
-**During Scoping**: any user (typically members of the assigned teams) opens the Demand in Mode A (see section 4.5.2). The skill-shaped and external requirement UIs are now visible on each phase card. For each `(phase, team)` pair a user can:
+Team assignments themselves remain editable during Scoping — any user can add or remove a team from a phase. Removing a team deletes its `ProjectTeamAssignment` record and any requirements flagged with that team's `owning_team_id` become orphaned (`owning_team_id` cleared to null; requirements themselves remain).
 
-- Add, edit, or remove internal skill-shaped requirements against that team's Function's Skills.
-- Add, edit, or remove external resource requirements.
-- Click **Confirm requirements for [Team Name]** to mark the team's `DemandTeamAssignment.confirmed = true`. This is an informational signal — it indicates the team considers its requirements complete — not a gate.
-- Un-confirm (if previously confirmed) by editing requirements afterwards — editing requirements for a `(phase, team)` whose assignment is confirmed resets `confirmed = false` and prompts the user to re-confirm when done.
+**Exit from Scoping**: the user clicks **Submit Project** from the drawer footer or the edit page. The confirmation dialog (section 11.18) surfaces unconfirmed teams; the user can still proceed. On confirmation, the spawn rule executes — see "Spawn rule" below.
 
-Team assignments themselves are editable during Scoping — any user can add or remove a team from a phase. Removing a team deletes its `DemandTeamAssignment` record and any requirements flagged with that team's `owning_team_id` become orphaned (their `owning_team_id` is cleared to null; the requirements themselves remain).
+### Spawn rule (Project Scoping → Submitted)
 
-**Exit from Scoping**: the user clicks **Submit for capacity assessment** from the drawer footer (see section 4.5.1) or the edit page. If any assigned team's `DemandTeamAssignment.confirmed = false`, a confirmation dialog surfaces the list of pending teams:
+Defined in section 2.2.4. Briefly:
 
-> This Demand has 2 teams that have not yet confirmed their requirements:
-> • Central Delivery Team — 0 requirements on Phase 1
-> • Plant Team A — 3 requirements on Phase 2, not confirmed
->
-> You can still submit now and follow up with those teams afterwards.
->
-> **[Cancel]  [Submit anyway]**
+- Compute Functions involved from the Project's requirements: `{r.skill.domain.function_id}` across all phases.
+- For each Function, create a Demand with `parent_project_id = project.id`, `function_id = <Function>`, `status = Submitted`, name `<Project name> — <Function name>`, type/owner/description inherited from the Project.
+- Atomic: if the spawn cannot complete (e.g. zero Functions involved), the Project's status flip is rolled back.
 
-If all assignments are confirmed, the dialog shows a simple confirmation instead. Either way, the transition is manual and at the user's discretion — there is no auto-advance based on confirmation state.
-
-**Alternatives to forward motion**: from Scoping the user can also Revert to Draft (for major reshaping), Park (optional reason), or Close (scoping is a full status and can be closed directly).
-
-
-
-A demand item is **fully allocated** — and auto-transitions to `Allocated` — when every skill-shaped requirement has named allocations such that, **for every single month in the parent phase's date range**, the sum of named allocation hours exactly equals the skill-shaped requirement's `hours_by_month` value for that month.
-
-- Over-allocation against a requirement's hours (named allocations summing to more than the requirement's per-month target) does not count as "fully allocated" — it triggers a validation warning instead.
-- Partially-allocated months (named allocations summing to less than the requirement's per-month target) keep the demand in PartiallyAllocated.
-- The unfilled portion of each requirement-month remains as skill-shaped demand on the capacity charts, so a PartiallyAllocated demand with gaps shows up correctly as "some committed capacity at domain level, some unfilled by named people."
+Demands and Project hold a structural reference; the Demand's view of phases and requirements is computed live from the Project's data via the Function-scoping rule (section 2.2.1).
 
 ### Allocation editing
 
-Once a demand is in PartiallyAllocated or Allocated, the user can freely:
+Once a Demand (Project-spawned or direct) is in Approved, PartiallyAllocated, or Allocated, the user can freely:
 
 - Add, remove, or modify named allocations to any requirement.
 - Change the per-month hours on any named allocation.
 - Add further named people to cover gaps.
-- **Change the Project alignment** of the Demand item (section 2.1.1). Re-pointing a Demand to a different Project (or removing its Project alignment entirely) has zero effect on capacity calculations, allocations, or the state machine — it only re-points the roll-up totals on the Programme/Project views. This is editable in every status, including Approved / PartiallyAllocated / Allocated.
 
-No status change is needed before editing allocations or re-aligning the Project. The status auto-updates based on the coverage rule above.
+No status change is needed before editing allocations. The status auto-updates based on the coverage rule.
 
-What the user **cannot** do in PartiallyAllocated or Allocated:
+What the user **cannot** do in Approved, PartiallyAllocated, or Allocated:
 
-- Edit the underlying skill-shaped requirements (skill, level, or target hours).
+- Edit the underlying skill-shaped requirements (skill, level, target hours).
 - Add, remove, or change phases.
-- Edit demand item metadata that affects the resourcing picture (type, owner, phase dates).
-- Edit external resource requirements (section 2.6) — provider, role, or hours. External requirements are locked under the same rule as internal requirement definitions.
+- Edit Demand metadata that affects the resourcing picture (type, owner, phase dates).
+- Edit external resource requirements (provider, role, or hours).
 
-If any of those need to change, the user must explicitly `Park` the demand, revive it to `Submitted`, adjust, and re-approve. This is deliberate friction — it prevents casual edits to already-committed work and surfaces them as a conscious decision. (This friction is one of the things v2 scenario modelling will soften.)
+For Project-spawned Demands these are properties of the parent Project — which is read-only from Submitted onwards anyway. For direct Demands these are properties of the Demand itself — also read-only from Submitted onwards. To change them in v1.18, the only path is Delete-and-recreate.
+
+This is deliberate friction. v1.18 trades flexibility for clarity — the absence of Park/Revise/Revert means a Demand's definition is settled once Submitted, and any change is a conscious recreate. Richer lifecycle controls return in a future version once the core flow is bedded in.
+
+### Full allocation definition
+
+A Demand is **fully allocated** — and auto-transitions to `Allocated` — when every internal skill-shaped requirement visible on this Demand (i.e. the Function-scoped slice of the parent Project's requirements, or all requirements on a direct Demand) has named allocations such that, **for every single month in the parent phase's date range**, the sum of named allocation hours is at least equal to the requirement's `hours_by_month` value for that month.
+
+- Over-allocation against a requirement's hours (named allocations summing to more than the per-month target) does not block fully-allocated status — it triggers a validation warning instead. (Person-level over-allocation rules from section 2.4.7 apply separately.)
+- Partially-allocated months (named allocations summing to less than the requirement's per-month target) keep the Demand in PartiallyAllocated.
+- The unfilled portion of each requirement-month remains as skill-shaped demand on the capacity charts.
 
 ### The skill-shaped → named relationship
 
@@ -702,22 +869,33 @@ Skill-shaped requirements are the *definition* of demand. Named allocations are 
 
 - Each named allocation belongs to a specific skill-shaped requirement (its parent).
 - A named allocation carries: person, `hours_by_month`, notes.
+- A named allocation lives on the Demand (Project-spawned or direct), referencing the requirement (which lives on the parent Project for spawned Demands, or on the Demand itself for direct Demands).
 - Multiple named allocations can fulfil a single skill-shaped requirement (e.g. 80 hrs/month split as Sarah 50 + Chris 30).
 - A named allocation's person must hold the parent requirement's skill at the required level or higher (warn, don't block).
+- The person must belong to the same Function as the Demand (a Demand's Function determines the candidate pool).
 
-This replaces the earlier "promotion" language. Named allocations are not a *shape* of requirement; they are *attached* to a skill-shaped requirement. This keeps the requirement-level demand stable and makes partial allocation trivially representable (some months allocated, others not).
+### Deletion
 
-### Deletion and duplication
+There is no Park or Close in v1.18 — Delete is the only off-flow action. Two cascade rules:
 
-**Park vs Close vs Delete** — three different actions:
+**Project Delete** — permitted in any Project status, including Submitted, Approved, and Allocated. Cascade:
 
-- **Park**: temporary; reversible via Revive. Item stays in the Demand list but is excluded from charts.
-- **Close**: permanent but retrievable; removes from main UI and charts, lives in Archive, restorable.
-- **Hard Delete**: irreversible removal from the database. For genuine mistakes (duplicates, mis-entered demand). Requires confirmation and carries a distinct icon. Available from any status via an admin-style action, not the main transition buttons.
+- All child Demands of the Project are deleted.
+- All named allocations attached to those Demands' requirements are deleted.
+- All `ProjectTeamAssignment` records for the Project are deleted.
 
-**Duplicate**: copies name (with "(copy)" suffix), type, owner, Project alignment, description, all phases, skill-shaped requirements, and external resource requirements, but **not** named allocations (they never transfer to a duplicate). Status resets to `Draft`.
+A confirmation dialog surfaces the cascade scope: *"This Project has 2 child Demands with 14 named allocations across 3 phases. Deleting will permanently remove all of them. Continue?"* The dialog uses a destructive action treatment (red primary button) and requires explicit confirmation. No undo.
+
+**Demand Delete** — for direct Demands only. Project-spawned Demands cannot be Deleted independently — Delete the parent Project to remove them. Cascade:
+
+- The Demand and its phases and requirements (direct Demand) and named allocations are deleted.
+
+A confirmation dialog surfaces the cascade scope: *"This Demand has 5 named allocations across 2 phases. Deleting will permanently remove all of them. Continue?"* Same destructive treatment.
+
+Delete is reachable from the drawer overflow menu (kebab) on every status, and from the edit page header. It is never a footer primary.
 
 ---
+
 
 ## 4. Views
 
@@ -869,42 +1047,43 @@ The section contains two sub-sections:
 - The time horizon preset applies identically.
 - Section C reads from the existing `project_external_hours_by_provider` and `unaligned_demand_hours` aggregation functions (section 2.4.9), with the active-Function scoping applied at read time — no new aggregation functions are required.
 
-**Section D — Demand on Other Functions** (shown when "Show demand on other Functions" toggle is on)
+**Section D — Other Functions' Demands on Shared Projects** *(reframed in v1.18)* (shown when "Show demand on other Functions" toggle is on)
 
-This section sits below Section C (or below Section B when Section C is off) and is toggled independently. It provides planning visibility into the internal cross-Function demand the active Function's Demands are creating — i.e. *the skill work my Function's Demands are placing on other Functions' teams.*
+This section sits below Section C (or below Section B when Section C is off) and is toggled independently. It provides planning visibility into work being done by **other Functions on Projects we share with them** — i.e. *for Projects where my Function has a Demand, what are the other Functions doing alongside us?*
 
-A prominent section header reads: **"Demand on Other Functions"** with an inline info note: *"This shows internal skill demand placed on other Functions by Demands my Function is involved in. These hours consume other Functions' capacity, not mine — they do not affect this page's capacity charts."*
+A prominent section header reads: **"Other Functions' Demands on Shared Projects"** with an inline info note: *"This shows internal skill demand from other Functions' Demands on Projects we share. These hours consume other Functions' capacity, not mine — they do not affect this page's capacity charts."*
 
-**Scope definition — the exact set of requirements this section shows**:
+**Scope definition — the exact set of Demands this section shows**:
 
-Take every Demand item D such that D has **at least one** internal skill-shaped requirement targeting a Skill in the **active Function**'s Domain taxonomy. For each such D, read its internal skill-shaped requirements that target Skills in **Functions other than the active one** — those are the cross-Function requirements this section surfaces.
+Take every Project P such that P has **at least one** spawned Demand belonging to the active Function. For each such P, surface the requirements on P's phases that target Skills in **Functions other than the active one** — those requirements are visible to (and presented through) the corresponding sibling Demands on those other Functions. Direct Demands are by definition not on shared Projects and never appear here.
 
-Worked example: the active Function is Digital Manufacturing. Demand "Plant C MES Platform Migration" has MOM Specialist requirements (Digital Manufacturing) and Data Integration Specialist requirements (Group IT Enterprise Solutions). Because this Demand touches Digital Manufacturing, it qualifies. The Group IT requirements appear in Section D. A separate Demand "Corporate ERP Refresh" with only Group IT requirements and no Digital Manufacturing touch is excluded — DM has no stake in it.
+Worked example: the active Function is Digital Manufacturing. Project "Plant C MES Platform Migration" has spawned three Demands — DM (MOM, MI&V requirements), Group IT (Data Integration requirements), and possibly one more. Because the Project has a DM Demand, it qualifies. The Group IT requirements (and the Group IT Demand they belong to) appear in Section D. A separate Project "Corporate ERP Refresh" with only Group IT requirements and no DM Demand is excluded — DM has no stake in it.
 
 The section contains two sub-sections:
 
 **Sub-section D1 — Overview chart**
-- A single stacked area chart. X-axis: months, aligned with the rest of the page. Y-axis: total internal skill-shaped requirement hours being placed on other Functions across all in-scope Demands.
+- A single stacked area chart. X-axis: months, aligned with the rest of the page. Y-axis: total internal skill-shaped requirement hours from other Functions' Demands on shared Projects.
 - Stacked **by receiving Function** — each other Function gets a distinct colour from the design system palette (reusing the work-type palette's distinct-hue branch, specified in `DESIGNSYSTEM.md`). A legend identifies each Function.
-- **No capacity line. No grey band. No projection.** This chart is the demand flowing outward from my Function's Demands — the receiving Function's capacity is their concern, not represented here. The visual treatment mirrors Section C (planning visibility only).
-- Hover tooltip: month, total outgoing hours, per-Function breakdown.
+- **No capacity line. No grey band. No projection.** This chart is other Functions' work shown for awareness — their capacity treatment is their concern, not represented here. Visual treatment mirrors Section C (planning visibility only).
+- Hover tooltip: month, total hours, per-Function breakdown.
 - Clicking a Function's stack segment drills into Sub-section D2's detail for that Function (or if D2 is already expanded, scrolls to the corresponding chart).
 
 **Sub-section D2 — Per-Function breakdown with team drill-down**
 - One chart per receiving Function that has any non-zero hours in the visible horizon.
-- Each chart shows that Function's hours over time, stacked by Demand item (each contributing Demand gets a distinct colour segment — same pattern as Section C2).
-- Clicking anywhere on a chart opens a **team drill-down**: the chart re-renders with the same X-axis but stacked **by receiving Team** (the requirement's `owning_team_id` within the receiving Function). A small breadcrumb above the chart reads "Function: Group IT Enterprise Solutions › Teams" with a back action returning to the Demand-stacked view.
+- Each chart shows that Function's hours over time, stacked by **shared Project** — each contributing Project gets a distinct colour segment. (Note: this is per-Project, not per-Demand-name, because each Project surfaces exactly one Demand per receiving Function — naming would be redundant.)
+- Clicking anywhere on a chart opens a **team drill-down**: the chart re-renders with the same X-axis but stacked **by receiving Team** (the requirement's `owning_team_id` within the receiving Function). A small breadcrumb above the chart reads "Function: Group IT Enterprise Solutions › Teams" with a back action returning to the Project-stacked view.
 - Requirements with null `owning_team_id` within the receiving Function stack into a visually-distinct "Unassigned team" segment in the team drill-down view.
 - Same chart card sizing as Section C charts for visual consistency.
-- Hover tooltip (Demand-stacked view): month, receiving Function, total hours, contributing Demand item names with per-item hours.
-- Hover tooltip (Team drill-down view): month, receiving Function, receiving Team, total hours, contributing Demand item names with per-item hours.
+- Hover tooltip (Project-stacked view): month, receiving Function, total hours, contributing Project names with per-Project hours.
+- Hover tooltip (Team drill-down view): month, receiving Function, receiving Team, total hours, contributing Project names with per-Project hours.
 
 **Section D scope rules**:
-- The Programme/Project filter applies: when active, in-scope Demands (those that touch the active Function) are further filtered to those aligned to the selected Programme/Project.
-- The active-Function lens is what defines "my Function" — switching the Function selector (section 4.9) changes the set of in-scope Demands and the set of "other Functions" surfaced.
+- The Programme/Project filter applies: when active, in-scope Projects (those with an active-Function Demand) are further filtered to those that match the selected Programme/Project.
+- The active-Function lens is what defines "my Function" — switching the Function selector (section 4.9) changes the set of in-scope Projects and the set of "other Functions" surfaced.
 - The time horizon preset applies identically.
 - Only internal skill-shaped requirements are included. External requirements (section 2.6) are Section C's concern, not Section D's.
-- Section D reads from the existing aggregation functions with active-Function scoping applied at read time. A new aggregation helper `cross_function_demand_hours(active_function_id, month, {by: 'function' | 'team'})` sits alongside the existing functions in the shared aggregation module (see section 2.4.9) — it filters Demands to those touching the active Function and sums their requirements targeting Skills outside the active Function, grouped by receiving Function or receiving Team as requested.
+- Direct Demands are excluded — they have no parent Project so cannot be "shared."
+- Section D reads from `cross_function_demand_hours(active_function_id, month, {by: 'function' | 'project' | 'team'})` in the shared aggregation module (see section 2.4.9). The function returns the appropriate decomposition for D1 (`by: 'function'`), D2 Project view (`by: 'project'`), or D2 Team drill-down (`by: 'team'`).
 
 
 **What this view deliberately does *not* do**
@@ -1007,21 +1186,24 @@ The question this view answers: *Where could we close a skill gap by developing 
 - Configurable shortfall threshold (e.g. ignore gaps < 20 hours/month).
 - Ability to flag a development plan as "in progress" for a person/skill — purely informational in v1.
 
-### 4.5 Demand Item — viewing and editing
+### 4.5 Project and Demand — viewing and editing
 
-Demand items are viewed through a **drawer** and edited on a **full page**. These are two distinct surfaces with different purposes.
+*Substantially revised in v1.18.* Both Projects and Demands are viewed through a **drawer** and edited on a **full page**. These are two distinct surfaces with different purposes — preview vs editor — and they share the same layout vocabulary (header / status / body / footer for the drawer; Mode A / Mode B for the edit page).
+
+The Project surface and Demand surface differ in **which fields they hold**, **which transitions are valid**, and **which footer buttons appear** — but they share the visual structure. Where the spec below says "the entity," it applies to both Projects and Demands unless explicitly differentiated.
 
 #### 4.5.1 The Drawer (read-only preview)
 
 A side-panel drawer shown when a user clicks into a demand item from any view (Capacity Validation chart segment, Team Activity block, Demand list row).
 
-**Purpose**: fast glance at what a demand item is, without leaving the current view. Optimised for *understanding*, with a **clear next-step CTA** that reflects where the demand sits in its lifecycle.
+**Purpose**: fast glance at what a Project or Demand is, without leaving the current view. Optimised for *understanding*, with a **clear next-step CTA** that reflects where the entity sits in its lifecycle.
 
 **Layout** — the drawer has four distinct zones:
 
 1. **Header zone** (top)
-   - **Left side**: demand name as the primary heading; then on the row below: Type badge; then on the row below that: Project alignment shown as "Programme › Project" in muted text, or **"Unaligned — Not Associated To A Project"** in muted italic text if no alignment is set. At narrow drawer widths, the unaligned label truncates to "Unaligned". Owner shown below the alignment row.
-   - **Right side**: **Edit** button (prominent styling, aligned to the right edge), then the **Overflow menu** (kebab / ⋯) button, then the **Close drawer** (×) button. The Edit button is the always-available entry into the full edit page and is consistent across every status — this is the mental-model constant that lets users reach any field at any time.
+   - **Left side** *(Project drawer)*: Project name as the primary heading; on the row below, Type badge; on the row below that, Programme name in muted text, or **"No Programme"** in muted italic text if null. Owner shown below the Programme row.
+   - **Left side** *(Demand drawer)*: Demand name as the primary heading; on the row below, Type badge plus a small Function chip (the Demand's Function); on the row below that — **for Project-spawned Demands**: "Part of [Programme name › Project name]" in muted text, click-through to the parent Project's drawer; **for direct Demands**: "Direct Demand" in muted italic text. Owner shown below.
+   - **Right side**: **Edit** button (prominent styling, aligned to the right edge), then the **Overflow menu** (kebab / ⋯) button, then the **Close drawer** (×) button. The Edit button is the always-available entry into the full edit page and is consistent across every status — this is the mental-model constant that lets users reach any field at any time. (Note: for Project-spawned Demands, Edit opens Mode B; the parent Project's definition is read-only from this Demand and reachable via the parent-Project click-through.)
    - The overflow menu contains actions that aren't part of the primary workflow for the current status. See the **Overflow menu contents** table below.
 
 2. **Status zone** (inline, just below the header)
@@ -1030,69 +1212,65 @@ A side-panel drawer shown when a user clicks into a demand item from any view (C
 
 3. **Body zone** (scrollable content)
    - Description.
-   - **Functions involved** (read-only, auto-derived) — a single line listing the distinct Functions that any of this Demand's requirements target, e.g. "Functions: Digital Manufacturing, Group IT Enterprise Solutions" or just "Functions: Digital Manufacturing" for single-Function Demands. Empty when no requirements exist. Each Function name is a small chip/pill. This replaces the previous Primary Domain field and is purely informational.
-   - Summary stats: phase count, total internal hours across all phases, total external hours across all phases (if any external requirements exist), date range, funding sources used.
-   - Phases laid out in a compact read-only form. For each phase: name, dates (or "indefinite" if no end), funding source, and a summary of both its internal skill-shaped requirements (skill + level + hours summary — "180 hrs total May–Aug" for finite, "5 hrs/mo steady" for indefinite) and its external resource requirements (provider + role + hours summary), if any.
-   - A "Total skills/hours" rollup at the bottom, aggregating across all phases. Internal and external totals shown on separate lines.
-   - **Project alignment block removed in v1.17.** The Project alignment is shown once only — in the header zone (item 1 above). Re-alignment of a Demand to a different Project is performed via the Edit page (Mode A's Project alignment field, section 4.5.2). The drawer body is read-only with respect to Project alignment, consistent with the drawer's "preview, not editor" mental model.
+   - **Functions involved** *(Project drawer only)* — a single line listing the distinct Functions that any of the Project's requirements target, e.g. "Functions: Digital Manufacturing, Group IT Enterprise Solutions" or just "Functions: Digital Manufacturing" for single-Function Projects. Empty when no requirements exist. Each Function name is a small chip/pill.
+   - **Function badge** *(Demand drawer only)* — a single chip showing the Demand's Function (set at creation, immutable). For Project-spawned Demands the chip is followed by a parent-Project link "← part of [Project name]".
+   - **Origin** *(Demand drawer only)* — a small badge identifying the Demand as "Project-spawned" or "Direct". For Project-spawned Demands the badge is also a click-through to open the parent Project's drawer.
+   - **Sibling Demands** *(Demand drawer only — Project-spawned Demands with sibling Demands)* — a single line showing other Functions' Demands on the same parent Project, e.g. "Sibling Demands: Group IT (Approved), MBM (Submitted)". Each is clickable, opening that Demand's drawer.
+   - Summary stats: phase count, total internal hours across all (visible) phases, total external hours across all phases (if any external requirements exist), date range, funding sources used. For Project-spawned Demands the phase count and totals reflect only phases visible to this Demand's Function.
+   - Phases laid out in a compact read-only form. For each phase: name, dates (or "indefinite" if no end), funding source, and a summary of its internal skill-shaped requirements (skill + level + hours — "180 hrs total May–Aug" for finite, "5 hrs/mo steady" for indefinite) and its external resource requirements (provider + role + hours), if any. On a Project-spawned Demand, only requirements targeting this Demand's Function are listed; on a Project drawer, all requirements are listed.
+   - A "Total internal/external hours" rollup at the bottom. Internal and external totals shown on separate lines.
 
 4. **Footer zone** (bottom, sticky)
-   - The footer holds **one or more status-specific primary action buttons**, right-aligned. The specific buttons shown depend on the current status — see the **Footer buttons by status** table below.
+   - The footer holds **one or more status-specific primary action buttons**, right-aligned. The specific buttons shown depend on the current status and entity type — see the **Footer buttons by status** tables below.
    - Ordering is right-to-left — the **rightmost** button is the most prominent / primary CTA for the current lifecycle moment, with secondary primary buttons running leftward from there. No overflow menu in the footer; no duplicate Edit; no status pill.
 
-**Footer buttons by status** (right-to-left ordering, rightmost first — this is the primary-CTA position)
+**Footer buttons by status — Project drawer** (right-to-left ordering, rightmost first — primary-CTA position)
 
 | Status | Footer buttons (right-to-left) |
 |---|---|
 | Draft | **Submit for Scoping** |
-| Scoping | **Submit for capacity assessment**, Revert to Draft, Park |
-| Submitted | **Approve**, Model Capacity, Revert to Draft, Park |
-| Approved | **Allocate** |
-| PartiallyAllocated | **Allocate** |
-| Allocated | *(none — footer is empty)* |
-| Parked | **Revive** |
-| Closed *(Archive view only)* | **Restore** |
+| Scoping | **Submit Project** |
+| Submitted | *(none — auto-progresses based on child Demand statuses)* |
+| Approved | *(none — auto-progresses)* |
+| Allocated | *(none)* |
 
-**Rationale for each footer primary**
+**Footer buttons by status — Demand drawer** (right-to-left ordering, rightmost first)
 
-- **Draft → Submit for Scoping** is the only forward move; Revert-to-Draft doesn't apply (you're already in Draft); Park doesn't apply either (you don't park a Draft — you delete it if it's junk). Submit is the whole footer.
-- **Scoping → Submit for capacity assessment** is the manual forward action (see section 3 Scoping workflow). The button opens a confirmation dialog that surfaces any unconfirmed team assignments but does not block the transition. Revert-to-Draft and Park are valid alternatives and also sit in the footer as secondary primaries. Close and Duplicate live in the overflow.
-- **Submitted → Approve** is the primary forward move. Model Capacity *(renamed from Model Impact in v1.17)* deep-links to Capacity Validation with this item pre-selected as overlay (section 11.11) — it's a decision-support action adjacent to Approve, so it sits next to it. Revert-to-Draft and Park are valid alternatives and also sit in the footer as secondary primaries.
-- **Approved → Allocate** is the new v1.14 button. It opens the edit page in Mode B (Allocation Workspace) directly, bypassing the Mode-A-by-default Edit flow. It's a navigational button, not a status transition. Rationale: at this point in the lifecycle, the overwhelmingly common action is "start allocating people" — making that a one-click primary instead of Edit → scroll-to-allocations is the single most-impactful UX improvement of this version.
-- **PartiallyAllocated → Allocate** continues the same pattern — the work isn't done yet, so "keep allocating" remains the headline CTA.
-- **Allocated → *(no footer button)*.** There is no meaningful forward action at this stage. Edit (top-right) is still available if the user needs to reach any field; status transitions like Park and Close sit in the overflow menu, not the footer. An empty footer is the honest design: the allocation work is complete, and surfacing a button for the rare exit actions (Park / Close) would over-weight them relative to how often they're used.
-- **Parked → Revive** is the one-step return to the pipeline. All other actions are in the overflow.
-- **Closed → Restore** is the Archive-view action, moving the item back to its prior status.
+| Status | Footer buttons (right-to-left) | Notes |
+|---|---|---|
+| Draft *(direct only)* | **Submit Demand** | Direct Demands only — Project-spawned Demands do not enter Draft. |
+| Submitted | **Approve**, Model Capacity | Model Capacity is decision-support; does not change state. |
+| Approved | **Allocate** | Navigates to Mode B (Allocation Workspace). |
+| PartiallyAllocated | **Allocate** | Same — keep allocating to fill remaining gaps. |
+| Allocated | *(none — footer is empty)* | Allocation work is complete. |
 
-**Overflow menu contents** (top-right kebab ⋯)
+**Rationale for each footer primary** *(updated v1.18)*
 
-The overflow menu collects every action not surfaced as a footer primary button, plus the destructive actions. Contents vary by status:
+- **Project Draft → Submit for Scoping** is the only forward move; Park, Revert, and Duplicate are removed in v1.18. Submit is the whole footer.
+- **Project Scoping → Submit Project** is the manual forward action that triggers the spawn rule (section 3). The button opens a confirmation dialog that surfaces any unconfirmed team assignments but does not block the transition (see section 11.18).
+- **Project Submitted / Approved / Allocated** — no user-driven transitions exist at the Project level; the Project's lifecycle progresses automatically based on child Demand statuses. The drawer footer is intentionally empty.
+- **Demand Draft → Submit Demand** *(direct Demands)* is the only forward move from Draft. The button is enabled when the Demand has at least one phase and at least one internal requirement.
+- **Demand Submitted → Approve** is the primary forward move. Model Capacity sits alongside it as decision-support — opens Capacity Validation with this Demand pre-selected as overlay (section 11.11). Both buttons are footer primaries; Model Capacity is the only allowed off-flow action because it does not change state.
+- **Demand Approved → Allocate** opens the edit page in Mode B (Allocation Workspace) directly. It's a navigational button, not a status transition.
+- **Demand PartiallyAllocated → Allocate** continues the same pattern.
+- **Demand Allocated → *(no footer button)*.** Edit (top-right) is still available if the user needs to view any field. There is no meaningful forward action, and no Park/Close in v1.18.
 
-| Status | Overflow menu contents |
+**Overflow menu contents** (top-right kebab ⋯) *(updated v1.18 — only Delete remains)*
+
+| Status (Project or Demand) | Overflow menu contents |
 |---|---|
-| Draft | Duplicate, Delete |
-| Scoping | Close, Duplicate, Delete |
-| Submitted | Duplicate, Delete |
-| Approved | Revise (to Submitted), Park, Close, Duplicate, Delete |
-| PartiallyAllocated | Park, Close, Duplicate, Delete |
-| Allocated | Park, Close, Duplicate, Delete |
-| Parked | Duplicate, Delete |
-| Closed *(Archive view only)* | Duplicate, Delete |
+| Any status | **Delete** |
 
-**Why Revise is in the overflow on Approved (not the footer)**
+The overflow menu collapses to a single action — Delete — for both Projects and Demands in every status. The menu is still rendered (vs hidden entirely) so the affordance is consistent: a kebab icon adjacent to Edit means "destructive or off-flow actions are available here," and Delete is reachable in one click without competing with the footer's primary CTA. Future versions may reintroduce Duplicate, Park, etc.; the kebab is the natural place for them to return.
 
-Revise is the low-friction backward path from Approved → Submitted to correct demand definition issues. It's valid but uncommon — the common action from Approved is to start allocating people. Putting Revise in the footer alongside Allocate would dilute the CTA; putting it in the overflow keeps it reachable without competing with the forward workflow. Same argument for Park on Approved / PartiallyAllocated / Allocated: these are valid but infrequent exits and belong in the overflow.
+**Delete behaviour** — described fully in section 3 "Deletion." Cascade rules differ for Projects (delete cascades to all child Demands and their allocations) vs direct Demands (delete cascades to allocations only). Project-spawned Demands cannot be Deleted independently — Delete the parent Project to remove them. The cascade dialog surfaces the count of records that will be removed and requires explicit confirmation.
 
-**Why Close is in the overflow, not a footer primary**
-
-Close is terminal. It always belongs in the overflow because the user should pause before clicking it. Footer primaries are for the common next-step action; Close is not a common next step, even on Allocated work (which stays Allocated for the life of the project before being explicitly closed).
-
-**Button hierarchy rationale — v1.14 summary**
+**Button hierarchy rationale — v1.18 summary**
 
 Three tiers, reflecting action frequency and risk:
 - **Top-right Edit button**: the mental-model constant. Always present, always primary styling, always opens the full edit page. One click to reach any field regardless of status.
-- **Footer primary CTA(s)**: status-appropriate forward-motion actions. One to four buttons depending on status; empty on Allocated.
-- **Overflow menu** (kebab, top-right, adjacent to Edit): everything else — Duplicate, Delete, and any valid-but-uncommon transitions for the current status (Revise, Park, Close, restorative actions).
+- **Footer primary CTA(s)**: status-appropriate forward-motion actions. Zero, one, or two buttons depending on status; empty on Project Submitted/Approved/Allocated and Demand Allocated.
+- **Overflow menu** (kebab, top-right, adjacent to Edit): Delete only in v1.18.
 
 **Behaviour**:
 - Read-only apart from the action buttons (footer primaries, overflow menu, top-right Edit). Project alignment is no longer editable in the drawer in v1.17 — see body zone description above.
@@ -1101,46 +1279,50 @@ Three tiers, reflecting action frequency and risk:
 
 #### 4.5.2 The Edit Page — two modes based on status
 
-The edit page is reached via the drawer's "Edit" button, or directly via "+ New Demand" from the Demand list. It has **two distinct modes** depending on the demand's current status.
+The edit page is reached via the drawer's "Edit" button, or directly via "+ New Project" from Manage Projects (section 4.6.A) or "+ New Direct Demand" from Manage Demand (section 4.6). It has **two distinct modes** depending on the entity's status.
 
-**Mode A — Demand Definition** (active when status is `Draft`, `Scoping`, `Submitted`, `Parked`)
+**Mode A — Definition** (active when status is `Draft` or `Scoping` on a Project, or `Draft` on a direct Demand)
 
-This is where the demand is shaped. Mode A is **status-aware** and reveals different UI affordances depending on the Demand's current status — reflecting the workflow narrative in section 3:
+This is where the entity is shaped. Mode A is **status-aware** and reveals different UI affordances depending on the current status — reflecting the workflow narrative in section 3:
 
-- **Draft**: name, type, owner, description, Project alignment, phases (name, dates, funding source, funding notes), and per-phase Teams Assigned. **Skill-shaped requirements UI and external resource requirements UI are hidden** on phase cards. The "+ Add Internal Requirement" and "+ Add External Requirement" actions are not shown.
-- **Scoping**: same fields as Draft, plus the skill-shaped requirements list, external resource requirements list, and per-team confirmation strip on each phase card. This is where the technical detail of the demand is captured.
-- **Submitted**: all fields read-only. Used for review during capacity assessment.
-- **Parked**: all fields read-only.
+- **Project Draft**: name, type, owner, description, optional Programme, phases (name, dates, funding source, funding notes), and per-phase Teams Assigned. **Skill-shaped requirements UI and external resource requirements UI are hidden** on phase cards. The "+ Add Internal Requirement" and "+ Add External Requirement" actions are not shown.
+- **Project Scoping**: same fields as Project Draft, plus the skill-shaped requirements list, external resource requirements list, and per-team confirmation strip on each phase card. This is where the technical detail across all involved Functions is captured.
+- **Direct Demand Draft**: Function (read-only — set at creation), name, type, owner, description, phases, and skill-shaped + external resource requirements all visible together. There is no separate Scoping step for direct Demands — the originator captures the full detail in Draft.
 
-This is where the demand is shaped: metadata, phases, and (in Scoping) skill-shaped requirements (internal), plus any external resource requirements. Named allocation of our team's people is not available in this mode because the demand hasn't been committed to yet.
+Mode A is **not** active on Project Submitted/Approved/Allocated, Demand Submitted/Approved/PartiallyAllocated/Allocated. Those statuses are read-only on definition; Project-spawned Demands additionally have no separately-editable definition (their definition lives on the parent Project).
+
+This is where the demand is shaped: metadata, phases, and (in Project Scoping or direct Demand Draft) skill-shaped requirements, plus any external resource requirements. Named allocation is not available in this mode because allocation only begins after Approve (Mode B, section below).
 
 Content:
-- Top section: demand item fields (name, type, owner, **Project alignment** — see below — description, parked reason if Parked). There is no "Primary Domain" form field — the Functions and Domains a Demand touches are implicit in its requirements (see the Functions-involved line in the drawer body).
-- **Project alignment field**: a picker showing current alignment as "Programme › Project" (or "Unaligned" if null). Clicking opens a searchable dropdown listing all active Projects grouped by Programme — the Programme is a non-selectable group header, just like the DOMAIN > SKILL selector pattern (section 4.5.3). Selecting a Project aligns the Demand; a "Clear alignment" action at the top of the dropdown makes the Demand unaligned. At the bottom of the dropdown, a persistent **"+ Create new Project…"** option opens an inline mini-form (Project name + Programme — the Programme picker has its own "+ Create new Programme…" entry) that creates the record and immediately selects it. This inline-create pattern means the user can align a Demand to a new Project without breaking flow. See section 5 for the standalone admin surface and section 11.14 for the creation flow detail.
-- **Phase timeline (Gantt)**: a horizontal time-based overview at the top of the Phases section, above the phase cards. Shows every phase as a labelled bar on a shared month-resolution timeline, sorted ascending by start month. Each bar shows the phase name and indicates its duration; indefinite phases render with a trailing dashed extension or arrow marker to communicate "continues beyond the visible range." The timeline is read-only and navigational — clicking a bar scrolls the page to the corresponding phase card and expands it. Changes to phase dates in the cards below update the timeline immediately. When the demand has a single phase the timeline is still shown but kept compact.
+- Top section: entity fields (name, type, owner, description; on Projects, optional Programme; on direct Demands, the read-only Function badge). The Functions involved on a Project are derived from its requirements and shown as read-only chips below the description (mirroring the drawer body's "Functions involved" line).
+- **Programme picker** *(Projects only)*: a picker showing current Programme as a single-line value (or "Unaligned" if null). Clicking opens a searchable dropdown listing all active Programmes. A "Clear" action makes the Project Programme-less. At the bottom of the dropdown, a persistent **"+ Create new Programme…"** option opens an inline mini-form that creates the record and immediately selects it. See section 5 for the standalone admin surface and section 11.14 for the creation-flow detail.
+- **Phase timeline (Gantt)**: a horizontal time-based overview at the top of the Phases section, above the phase cards. Shows every phase as a labelled bar on a shared month-resolution timeline, sorted ascending by start month. Each bar shows the phase name and indicates its duration; indefinite phases render with a trailing dashed extension or arrow marker to communicate "continues beyond the visible range." The timeline is read-only and navigational — clicking a bar scrolls the page to the corresponding phase card and expands it. Changes to phase dates in the cards below update the timeline immediately. When the entity has a single phase the timeline is still shown but kept compact.
   - **Bars are colour-coded by the phase's Funding Source** — one colour per value of the three-value enum (Investment Scheme, Plant/Sector Allocation, Mixed). The colour mapping is documented in `DESIGNSYSTEM.md` and is shared with any other view that colours by funding source. A compact legend is rendered inside the timeline container (top-right or inline with the header) so the colour-to-source mapping is readable without hovering. Changing a phase's funding source in the card below updates the bar colour immediately. This replaces any previous colour scheme on this chart (e.g. generic/phase-indexed colouring).
   - **Vertical padding**: the timeline container must have breathing room above the topmost bar and below the bottommost bar — at least one bar-height worth of space at each end, so bars do not touch the container edge or overlap the horizontal scrollbar (where one is present). This is a specific regression seen in v1.10: the lowest bar overlaps the horizontal scroll rail and is hard to read. If the container scrolls horizontally because the phase range exceeds the visible width, the scrollbar must sit entirely below the bottom padding, not on top of the last bar.
   - **Bar styling**: bars have rounded corners, sit on a horizontal grid of month lines, and show the phase name as a label inside the bar (truncating with ellipsis if the bar is narrow). Labels must have sufficient contrast against the funding-source fill colour — if necessary, the label is rendered on a semi-transparent backing to preserve legibility regardless of the bar colour.
 - Phases section: each phase is a collapsible card showing:
   - Phase name, start month, end month (end month supports a "No end date (indefinite)" toggle — see 11.12)
   - Funding source (dropdown) and funding notes (free text)
-  - **Teams Assigned to phase** *(picker redesigned in v1.17 — see "Teams Assigned picker" below)*. Visible from **Draft onwards** *(changed in v1.17 — previously Scoping onwards)*. Selecting or deselecting a team creates/removes its `DemandTeamAssignment` record for this phase immediately. In Draft this is the primary coordination surface — the Demand owner uses it to identify which Functions/Teams are required to scope each phase. In Scoping it remains editable for adjustments. In Submitted and Parked it is read-only.
-  - **Per-team confirmation strip** (visible in Scoping only) — for each assigned team, a compact strip shows: team name, a green/amber chip indicating `confirmed` state, the number of skill-shaped requirements currently flagged with that team's `owning_team_id`, and a **"Confirm requirements for [Team Name]"** button (or "Un-confirm" if already confirmed). Clicking Confirm sets `DemandTeamAssignment.confirmed = true` and records `confirmedBy` (the current user, stubbed in v1) and `confirmedAt`. See section 3.
-  - **Internal requirements list** *(visible from Scoping onwards — hidden in Draft)*. Each internal requirement displays as a row with skill, level, **owning team** (dropdown, pre-filled from assigned teams), notes, and a **per-month hours grid** (finite) or **steady-state hours input** (indefinite). Editing a requirement whose owning team has `confirmed = true` on this phase resets that team's `confirmed` to false and prompts re-confirmation. In Submitted and Parked, rows are read-only.
-  - **External requirements list** *(visible from Scoping onwards — hidden in Draft)*. A visually distinct sub-section within each phase card, below the internal requirements. Header: "External Resource Requirements" with an "+ Add external requirement" button. Each external requirement displays as a row with Provider (dropdown — admin-configured), Role (free text), notes, and the same **per-month hours grid** (finite) or **steady-state hours input** (indefinite) as internal requirements. Visually, external requirements are distinguished by a secondary accent colour and a small "External" label or icon on each row — users must be able to tell at a glance which rows are internal and which are external. When a phase has no external requirements, the section collapses to just the "+ Add external requirement" affordance — it doesn't take up vertical space with empty state chrome. In Submitted and Parked, rows are read-only.
-- Actions: add phase, reorder phases, delete phase, assign/unassign teams to phase. **In Scoping only**: add internal requirement within a phase, add external requirement within a phase, delete any requirement, confirm/unconfirm team assignments. In Submitted and Parked, all of the above are read-only or hidden.
+  - **Teams Assigned to phase** *(Projects only — picker described below)*. Visible from Project Draft onwards. Selecting or deselecting a team creates/removes its `ProjectTeamAssignment` record for this phase immediately. In Project Draft this is the primary coordination surface — the Project owner uses it to identify which Functions/Teams are required to scope each phase. In Project Scoping it remains editable for adjustments. Direct Demands have no Teams Assigned section — the requirement's optional `owning_team_id` is selected per-requirement instead.
+  - **Per-team confirmation strip** *(Projects in Scoping only)* — for each assigned team, a compact strip shows: team name, a green/amber chip indicating `confirmed` state, the number of skill-shaped requirements currently flagged with that team's `owning_team_id`, and a **"Confirm requirements for [Team Name]"** button (or "Un-confirm" if already confirmed). Clicking Confirm sets `ProjectTeamAssignment.confirmed = true` and records `confirmedBy` (the current user, stubbed in v1) and `confirmedAt`. See section 3.
+  - **Internal requirements list** — visible from **Project Scoping** onwards (hidden in Project Draft) or from **direct Demand Draft** onwards (visible immediately on direct Demands). Each internal requirement displays as a row with skill, level, **owning team** (dropdown — pre-filled from assigned teams on Projects, or all Teams in the Demand's Function on direct Demands), notes, and a **per-month hours grid** (finite) or **steady-state hours input** (indefinite). On Projects, editing a requirement whose owning team has `confirmed = true` on this phase resets that team's `confirmed` to false and prompts re-confirmation.
+  - **External requirements list** — visible from **Project Scoping** onwards (hidden in Project Draft) or from **direct Demand Draft** onwards. A visually distinct sub-section within each phase card, below the internal requirements. Header: "External Resource Requirements" with an "+ Add external requirement" button. Each external requirement displays as a row with Provider (dropdown — admin-configured), Role (free text), notes, and the same **per-month hours grid** (finite) or **steady-state hours input** (indefinite) as internal requirements. Visually, external requirements are distinguished by a secondary accent colour and a small "External" label or icon on each row — users must be able to tell at a glance which rows are internal and which are external. When a phase has no external requirements, the section collapses to just the "+ Add external requirement" affordance — it doesn't take up vertical space with empty state chrome.
+- Actions: add phase, reorder phases, delete phase, assign/unassign teams to phase (Projects only). **In Project Scoping or direct Demand Draft only**: add internal requirement within a phase, add external requirement within a phase, delete any requirement, confirm/unconfirm team assignments (Projects only). In all read-only statuses, all of the above are read-only or hidden.
 
 **Internal requirements entry** is **always skill-shaped**:
-- The "Add Internal Requirement" form offers: **Skill** (using the DOMAIN > SKILL selector — see 4.5.3; scoped to the **Function of the chosen owning team**, not the active Function — this is how cross-Function requirements get added), **Level** (Basic / Advanced / Specialist), **Owning team** (required if any teams are assigned to this phase; picks from the phase's assigned teams), **Starting hours per month** (pre-fills the per-month grid, or sets the steady-state value for indefinite phases).
-- If the phase has no teams assigned, the Owning team field is skipped and the requirement is created with `owning_team_id = null`; the Skill selector in that case scopes to the active Function.
+- The "Add Internal Requirement" form offers: **Skill** (using the DOMAIN > SKILL selector — see 4.5.3); **Level** (Basic / Advanced / Specialist); **Owning team** (required when teams are assigned to the phase — Projects pick from the phase's assigned teams; direct Demands pick from any Team in the Demand's Function); **Starting hours per month** (pre-fills the per-month grid, or sets the steady-state value for indefinite phases).
+- **Skill selector scoping**:
+  - On a Project, the DOMAIN > SKILL selector is scoped to the **Function of the chosen owning team**. This is how cross-Function requirements get added to a single Project — picking a Group IT team as the owner scopes the selector to Group IT Skills.
+  - On a direct Demand, the DOMAIN > SKILL selector is scoped to the **Demand's Function** (set at creation, immutable). Cross-Function requirements are not permitted on direct Demands — that's what Projects exist for.
+- If a Project phase has no teams assigned, the Owning team field is skipped and the requirement is created with `owning_team_id = null`; in that case the Skill selector falls back to the active Function (Project Draft is unusual here — typically users assign teams before adding requirements).
 - Named allocations are not entered in this mode — they're added in Mode B.
 
-**External requirements entry** (new in v1.14):
+**External requirements entry**:
 - The "Add External Requirement" form offers: **Provider** (dropdown reading from the admin-configured Provider list — see section 5), **Role** (free text), **Starting hours per month** (pre-fills the per-month grid, or sets the steady-state value for indefinite phases), optional **notes**.
 - External requirements never have named allocations. They are demand-shaped only (section 2.6). No allocation UI appears for them in Mode B.
 - If the admin Provider list is empty when the user first tries to add an external requirement, the form surfaces an inline link to the Provider admin screen and blocks submission until at least one provider exists.
 
-**Dropdown overflow — mandatory portalling**: the DOMAIN > SKILL selector, the Project alignment picker, the Provider dropdown, and any other dropdown that opens from inside a phase card or elsewhere in the edit page must be rendered via a portal (e.g. Radix Popover or Headless UI Combobox patterns that mount to document.body). Phase cards and containers have `overflow` constraints that clip non-portalled dropdowns, cutting off options — this must not happen. Any dropdown open event must yield a popover that can exceed its container bounds and remain fully visible regardless of where it sits on the page.
+**Dropdown overflow — mandatory portalling**: the DOMAIN > SKILL selector, the Programme picker, the Provider dropdown, and any other dropdown that opens from inside a phase card or elsewhere in the edit page must be rendered via a portal (e.g. Radix Popover or Headless UI Combobox patterns that mount to document.body). Phase cards and containers have `overflow` constraints that clip non-portalled dropdowns, cutting off options — this must not happen. Any dropdown open event must yield a popover that can exceed its container bounds and remain fully visible regardless of where it sits on the page.
 
 Per-month hours UI (finite phases) — applies identically to internal and external requirements:
 - Each requirement row shows a horizontal grid of month cells spanning the phase's date range.
@@ -1152,28 +1334,32 @@ Steady-state UI (indefinite phases) — applies identically to internal and exte
 - Each requirement row shows a single "Hours per month (indefinite)" input instead of the per-month grid.
 - For internal requirements, the capacity calculation applies this value from the phase's `start_month` onwards with no end bound. For external requirements, the value contributes to Programme/Project external roll-ups with no end bound, but does not affect any capacity calculation.
 
-**Teams Assigned picker** *(redesigned in v1.17 — replaces the multi-select chip pattern from v1.16)*
+**Teams Assigned picker** *(Projects only — redesigned in v1.17, semantics unchanged in v1.18 except `DemandTeamAssignment` → `ProjectTeamAssignment`)*
 
-The Teams Assigned control on each phase card is the primary coordination surface for deciding who scopes a Demand. It is editable in Draft and Scoping, read-only in Submitted and Parked. The redesign replaces the v1.16 chip-based multi-select with a clearer, more professional pattern:
+The Teams Assigned control on each phase card is the primary coordination surface for deciding who scopes a Project. It is editable in Project Draft and Project Scoping, read-only in Project Submitted onwards. Direct Demands do not have this control.
 
 - **Header row**: a single-line **searchable picker** (combobox) with placeholder text "Add a team to this phase…". The dropdown lists all active Teams across all Functions, grouped by Function. Each option shows Team name on the left and parent Function name on the right (right-aligned, secondary text colour) so users can disambiguate same-named teams across Functions. Typing filters by team name and Function name, similar to the DOMAIN > SKILL selector behaviour.
 - **Assigned list (below the picker)**: a vertical list of currently-assigned teams. Each row shows Team name and parent Function as a small subtitle, plus a remove (×) action on the right. Rows are ordered alphabetically by Function then Team for stable visual scanning. When no teams are assigned, the list shows a muted empty-state message: "No teams assigned. Add at least one team before submitting for scoping."
-- **Selecting** a team from the picker dropdown moves it from the dropdown to the assigned list immediately and creates the `DemandTeamAssignment` record. The picker resets and is ready for the next selection. Already-assigned teams are not shown in the dropdown — there's no concept of selecting a team twice for the same phase.
-- **Removing** a team from the assigned list opens a small confirm dialog if the team has confirmed requirements on this phase or owns any internal requirements ("This team has 3 requirements on this phase. Removing the team will unlink those requirements but not delete them. Continue?"). Otherwise the removal is immediate. The `DemandTeamAssignment` record is deleted; any internal requirements with `owning_team_id` matching the removed team have their `owning_team_id` cleared to null (orphaned, but preserved).
-- **Visual distinction by Function**: each row in the assigned list shows a small coloured indicator (a dot or vertical bar) keyed to a per-Function colour. This is purely a quick-scan affordance for cross-Function Demands; it does not introduce any new colour token (the Function colours come from `DESIGNSYSTEM.md`).
-- **Read-only mode** (Submitted, Parked, and during Mode B's read-only summary): the picker is hidden, only the assigned list is shown, and the remove (×) actions are not rendered. Each row still shows the Function indicator and parent Function subtitle.
+- **Selecting** a team from the picker dropdown moves it from the dropdown to the assigned list immediately and creates the `ProjectTeamAssignment` record. The picker resets and is ready for the next selection. Already-assigned teams are not shown in the dropdown — there's no concept of selecting a team twice for the same phase.
+- **Removing** a team from the assigned list opens a small confirm dialog if the team has confirmed requirements on this phase or owns any internal requirements ("This team has 3 requirements on this phase. Removing the team will unlink those requirements but not delete them. Continue?"). Otherwise the removal is immediate. The `ProjectTeamAssignment` record is deleted; any internal requirements with `owning_team_id` matching the removed team have their `owning_team_id` cleared to null (orphaned, but preserved).
+- **Visual distinction by Function**: each row in the assigned list shows a small coloured indicator (a dot or vertical bar) keyed to a per-Function colour. This is purely a quick-scan affordance for cross-Function Projects; it does not introduce any new colour token (the Function colours come from `DESIGNSYSTEM.md`).
+- **Read-only mode** (Project Submitted onwards): the picker is hidden, only the assigned list is shown, and the remove (×) actions are not rendered. Each row still shows the Function indicator and parent Function subtitle.
 
 The per-team confirmation strip (see "Internal requirements list" above) sits **below** the assigned list, in Scoping only. The two are visually grouped under a "Teams Assigned" section header on the phase card so the relationship between assignment and confirmation is clear.
 
-**Mode B — Allocation Workspace** (active when status is `Approved`, `Partially Allocated`, `Allocated`)
+**Mode B — Allocation Workspace** (active on Demands when status is `Approved`, `PartiallyAllocated`, or `Allocated`)
 
-Once approved, the primary purpose of the edit page becomes allocation — naming people against the committed skill-shaped requirements. The demand definition is locked (see section 3 — Allocation editing). A small read-only summary of the demand definition is shown at the top for reference, with a link back to Park-and-revise if changes are truly needed.
+Mode B is reached only on **Demands** (Project-spawned or direct) — never on Projects. Once a Demand is Approved, the primary purpose of the edit page becomes allocation — naming people against the committed skill-shaped requirements visible on this Demand. The Demand's definition is locked (see section 3 — Allocation editing).
+
+For a Project-spawned Demand, "the definition" is the Function-scoped slice of the parent Project's phases and requirements — visible read-only on this page. For a direct Demand it is the Demand's own phases and requirements. In either case the user sees only the requirements targeting this Demand's Function.
+
+A small read-only summary of the relevant definition is shown at the top for reference. There is no "back to Mode A" path in v1.18 because Park-and-revise and Revise are removed — to change a definition the user must Delete the Project (or direct Demand) and recreate.
 
 Content:
-- Top section: read-only demand summary (name, type, owner, Functions involved, **Project alignment** — displayed as "Programme › Project" with an inline re-align affordance that's still editable here, per section 2.1.1 — total internal hours by phase, and a compact external-hours summary if any external requirements exist: "External: 160 hrs/mo across 2 providers" with a hover or expand for the per-provider breakdown).
-- **Phase timeline (Gantt)**: the same phase Gantt visual as Mode A (section 4.5.2 — "Phase timeline (Gantt)"), rendered **read-only** here. Same visual styling, same colour-by-funding-source, same legend, same vertical-padding rules — only the interactivity changes: clicking a bar still scrolls the page to the corresponding phase card below, but dragging, resizing, or otherwise editing bar geometry is not available. Changing the phase timeline requires Park-and-revise or (from Approved) the Revise action (section 3). This read-only Gantt sits **above the "Demand Definition is Locked" banner** so the user can orient themselves on the shape of the work before seeing the locked-banner and the allocation rows. Rationale: the Gantt is pure orientation — it tells the user at a glance "this demand has three phases, here's when each runs" — and that's just as useful in Mode B as in Mode A. Hiding it behind a mode split made Mode B feel like a different page than Mode A rather than a progression of the same page.
-- **"Demand Definition is Locked" banner**: a subtle yellow/amber banner immediately below the Gantt, stating that requirement definitions are locked in the current status and offering the appropriate return-to-Mode-A action (Revise from Approved; Park → Revive from Partially Allocated / Allocated).
-- **Allocation summary header**: overall coverage across the demand (e.g. "68% allocated, 4 unfilled requirement-months"), status pill showing current status.
+- Top section: read-only Demand summary (name, type, owner, Function, parent Project link if Project-spawned — displayed as "Programme › Project name" with a click-through to open the parent Project's drawer; total internal hours by phase scoped to this Function; and a compact external-hours summary if any external requirements exist on the parent: "External: 160 hrs/mo across 2 providers" with a hover or expand for the per-provider breakdown).
+- **Phase timeline (Gantt)**: the same phase Gantt visual as Mode A (section 4.5.2 — "Phase timeline (Gantt)"), rendered **read-only** here, scoped to the phases that have at least one requirement for this Demand's Function (Project-spawned Demands hide phases with no Function-relevant requirements; direct Demands show all their own phases). Same visual styling, same colour-by-funding-source, same legend, same vertical-padding rules — only the interactivity changes: clicking a bar still scrolls the page to the corresponding phase card below, but dragging, resizing, or otherwise editing bar geometry is not available. Changing the phase timeline is not possible without Delete-and-recreate in v1.18. This read-only Gantt sits **above the "Definition is Locked" banner** so the user can orient themselves on the shape of the work before seeing the locked-banner and the allocation rows.
+- **"Definition is Locked" banner**: a subtle yellow/amber banner immediately below the Gantt, stating that requirement definitions are locked in the current status. The banner identifies the source of the lock — for a Project-spawned Demand: *"Requirements live on the parent Project ([Project name]) and are not editable from here. Changes to the Project require Delete-and-recreate."* For a direct Demand: *"Requirements are locked from Submitted onwards. Changes require Delete-and-recreate."*
+- **Allocation summary header**: overall coverage across this Demand (e.g. "68% allocated, 4 unfilled requirement-months"), status pill showing current status.
 
 **Phase separation — visual priority**
 
@@ -1195,7 +1381,7 @@ Each phase is rendered as a **distinctly bounded card** with strong visual separ
 - If the phase has external requirements, they appear below the internal requirements in a clearly-labelled "External Resource Requirements" sub-section. Same visual treatment as Mode A — secondary accent colour and "External" label — but rendered read-only.
 - Each external requirement shows its Provider, Role, and per-month hours (or steady-state hours for indefinite phases).
 - No coverage strip, no allocation rows, no "Add allocation" — external requirements have no allocation layer (section 2.6). The row is purely informational.
-- External requirements cannot be edited in Mode B (locked under the same rule as internal requirement definitions — section 3, Allocation editing). To edit, the user must Park-and-revise (or Revise from Approved) to return to Mode A.
+- External requirements cannot be edited in Mode B (locked under the same rule as internal requirement definitions — section 3, Allocation editing). To edit, the user must Delete the parent Project (or direct Demand) and recreate.
 
 **Person capacity visibility on allocation**
 
@@ -1239,7 +1425,7 @@ Key points:
 - The allocation being edited is **excluded** from its own "other allocations" bucket. Otherwise headroom shrinks as the user types, producing confusing feedback. "Row being edited" means the specific `(phase, requirement, person)` row — not the specific month cell. All month cells on the same row share the same exclusion, so typing into one month doesn't change that row's preview for another month.
 - BAU is included naturally because BAU is now demand of type BAU — its allocations are in the same pool.
 - `contracted_hours(P, M)` respects the person's `available_from` / `available_to` — if M is outside that range, contracted hours for that month is zero.
-- If the parent demand item of the allocation being edited is currently in Submitted status (e.g. during Revise flow), its existing persisted allocations should be **excluded** from the headroom calculation, since Submitted items don't consume capacity.
+- If the parent Demand of the allocation being edited is currently in Submitted status (only possible for direct Demands editing allocations during Submitted-to-Approved review, which is uncommon in v1.18), its existing persisted allocations should be **excluded** from the headroom calculation, since Submitted Demands don't consume capacity.
 
 Hover text format: "Alex Morgan, June 2026: 152 contracted − 20 BAU (MES Super User) − 60 Project X Phase 2 − 40 pending this session (Phase 1 · MES Platform) = 32 hrs available". The pending-this-session line is only shown when non-zero.
 
@@ -1294,12 +1480,9 @@ Saving in Mode B:
 
 **Switching between modes**
 
-The mode is determined by status and is not directly toggleable. Two paths exist for returning a demand to Mode A:
+The mode is determined by status and is not directly toggleable. **In v1.18 there is no path back from Mode B to Mode A**. The v1.17 Revise (Approved → Submitted) and Park-and-revive (PartiallyAllocated/Allocated → Parked → Submitted) actions are removed. To change the definition of an Approved or further-progressed Demand, the only path is **Delete-and-recreate** (Delete the parent Project for Project-spawned Demands; Delete the direct Demand for direct ones — see section 3 Deletion). This is deliberate friction; richer return paths return in a later version.
 
-- From `Approved`: the **Revise** action — moves the demand directly back to `Submitted` without the Park detour. Existing allocations are preserved but ignored from capacity calculations while in Submitted. On re-Approval, they're re-validated against the (possibly edited) requirements and flagged if they no longer fit (e.g. the requirement's skill changed). This is the low-friction path for correcting demand definition issues that are discovered after approval but before allocation work has started in earnest.
-- From `Partially Allocated` or `Allocated`: only the **Park → Revive** path. Because these statuses represent active allocation work against real capacity, direct-to-Submitted is not permitted — the Park step is deliberate friction that ensures the user consciously acknowledges they're pulling committed resource-naming.
-
-Named allocations are **preserved** through both Revise and Park/Revive, so they reappear when the demand is re-approved.
+Named allocations are owned by the Demand and follow the Demand's lifecycle. They are preserved while the Demand exists; Delete cascades them away.
 
 **Validation (both modes)**:
 - Block save on requirement-level over-allocation (see above).
@@ -1331,52 +1514,78 @@ Implementation note: this is one component. Build it once and reuse everywhere a
 
 ### 4.6 Manage Demand
 
-*Renamed from "Demand discovery" in v1.17. The page is also reached via a top-nav link labelled "Manage Demand" (renamed from "Demand"). The new "Demand" nav link reaches a different page — see section 4.10.*
+*Reshaped in v1.18.* The page that surfaces individual Demands across their lifecycle. Each card represents a single-Function Demand (Project-spawned or direct). The active Function lens applies — only Demands whose `function_id` matches the active Function are shown.
 
-Finding a specific Demand item among many — and managing its lifecycle through the state machine. Three switchable modes, default is **Board (Kanban)** — the state-machine flow is the primary mental model for the page. Active statuses only (Draft, Scoping, Submitted, Approved, Partially Allocated, Allocated, Parked). Closed items appear in the Archive view, not here.
+Three switchable modes, default is **Board (Kanban)** — the state-machine flow is the primary mental model.
 
-- **Board mode (default)**: kanban-style cards grouped by status across seven columns in state-machine order: Draft / Scoping / Submitted / Approved / Partially Allocated / Allocated / Parked. Drag between columns triggers the valid status transition. If a drag would be invalid (e.g. Approved → Draft) the drop is rejected with a tooltip explaining the constraint. Invalid drops should visually animate back to the source column. Cards show Project alignment as a small "Programme › Project" tag if set, or a subtle "Unaligned" indicator if not.
-- **Table mode**: spreadsheet-style, sortable columns (name, type, status, Functions involved, Programme, Project, owner, phase count, total committed hours, total external hours). Filterable. Best for bulk scanning. "Functions involved" shows the distinct Functions touched by the Demand's requirements as small chips in a single cell; empty when no requirements exist.
-- **Search mode**: full-text search across name, description, owner, phase names, and Programme/Project names. Best for "find one specific thing."
+- **Board mode (default)**: kanban-style cards grouped by status across **5 columns** in state-machine order: **Draft / Submitted / Approved / Partially Allocated / Allocated**. The Draft column shows direct Demands only (Project-spawned Demands enter at Submitted). Drag between columns triggers the valid user-driven status transition: Draft → Submitted on a direct Demand, Submitted → Approved on either origin. Drags to columns reachable only via auto-transition (PartiallyAllocated, Allocated) are rejected with a tooltip explaining "this status is reached automatically as allocations are added." Invalid drops animate back to the source column. Cards show: Demand name, type, parent-Project link as a small "Programme › Project" tag if Project-spawned, or a "Direct" badge if direct.
+- **Table mode**: spreadsheet-style, sortable columns (name, type, status, origin (Project-spawned/Direct), Programme, Project, owner, phase count, total internal hours, total external hours). Filterable. Best for bulk scanning.
+- **Search mode**: full-text search across name, description, owner, phase names, and parent Project's Programme/Project names. Best for "find one specific thing."
 
-**Group-by-Programme/Project view** (introduced v1.14)
+**"+ New Direct Demand" button** *(top-right of the page)* — opens the Mode A edit page for a new direct Demand belonging to the **active Function** (Function is set at creation and immutable). The page lands in Demand Draft with empty phases and empty requirements.
+
+**Group-by-Project view** (introduced v1.14, retained in v1.18)
 
 In **Table mode**, a "Group by" control offers three grouping options: None (flat list, the default), Programme, or Project. When grouping is active:
 
-- Rows are grouped under collapsible section headers. When grouping by Programme, headers are Programme names with Project-level sub-headers below. When grouping by Project, headers are "Programme › Project" strings with Demands listed under each. Unaligned Demands appear under a virtual "No Project" / "No Programme" group, visually distinct (e.g. italicised or muted header).
-- Each group header shows a **roll-up summary block** to its right: internal hours total across the visible time horizon (sum of `project_internal_hours` or `programme_internal_hours` across the horizon), external hours total (sum of `project_external_hours` or equivalent), external breakdown by provider available on hover or click-to-expand, and a child Demand count.
-- The Demand count in a group header respects any active status / domain / type filters — so a filter applied to the rows also constrains the count and the roll-up totals. This keeps the header number consistent with what the user sees below.
+- Rows are grouped under collapsible section headers. When grouping by Programme, headers are Programme names with Project sub-headers below. When grouping by Project, headers are "Programme › Project" strings with Demands listed under each. Direct Demands appear under a virtual "Direct Demands" group, visually distinct (e.g. italicised or muted header).
+- Each group header shows a **roll-up summary block** to its right: internal hours total across the visible horizon (sum of `project_internal_hours` or `programme_internal_hours` for Project-grouped), external hours total, external breakdown by provider on hover, and child Demand count.
+- The Demand count in a group header respects any active filters — so a filter applied to the rows also constrains the count and the roll-up totals.
 - Collapsing a group hides its Demand rows but leaves the summary header visible.
 
 **Filters** (available across all modes)
 
 | Filter | Behaviour |
 |---|---|
-| Status (multi-select) | Hides Demands whose status is not selected. In Board mode, columns for hidden statuses are still shown (so the state-machine flow remains visible) but contain zero cards for that status. |
+| Status (multi-select) | Hides Demands whose status is not selected. In Board mode, columns for hidden statuses still render (so the state-machine flow remains visible) but contain zero cards. |
 | Type (multi-select) | Hides Demands whose type is not selected. |
-| Domain (multi-select) | Hides Demands whose requirements do not touch any of the selected Domains. Populated from the active Function's Domains (see section 4.9). Replaces the previous "Primary Domain" filter. |
-| Programme (single-select, "Any" default) | Hides Demands not aligned to the selected Programme's Projects. Affects roll-up counts in grouped Table mode. |
-| Project (single-select, dependent on Programme) | Hides Demands not aligned to the selected Project. Lists all Projects if Programme is "Any", or only the selected Programme's Projects. |
-| Has external requirements (toggle) | Hides Demands with zero external requirements. |
+| Domain (multi-select) | Hides Demands whose visible requirements (Function-scoped) do not touch any of the selected Domains. Populated from the active Function's Domains (section 4.9). |
+| Programme (single-select, "Any" default) | Hides Demands not aligned to the selected Programme's Projects. Direct Demands are always hidden when a specific Programme is selected (they have no Programme); to show them, switch back to "Any." |
+| Project (single-select, dependent on Programme) | Hides Demands not aligned to the selected Project. Lists all Projects if Programme is "Any", or only the selected Programme's Projects. Direct Demands are hidden when any Project is selected. |
+| Origin (single-select: All / Project-spawned / Direct) | Quick filter for the two paths. Default "All". |
+| Has external requirements (toggle) | Hides Demands whose parent Project (or own definition for direct Demands) has zero external requirements. |
 
-**All filters apply to every mode — Board, Table, and Search.** This is a specific correction from earlier builds where Programme, Project, and the Has-external-requirements filters were observed to have no effect on Board mode cards. In Board mode, filter application works as follows:
+**All filters apply to every mode — Board, Table, and Search.** Filter application in Board mode:
 
-- Each Kanban column renders only the cards for Demands that pass every active filter. The column header still shows the *filtered* count (e.g. "Approved (3)" where 3 reflects only cards visible after filters, not the total Approved count in the store). If a user wants to see total-store counts, they clear the filters.
-- If every card in a column is filtered out, the column renders an empty-state message ("No Demands match the current filters") rather than disappearing — the state-machine flow must remain visible even when no cards are present.
-- Drag-and-drop between columns remains enabled on visible cards. Dragging a card to a column where the target status would be filtered out (e.g. status filter excludes the target status) still performs the transition; the moved card simply disappears from the filtered view. A brief toast confirms the transition when this happens so the user doesn't lose track of where the card went.
+- Each Kanban column renders only cards for Demands that pass every active filter. Column header shows the **filtered** count.
+- If every card in a column is filtered out, the column renders an empty-state message ("No Demands match the current filters") rather than disappearing — the state-machine flow remains visible even when no cards are present.
+- Drag-and-drop remains enabled on visible cards.
 
-All filters compose — selecting Programme "MES Modernisation" + Type "Plant Project" + Has-external-requirements shows only Plant Projects within that Programme that have external resource needs. Filter state persists per-session.
+All filters compose. Filter state persists per-session.
 
 Mode selection persists per-session. User preference is not stored long-term in v1.
 
-### 4.7 Archive view
+### 4.6.A Manage Projects
 
-A dedicated page listing all demand items in status `Closed`. Reachable from the main navigation.
+*New view in v1.18.* The page that surfaces individual Projects across their planning lifecycle. Reached via the top-nav link "Manage Projects" (between "Demand" and "Manage Demand" — see section 11.19).
 
-- Spreadsheet-style table (similar to Demand list Table mode).
-- Columns include the status the item was closed *from*, and the date closed.
-- Read-only per row, with a **Restore** action per item that returns it to the status it held before Close.
-- Archive items are excluded from all other views (Demand list, Capacity Validation, Team Activity, Forecast) so Closed demand never affects operational numbers.
+The active Function lens applies in a Function-aware way: a Project is visible if it is in Draft/Scoping (no Demands spawned yet — visible to all Functions, since the planning is still cross-Function), OR if it has at least one spawned Demand belonging to the active Function. This means the active Function sees the Projects it has scoped or is involved in; Projects scoped by other Functions and not touching the active Function are hidden.
+
+Three switchable modes, default is **Board (Kanban)**.
+
+- **Board mode (default)**: kanban-style cards grouped by Project status across **5 columns** in state-machine order: **Draft / Scoping / Submitted / Approved / Allocated**. Drag between columns triggers the valid user-driven Project transition: Draft → Scoping (Submit for Scoping, gated on phases-and-teams-assigned), Scoping → Submitted (Submit Project, triggers spawn rule). Drags to Approved or Allocated are rejected with a tooltip explaining "this status is reached automatically when child Demands progress." Cards show: Project name, type, Programme name (or "No Programme"), and a Functions-involved row of small chips revealing which Functions the Project's requirements touch.
+- **Table mode**: sortable columns (name, type, status, Programme, owner, Functions involved, phase count, total internal hours across the horizon, total external hours, child Demand count). Filterable.
+- **Search mode**: full-text search across name, description, owner, phase names, and Programme name.
+
+**"+ New Project" button** *(top-right of the page)* — opens the Mode A edit page for a new Project. The page lands in Project Draft with empty phases, empty Programme (user picks if any), and empty Teams Assigned.
+
+**Filters**
+
+| Filter | Behaviour |
+|---|---|
+| Status (multi-select) | Hides Projects whose status is not selected. |
+| Type (multi-select) | Hides Projects whose type is not selected. |
+| Programme (single-select, "Any" default) | Hides Projects not under the selected Programme. |
+| Functions involved (multi-select) | Hides Projects whose requirements do not touch any of the selected Functions. Populated from all Functions (the Manage Projects view is intrinsically cross-Function). |
+| Has external requirements (toggle) | Hides Projects with zero external requirements. |
+
+**Group-by-Programme view** (Table mode only) — analogous to Manage Demand's Group-by-Project. Programme group headers carry roll-up summaries; Projects without a Programme appear under a virtual "No Programme" group.
+
+Mode and filter state persist per-session.
+
+### 4.7 Archive view *(removed in v1.18)*
+
+The Archive view is removed in v1.18 along with the `Closed` status and the `Restore` action. There is no longer a place where Closed/inactive Projects or Demands accumulate — Delete is the only off-flow action, and it permanently removes records (with cascade — see section 3 "Deletion"). Future versions may reintroduce a soft-archive concept; v1.18 trades retrievability for simplicity.
 
 ### 4.8 Skill detail view
 
@@ -1423,15 +1632,15 @@ Sort controls on the people list: default sort is by skill level descending (Spe
 A **Gantt chart**, with the same visual styling as the phase timeline on the Demand edit page Mode A (section 4.5.2). One row per demand item with at least one requirement targeting this skill (at any level) within the visible horizon.
 
 - **X-axis**: months, aligned with the heatmaps above (same horizon and month boundaries). Month labels use the same **two-line stacked format** as the people-heatmap column headers — MMM on the upper line, YY on the lower — so both visuals align column-for-column and read consistently.
-- **Y-axis**: one row per demand item. Sorted by earliest requirement-start month ascending, then by status (Allocated > PartiallyAllocated > Approved > Submitted > Draft > Parked), then by name.
-- **Bar span**: from the earliest month where the demand has a requirement for this skill, through the latest such month. For multi-phase demand items where phases with this-skill requirements are non-contiguous, render one bar per contiguous run (same demand item, multiple bars on the same row).
-- **Bar colour**: by **demand type**, matching the universal demand-type colour coding used on the Capacity Validation stacks and Team Activity cells (Plant Project, Group Strategy Project, NPD Demand, BAU). This is consistent with Tim's direction that colour follows demand type on cross-demand views; funding-source colouring is only used on the within-one-demand phase Gantt in Mode A.
-- **Bar label**: demand name, truncated with ellipsis if the bar is narrow. Status shown as a small pill/icon at the left end of the bar. A count of hours-per-month for this skill shown at the right end of the bar (or in the tooltip if the bar is narrow).
-- **Hover a bar**: tooltip with demand name, type, status, phase(s) that touch this skill, total committed hours for this skill across the visible horizon.
-- **Click a bar**: opens the demand drawer (section 4.5.1) for that item, with the contextual back link pointing back to this skill detail view rather than to the Demand list.
+- **Y-axis**: one row per Demand. Sorted by earliest requirement-start month ascending, then by status (Allocated > PartiallyAllocated > Approved > Submitted > Draft), then by name. Note: only Demands belonging to the active Function are shown (the active Function lens applies to this Skill detail view because Skills belong to a Function).
+- **Bar span**: from the earliest month where the Demand has a requirement for this skill, through the latest such month. For multi-phase Demands where phases with this-skill requirements are non-contiguous, render one bar per contiguous run (same Demand, multiple bars on the same row).
+- **Bar colour**: by **Demand type**, matching the universal demand-type colour coding used on the Capacity Validation stacks and Team Activity cells (Plant Project, Group Strategy Project, NPD Demand, BAU). This is consistent with the principle that colour follows demand type on cross-demand views; funding-source colouring is only used on the within-one-Project phase Gantt in Mode A.
+- **Bar label**: Demand name (auto-generated as `<Project name> — <Function name>` for Project-spawned Demands), truncated with ellipsis if the bar is narrow. Status shown as a small pill/icon at the left end of the bar. A count of hours-per-month for this skill shown at the right end of the bar (or in the tooltip if the bar is narrow).
+- **Hover a bar**: tooltip with Demand name, type, status, parent Project (if Project-spawned) or "Direct" badge, phase(s) that touch this skill, total committed hours for this skill across the visible horizon.
+- **Click a bar**: opens the Demand drawer (section 4.5.1) for that Demand, with the contextual back link pointing back to this skill detail view rather than to the Manage Demand list.
 
 **Filter controls above the Gantt**:
-- Status filter (multi-select) — toggles are displayed **in state-machine flow order**: Draft → Submitted → Approved → Partially Allocated → Allocated → Parked. This matches the Demand-page Kanban column order (section 4.6) so users build one mental model for status sequence across the app. Default selection shows Approved, Partially Allocated, Allocated. Users can enable Draft, Submitted, and/or Parked to see pipeline pressure. Never sort status toggles alphabetically — that breaks the process-flow mental model.
+- Status filter (multi-select) — toggles are displayed **in state-machine flow order**: Draft → Submitted → Approved → PartiallyAllocated → Allocated. This matches the Manage Demand Kanban column order (section 4.6) so users build one mental model for status sequence across the app. Default selection shows Approved, PartiallyAllocated, Allocated. Users can enable Draft and/or Submitted to see pipeline pressure. Never sort status toggles alphabetically — that breaks the process-flow mental model.
 - Demand type filter (multi-select) — default all on.
 - Skill level filter — "show demand requiring Specialist", "show demand requiring Advanced or higher", etc. Default: all levels.
 
@@ -1455,7 +1664,7 @@ The Function selector is the global **lens** control that determines which Funct
 **Active-Function state**
 - The active Function is persisted in the Zustand store and mirrored to localStorage (see section 7). On app load, the last-selected Function is restored; if no selection exists (first load) or the persisted Function has been deleted/deactivated since, the selector defaults to the first alphabetically-ordered active Function.
 - The active Function is a URL-visible state — the hash-router route includes it as a parameter (e.g. `#/capacity?fn=digital-manufacturing`), so the current lens is linkable and survives refreshes.
-- Changing the active Function causes every view that depends on it to re-derive from the store. This is a pure selector-based re-render — no page navigation is triggered. The user stays on the current page (Capacity Validation, Demand, Team Activity, Manage Demand, Admin, etc.), but the content updates to reflect the new Function. **Exception**: the Demand view (section 4.10) ignores the Function lens by design — see section 11.17 and 4.10.
+- Changing the active Function causes every view that depends on it to re-derive from the store. This is a pure selector-based re-render — no page navigation is triggered. The user stays on the current page (Capacity Validation, Demand, Manage Projects, Manage Demand, Team Activity, Admin, etc.), but the content updates to reflect the new Function. As of v1.18 every view respects the lens — there is no exception (the v1.17 Demand view exception was removed; see section 11.17).
 
 **What the active Function scopes**
 
@@ -1487,17 +1696,15 @@ The selector is a **lens** — it changes what's visible, not what exists. The u
 
 ### 4.10 Demand
 
-*Introduced in v1.17. Reached via a top-nav link labelled "Demand", positioned between "Capacity Validation" and "Team Activity". Distinct from "Manage Demand" (section 4.6) which handles individual Demand-item lifecycle.*
+*Introduced in v1.17, substantially revised in v1.18.* Reached via a top-nav link labelled "Demand", positioned between "Capacity Validation" and "Manage Projects". Distinct from "Manage Demand" (section 4.6) which handles individual Demand-item lifecycle.
 
-**The question this view answers**: *How much demand does each Programme (and each Project within it) create over time, and where does that demand land?*
+**The question this view answers**: *For each Programme (and each Project within it), how much demand is the active Function carrying over time, and where does that demand land?*
 
-This view exists to give the PMO a Programme-level read of demand shape independent of capacity — answering "what are we collectively being asked to do for this Programme over the coming months?" rather than "can we resource it?". Capacity Validation already answers the resourcing question; this view answers the demand-shape question. Both are useful, neither replaces the other.
+This view exists to give the PMO a Programme-level read of demand shape independent of capacity. Capacity Validation answers "can we resource it?"; this view answers "what shape does our work take across our Programmes?". Both are useful, neither replaces the other.
 
-**Function lens behaviour — explicitly ignored on this view**
+**Function lens behaviour — applies on this view as of v1.18**
 
-Unlike every other view in the tool, the Demand view **ignores the active Function lens**. Programmes are Function-agnostic by design (section 2.2), and the whole purpose of this view is to show a Programme's complete demand picture across all Functions and external resource. Lensing the data to one Function would amputate the picture. Switching Function on this view leaves the view's content unchanged, but other views (Capacity Validation, Team Activity) still re-render to the new Function in the background as normal.
-
-This is documented in section 11.17 as the single deliberate exception to the Function-as-lens pattern. The active Function selector remains visible in the header for navigation back to other views, but does not affect the Demand view's data.
+The Demand view now respects the active Function lens (reversing the v1.17 exception). Each chart's stacks reflect the active Function's slice of demand; switching the active Function re-renders the charts to that Function's slice. Two toolbar toggles — "Show external resource" and "Show demand on other Functions" — extend the picture beyond the active Function when wanted (defaults OFF). Section 11.17's earlier exception note is removed.
 
 **Page structure — two levels**
 
@@ -1505,65 +1712,69 @@ The view has two levels: a **Programme list** (landing) and a **Project drill-do
 
 #### 4.10.1 Programme list (landing page)
 
-The landing page lists every active Programme as a vertically-stacked card. Each card contains:
+The landing page lists every Programme as a vertically-stacked card. Each card contains:
 
-- **Header row**: Programme name as primary heading, child Project count, total Demand count across child Projects (e.g. "MES Modernisation · 3 Projects · 12 Demands"), and a chevron / "View Projects →" affordance on the right indicating the row is clickable for drill-down.
-- **Stacked-area demand chart** — the primary visual content of the card. See "Chart specification" below. This chart aggregates across all the Programme's Projects.
-- **Roll-up summary line** below the chart: "Peak demand: 480 hrs/mo (Aug 2026) · 12-month total: 4,200 hrs". The peak month and totals follow the active horizon and the toolbar's stacking and Submitted-overlay settings.
+- **Header row**: Programme name as primary heading, count of Projects with at least one active-Function Demand, plus that Demand count (e.g. "MES Modernisation · 2 Projects · 3 Demands"), and a chevron / "View Projects →" affordance on the right indicating the row is clickable for drill-down.
+- **Stacked-area demand chart** — the primary visual content of the card. See "Chart specification" below. This chart aggregates across the Programme's Projects, scoped to the active Function (with toggles' effect applied).
+- **Roll-up summary line** below the chart: "Peak demand: 480 hrs/mo (Aug 2026) · 12-month total: 4,200 hrs". The peak month and totals follow the active horizon and the toolbar's settings.
 
-A virtual **"Unaligned Demand"** card appears at the bottom of the list, aggregating any non-Parked, non-Closed Demands that are not aligned to any Project. It is visually muted (italicised header, lighter card background) but uses the same chart structure. If there are no unaligned Demands, the card is hidden entirely. The virtual card is not drillable — it has no Projects underneath it.
+A virtual **"Direct Demands"** card appears at the bottom of the list, aggregating direct Demands belonging to the active Function (i.e. Demands with `parent_project_id = null` and `function_id = active_function`). The card uses the same chart structure but is visually muted (italicised header, lighter card background). If the active Function has no direct Demands, the card is hidden entirely. The Direct Demands card is **not drillable** — it has no Projects underneath it; it's a leaf card, the bottom of the hierarchy.
 
-Clicking anywhere on a Programme card (except interactive chart elements) navigates to the Project drill-down for that Programme. The Unaligned Demand card is not clickable.
+A second virtual **"Unaligned Projects"** card appears above the Direct Demands card, aggregating Projects that have no Programme but do have at least one active-Function Demand. Same visual treatment as Direct Demands. Hidden when the active Function has no Demands on Programme-less Projects.
+
+Clicking anywhere on a Programme card (except interactive chart elements) navigates to the Project drill-down. Direct Demands and Unaligned Projects cards are not clickable.
 
 #### 4.10.2 Project drill-down page
 
 Reached by clicking a Programme card on the landing page. URL pattern: `#/demand/programme/<programme_id>`. Layout:
 
-- **Header**: Programme name with a back-link to the Programme list (e.g. "← Demand"), Programme description (if present), Project count, Demand count.
+- **Header**: Programme name with a back-link to the Programme list (e.g. "← Demand"), Programme description (if present), Project count (active-Function-touched), Demand count (active-Function only).
 - **Programme-total chart** at the top — same chart vocabulary as the landing page card, repeated here so the user can see the full Programme picture before drilling further.
-- **Project section** below — one card per Project in the Programme, each containing the Project's name, child Demand count, and a Project-scoped chart using the same chart vocabulary. Cards are ordered alphabetically by Project name. Projects with zero contributing Demand (no Demands aligned, or all aligned Demands are Parked/Closed) still render — the chart shows an empty state ("No demand from this Project in the visible horizon") rather than a zero-height chart, so the user understands the Project exists but has no current demand.
-- Each Project card has a **"View Demands →"** link in its header that deep-links to the Manage Demand page (section 4.6) in Table mode, grouped by Project, scrolled and pre-filtered to that Project. This is the bridge from "demand shape" back to "individual Demand management".
+- **Project section** below — one card per Project that has at least one active-Function Demand, each containing the Project's name, child Demand count for the active Function, and a Project-scoped chart using the same chart vocabulary. Cards are ordered alphabetically by Project name. Projects whose active-Function Demand has zero contributing hours in the visible horizon still render — the chart shows an empty state ("No demand from this Project in the visible horizon") rather than a zero-height chart.
+- Each Project card has a **"View Demands →"** link in its header that deep-links to Manage Demand (section 4.6) in Table mode, grouped by Project, scrolled and pre-filtered to that Project — under the active Function lens.
 
 #### 4.10.3 Chart specification
 
-Every chart on this view (Programme-level and Project-level) uses the same visual vocabulary:
+Every chart on this view uses the same visual vocabulary:
 
 - **Stacked area chart**, time on the x-axis (monthly resolution, sharing the global horizon presets — 6 / 12 / 24 / 60 months), hours on the y-axis.
-- **Stacking dimension is toolbar-controlled** — see "Toolbar" below. Two options: **By Funding Source** (default, three stacks: Investment Scheme, Plant/Sector Allocation, Mixed) or **By Team** (one stack per Team across all Functions, plus Provider stacks under a virtual "External" Function).
-- **Submitted overlay** (toolbar toggle, default OFF) — when ON, an additional layer is rendered on top of the Approved-onwards stack, showing the contribution of Submitted Demands. Visually distinguished from the committed stack by reduced opacity and a hatched fill (consistent with the projection grey band's hatched treatment from section 4 View 1, but coloured per the stack key rather than grey). When OFF, only Approved / PartiallyAllocated / Allocated demand is shown. The chart's y-axis automatically rescales when the toggle is flipped — the toolbar setting is a different aggregation, not a filter.
-- **Colour mapping**:
-  - By Funding Source: re-uses the funding-source palette from `DESIGNSYSTEM.md` (introduced for the phase Gantt in Mode A — see section 4.5.2). One colour per funding source value. Consistency with the phase Gantt is intentional — the user sees the same colour mean the same thing across the tool.
-  - By Team: each stack inherits its parent Function's colour token (introduced for the Teams Assigned picker dot indicator in section 4.5.2), with within-Function variation by lightness/saturation so adjacent same-Function teams remain distinguishable. The virtual "External" group uses a distinct neutral palette — defined in `DESIGNSYSTEM.md`.
-- **No capacity line, no projection grey band, no over-capacity treatment** — this is a demand-shape view, not a capacity view. Capacity belongs on Capacity Validation. Keeping these visual signals out of the Demand view prevents confusion between "what's being asked for" and "what we can do".
-- **Hover tooltip** for any month on any chart: lists every non-zero stack key in that month with its hour total, plus a Programme/Project total row at the bottom. Format: "Investment Scheme: 240 hrs · Plant/Sector Allocation: 80 hrs · Mixed: 160 hrs · Total: 480 hrs" or, in By Team mode, "Central Delivery Team (Digital Manufacturing): 120 hrs · Infrastructure Team (Group IT): 80 hrs · TCS (External): 40 hrs · Total: 240 hrs". When the Submitted overlay is on, the tooltip distinguishes committed vs Submitted hours per stack key.
-- **Click on a stack segment** in any month opens a side panel listing the contributing Demand items for that `(month, stack key)` pair. Each row shows Demand name, status pill, parent Project (and Programme, on the landing-page chart where multiple Programmes are not in scope), and hours contributed for that month. Clicking a Demand row opens the Demand drawer (section 4.5.1) on top of the side panel — closing the drawer returns to the side panel; closing the side panel returns to the chart. This is the drill-from-shape-to-individual-Demand path.
+- **Stacking — by Funding Source only.** Three stacks: Investment Scheme, Plant/Sector Allocation, Mixed. *(The "By Team" stacking option that existed in v1.17 has been removed in v1.18 — see toolbar below.)*
+- **"Include Submitted" toggle behaviour — v1.18 simplified.** When ON, Submitted Demands' hours merge into the same funding-source bucket as Approved/PartiallyAllocated/Allocated — there is no visual differentiation, no hatched layer, no opacity change, and no `(Submitted)` suffix in tooltip labels. The toggle simply expands the `status_set` from `[Approved, PartiallyAllocated, Allocated]` to also include `Submitted`. The chart's y-axis automatically rescales when the toggle is flipped — the toolbar setting is a different aggregation, not a filter applied client-side.
+- **"Show external resource" toggle behaviour.** When ON, external resource hours (from external requirements on the Project, or on direct Demands for the Direct Demands card) are added into the same funding-source buckets — same colour mapping, no separate visual treatment, no separate stacks. Externals are bucketed by their phase's `funding_source` exactly like internals. Off by default, mirroring Capacity Validation Section C's default.
+- **"Show demand on other Functions" toggle behaviour.** When ON, hours from other Functions' Demands on the same Projects (i.e. cross-Function siblings of the active Function's Demands) are added into the same funding-source buckets. No separate visual differentiation. Off by default. This toggle does not affect the Direct Demands card (direct Demands have no parent Project so cannot have sibling Demands).
+- **Colour mapping — funding-source palette** from `DESIGNSYSTEM.md` (introduced for the phase Gantt in Mode A — see section 4.5.2). One colour per funding source value, consistent across the tool.
+- **No capacity line, no projection grey band, no over-capacity treatment** — this is a demand-shape view, not a capacity view.
+- **Hover tooltip** for any month on any chart: lists every non-zero funding-source bucket in that month with its hour total, plus a Programme/Project total row at the bottom. Format: "Investment Scheme: 240 hrs · Plant/Sector Allocation: 80 hrs · Mixed: 160 hrs · Total: 480 hrs". The tooltip does **not** distinguish committed vs Submitted vs external vs other-Functions — the toggles change *what's in the bucket*, not how it's labelled.
+- **Click on a stack segment** in any month opens a side panel listing the contributing Demands for that `(month, funding_source)` pair. Each row shows Demand name, status pill, Function chip, parent Project (and Programme, on the landing-page chart where multiple Programmes are in scope), origin (Project-spawned / Direct), and hours contributed for that month. Clicking a Demand row opens the Demand drawer (section 4.5.1) on top of the side panel.
 
 #### 4.10.4 Toolbar
 
 Above the Programme list / Programme-total chart, a single toolbar applies to every chart on the page:
 
 - **Horizon selector** — same control as Capacity Validation: 6 / 12 / 24 / 60 months. Persists across navigation between landing and drill-down.
-- **Stacking selector** — segmented control with two options: "By Funding Source" (default) and "By Team".
-- **Include Submitted** toggle — default OFF. When ON, Submitted Demands are added as the overlay layer described in 4.10.3.
-- **Programme filter** — single-select dropdown ("All Programmes" default) on the landing page only; not shown on the drill-down. Useful when the Programme list grows long.
+- **Include Submitted** toggle — default OFF. When ON, expands `status_set` to include Submitted (no visual differentiation; see 4.10.3).
+- **Show external resource** toggle — default OFF. When ON, external requirement hours are added to the same buckets.
+- **Show demand on other Functions** toggle — default OFF. When ON, sibling Functions' Demand hours on shared Projects are added.
+- **Programme filter** — single-select dropdown ("All Programmes" default) on the landing page only; not shown on the drill-down.
 
-The toolbar does **not** include a Function filter or Team filter — the Demand view ignores Function lensing (see above), and Team is already a stacking dimension rather than a filter.
+The toolbar does **not** include a Stacking selector (only By Funding Source remains in v1.18) and does not include a Team filter or a Function filter (Function lens is from the global selector; Team is no longer a stacking option).
 
 #### 4.10.5 Empty states
 
-- **No Programmes exist**: render a single empty-state card with a link to the Programme admin screen (section 5) — "No Programmes yet. Create one in Admin → Programmes to see demand roll-ups here."
-- **Programmes exist but no Demands have any qualifying status (i.e. nothing Approved or Submitted)**: each Programme card still renders, but its chart shows the empty-state message described in 4.10.2.
+- **No Programmes exist and no direct Demands**: render a single empty-state card with links to Manage Projects ("Create your first Project") and Manage Demand ("Create a direct Demand").
+- **Programmes exist but no qualifying Demands for the active Function**: each Programme card still renders, but its chart shows the empty-state message described in 4.10.2.
 - **Demand view loaded mid-flight while data is still hydrating**: show skeleton cards consistent with `DESIGNSYSTEM.md` skeleton tokens. Do not show a global spinner — the skeletons preserve the page's structure during load.
 
 #### 4.10.6 Aggregation reference
 
-This view is the primary caller of the v1.17 aggregation functions added in section 2.4.9:
+This view is the primary caller of the v1.17/v1.18 aggregation functions in section 2.4.9:
 
-- The Programme list landing chart calls `programme_demand_by_funding(programme_id, month, status_set)` or `programme_demand_by_team(programme_id, month, status_set)` depending on the stacking selector.
-- The drill-down Programme-total chart calls the same Programme-level functions.
-- Each Project card on the drill-down calls `project_demand_by_funding(project_id, month, status_set)` or `project_demand_by_team(project_id, month, status_set)`.
-- The "Include Submitted" toolbar toggle controls the `status_set` parameter — see section 2.4.9 for semantics.
-- All Demand-level click-throughs (segment click → side panel) read from the store directly, filtered to the same `(programme_id|project_id, month, status_set)` scope as the chart and matched against the clicked stack key.
+- The Programme list landing chart calls `programme_demand_by_funding(programme_id, month, opts)` for each Programme card.
+- The drill-down Programme-total chart calls the same function.
+- Each Project card on the drill-down calls `project_demand_by_funding(project_id, month, opts)`.
+- The Direct Demands card on the landing page calls `direct_demand_by_funding(month, opts)` with `function_id = active_function`.
+- Across all calls, `opts` carries `function_id` (the active Function), `status_set` (controlled by Include Submitted), `include_external` (controlled by Show external resource), `include_other_functions` (controlled by Show demand on other Functions).
+- All Demand-level click-throughs (segment click → side panel) read from the store directly, filtered to the same scope as the chart and matched against the clicked funding-source bucket.
 
 No Demand view component performs its own summation — every number on the page comes from these functions, consistent with the aggregation-first principle (section 2.4.8).
 
@@ -1579,9 +1790,12 @@ All admin is open — anyone with access can edit any of the following. No permi
 - **Domains and Skills** (CRUD). Flat admin screens; domains and skills are simple named records scoped to the active Function. **Domain**: name (required, unique within its parent Function), description, `function_id` (derived from the active Function on create, not user-selectable). **Skill**: name (required, unique within its parent Domain), `domain_id` (selected from the active Function's Domains). Hard-delete is permitted only if the Domain/Skill has no references (no People holding the Skill, no requirements targeting it). Soft-delete via active flag retains references. Renaming is safe — records reference by id.
 - **Teams** (CRUD). Flat admin screen listing the active Function's Teams with name, type (Plant / Central / Specialist / Other), active flag, and a summary column showing member count. `function_id` is derived from the active Function on create and is not user-editable (a Team cannot be moved between Functions — if that's needed, create a new Team in the target Function and reassign People). Soft-delete via the active flag — inactive Teams remain on their existing People but don't appear in pickers. Hard-delete is permitted only if the Team has no assigned People; the user is otherwise shown the list of blocking People and advised to reassign them first. **Teams do not affect capacity calculations** — Team is an organisational label. Creating, renaming, or reassigning Teams never changes any chart, grey band, or projection shortfall.
 - **People** (CRUD). Each person's screen shows: name, **Team** (required — dropdown of active Teams in the active Function), contracted hours, `available_from` / `available_to`, active flag, and a **skill profile section** where skills are assigned (scoped to the person's Function via their Team). Existing People records without a Team assignment show an inline warning prompt in admin.
-- **Programmes** (CRUD, global). Flat admin screen listing all Programmes (regardless of active Function) with name, description, active flag, and a small summary column showing Project count and child Demand count. Soft-delete via the active flag — inactive Programmes remain on their existing Projects but don't appear in Demand alignment pickers. Hard-delete is permitted only if the Programme has no active Projects (and no Closed Projects that would orphan their Demands); the user is otherwise shown the list of blocking Projects and advised to reassign them first. See section 2.1.1 for the data model.
-- **Projects** (CRUD, global). Flat admin screen listing all Projects (regardless of active Function) with name, parent Programme, description, active flag, and a summary column showing child Demand count and rolled-up internal/external hours across the next 12 months (using `project_internal_hours` and `project_external_hours` summed across the 12-month window). Adding a Project requires selecting a Programme — either an existing one from a dropdown, or via an inline "+ Create new Programme…" entry in that dropdown (same pattern as the Demand's Project-alignment picker, section 4.5.2). Hard-delete is permitted only if the Project has no aligned Demands; the user is otherwise shown the list of blocking Demands and advised to reassign or unalign them first. Soft-delete via the active flag is always available — inactive Projects remain on their existing Demands but don't appear in pickers.
-- **Providers** (CRUD, global). Flat admin screen listing all Providers (regardless of active Function) with name and an in-use indicator (showing how many external requirements currently reference this Provider across all Demands). Name is required and unique. Renames cascade to all existing external requirements (section 2.6) — the requirement records reference the Provider by id, not by name, so a rename is a single-record update. Hard-delete is permitted only when the Provider's in-use count is zero; otherwise the user sees the blocking requirements list and is advised to reassign them to a different Provider (a bulk-reassign action is provided). Seed values: `Managed Services`, `Contractor`, `OEM`, `Plant Team`, `Other Internal Team`, `Other` — all pre-populated at seed time and editable thereafter.
+- **Programmes** (CRUD, global). Flat admin screen listing all Programmes (regardless of active Function) with name, description, active flag, and a small summary column showing Project count (total) and Project count by status. Soft-delete via the active flag — inactive Programmes remain on their existing Projects but don't appear in pickers. Hard-delete is permitted only if the Programme has no Projects (a Programme with Projects must have those Projects reassigned to a different Programme or to "No Programme" first); the user is otherwise shown the list of blocking Projects and advised to reassign them. See section 2.1.1 for the data model.
+- **Projects** (CRUD, global, **substantially expanded in v1.18** — Project is now a planning entity with phases and requirements, not just a grouping label). The admin Projects screen offers two surfaces:
+  - **List view**: all Projects across all Functions, with name, parent Programme (or "No Programme"), status, owner, type, child Demand count, and rolled-up internal/external hours across the next 12 months. The list reads from the same store as Manage Projects (section 4.6.A) — admin and operational views are identical reads, just with an admin styling.
+  - **Edit deep-link**: clicking a Project from the admin list opens its edit page (Mode A or read-only summary depending on status), the same one reached from Manage Projects. There is no separate admin edit page.
+  - Hard-delete behaviour matches the cascade described in section 3 Deletion (cascades to child Demands and allocations). Available from any Project status. The admin list-view shows a Delete button per row with the same confirmation dialog. **Soft-delete via active flag is no longer used** — Projects in v1.18 either exist (in some status) or are Deleted; there's no archived/inactive state.
+- **Providers** (CRUD, global). Flat admin screen listing all Providers (regardless of active Function) with name and an in-use indicator (showing how many external requirements currently reference this Provider across all Projects and direct Demands). Name is required and unique. Renames cascade to all existing external requirements (section 2.6) — the requirement records reference the Provider by id, not by name, so a rename is a single-record update. Hard-delete is permitted only when the Provider's in-use count is zero; otherwise the user sees the blocking requirements list and is advised to reassign them to a different Provider (a bulk-reassign action is provided). Seed values: `Managed Services`, `Contractor`, `OEM`, `Plant Team`, `Other Internal Team`, `Other` — all pre-populated at seed time and editable thereafter.
 
 **None of Functions, Teams, Programmes, Projects, or Providers affect capacity calculations.** They are admin-configured labels and organisational groupings. Creating, renaming, or reassigning them never changes any chart, grey band, projection shortfall, or person's committed hours. This is by design — it keeps the mental model of capacity clean while letting the user organise the pipeline and track external effort.
 
@@ -1600,59 +1814,117 @@ A simple admin area is otherwise sufficient — no need for sophisticated UX bey
 
 ## 6. Seed data
 
-The tool should ship with seed data sufficient to demonstrate all four views across **two Functions**. Suggested:
+The tool ships with seed data sufficient to demonstrate every view across **two Functions**, **both creation paths** (Project-spawned and direct), and **all status combinations** of the v1.18 state machines.
 
-**Functions** — two records:
+**Functions** — two records (unchanged from v1.16):
 
 - **Digital Manufacturing** — the primary demo Function, owning the existing MOM / MI&V / MBM taxonomy. Default active Function on first load.
-- **Group IT Enterprise Solutions** — a second Function demonstrating multi-Function capability and cross-Function Demand flow. Smaller taxonomy, enough to cover cross-Function scenarios convincingly.
+- **Group IT Enterprise Solutions** — the second Function demonstrating multi-Function capability and cross-Function Project flow.
 
 **Digital Manufacturing — Domains, Skills, People, Teams**
 
-- **Domains**: MOM, MI&V, MBM (3 Domains). Unchanged from prior versions.
+- **Domains**: MOM, MI&V, MBM (3 Domains).
 - **Skills per Domain**: 4–6 skills each, covering realistic Digital Manufacturing capabilities.
-- **Teams**: three Teams — "Central Delivery Team" (type: Central), "Plant Team A" (type: Plant), "Plant Team B" (type: Plant). All under the Digital Manufacturing Function. Assign existing seed People to teams plausibly based on their skills.
-- **People**: ~12 people spread across Domains, with varied skill profiles and levels. Include at least one with `available_from` set in the near future (new starter) and one with `available_to` set (planned leaver). Every person must have a `teamId` assigned.
+- **Teams**: three Teams — "Central Delivery Team" (Central), "Plant Team A" (Plant), "Plant Team B" (Plant). All under the Digital Manufacturing Function.
+- **People**: ~12 people spread across Domains, with varied skill profiles and levels. Include at least one with `available_from` set in the near future (new starter) and one with `available_to` set (planned leaver). Every person has a `teamId`.
 
 **Group IT Enterprise Solutions — Domains, Skills, People, Teams**
 
-- **Domains**: three Domains — **Infrastructure & Platforms**, **Enterprise Applications**, **Data & Integration**. These are realistic IT areas for a large engineering group.
-- **Skills per Domain**: 3–4 skills each, covering realistic enterprise-IT capabilities. Suggested:
+- **Domains**: three Domains — **Infrastructure & Platforms**, **Enterprise Applications**, **Data & Integration**.
+- **Skills per Domain**: 3–4 skills each, e.g.:
   - Infrastructure & Platforms: Cloud Architecture, Network Engineering, Platform Engineering
   - Enterprise Applications: ERP Configuration, CRM Development, Enterprise Application Support
   - Data & Integration: Data Engineering, Integration Architecture, Data Platform Administration
-- **Teams**: two Teams — "Infrastructure Team" (type: Central), "Applications Team" (type: Central). Both under the Group IT Enterprise Solutions Function.
-- **People**: 5–7 people spread across the Group IT Domains, with varied skill profiles and levels. Every person has a `teamId` assigned.
+- **Teams**: two Teams — "Infrastructure Team" (Central), "Applications Team" (Central).
+- **People**: 5–7 people with `teamId` assigned.
 
-**BAU Streams**: 4–6 streams across the Digital Manufacturing Domains, with varied allocation patterns including at least one declining stream (handoff to the business). BAU in Group IT is not required for the demo — Group IT's primary role in the seed is as the receiving side of cross-Function demand.
+**Programmes**: 2–3 Programmes. Suggested:
+- **MES Modernisation** — covers Plant A/B/C MES work, the headline cross-Function flagship.
+- **Digital Twin Rollout** — for MBM exemplars.
+- Optional third for MI&V work.
 
-**Demand Items**: at least 2 in each active status (Draft, Scoping, Submitted, Approved, PartiallyAllocated, Allocated, Parked), with a mix of types, phases, funding sources, and both skill-shaped and named requirements. Include at least one cross-domain item and at least one item with a skill-shaped requirement split across two named people.
+### Projects (new in v1.18)
 
-- **Cross-Function seed item (mandatory for demo)**: at least one Demand item must carry requirements targeting **both** Functions' Skills. Recommended — the headline example: **"Plant C MES Platform Migration"** has its existing MOM/MI&V requirements plus an additional requirement targeting Group IT's "Data Engineering" Specialist Skill (e.g. 60 hrs/mo over the Build phase) and a second targeting "Integration Architecture" Advanced (e.g. 40 hrs/mo). This makes the Demand appear in both Functions' Demand-page lists and drives visible cross-Function stacks on Section D of Capacity Validation when Digital Manufacturing is the active lens.
-- **Scoping seed item**: at least one demand item in Scoping status with two teams assigned to a phase via DemandTeamAssignment records — one team confirmed (`confirmed: true`) and one still pending (`confirmed: false`). Use one team from Digital Manufacturing and one from Group IT to demonstrate multi-Function team assignment during Scoping.
+The seed must include Projects in **every Project status** to demonstrate Manage Projects (section 4.6.A) end-to-end:
 
-**Programmes**: 2–3 Programmes (cross-Function). Suggested: "MES Modernisation" (covering Plant A/B/C MES work, with cross-Function Demands pulling in Group IT data work), "Digital Twin Rollout" (for Model-Based Manufacturing exemplars), and optionally a third for MI&V work.
+| # | Project name | Status | Programme | Functions touched | Notes |
+|---|---|---|---|---|---|
+| 1 | "Plant D MES Concept Study" | Draft | MES Modernisation | (no requirements yet — Draft has none) | Demonstrates Project Draft on Manage Projects with phases and team assignments but no requirements. Seed must include phases and at least 2 Teams Assigned across two Functions to exercise the Submit-for-Scoping gate. |
+| 2 | "Plant E MES Refresh" | Scoping | MES Modernisation | DM (MOM, MI&V), GroupIT (Data & Integration) | Demonstrates collaborative scoping. Two ProjectTeamAssignments — one team `confirmed: true`, one `confirmed: false` — to exercise the unconfirmed-teams confirmation dialog. |
+| 3 | "Corporate Data Lake" | Submitted | (no Programme) | DM (small MI&V slice), GroupIT (Data & Integration) | Cross-Function, no Programme — demonstrates the "Unaligned Projects" virtual card on the Demand view. Spawned Demands are in Submitted. |
+| 4 | "Plant C MES Platform Migration" | Approved | MES Modernisation | DM (MOM, MI&V), GroupIT (Data & Integration) | **Headline flagship cross-Function Project.** Has rich phase + requirement structure mirroring the v1.17 seed item. Spawns 2 child Demands; the DM Demand is in PartiallyAllocated, the GroupIT Demand is in Approved (so the Project sits at Approved per the auto-rule). Has external requirements (OEM 40 hrs/mo, Managed Services 120 hrs/mo on Build phase). |
+| 5 | "MBM Foundation Library" | Allocated | Digital Twin Rollout | DM (MBM) | Single-Function Project demonstrating that single-Function Projects work end-to-end. All allocations covered; Project is Allocated. |
+| 6 | "Plant B MES Refresh" | Allocated | MES Modernisation | DM (MOM) | Single-Function Project fully allocated, providing a second Programme-level data point under MES Modernisation alongside Project 4. |
 
-**Projects**: 4–6 Projects across the Programmes. Each Programme should have at least 1 Project with multiple aligned Demands to demonstrate the roll-up. At least one Programme should have 2+ Projects to demonstrate the Programme > Project > Demand roll-up path. At least one seed Demand must remain **unaligned** (typically BAU or a small ad-hoc item) so the virtual "No Project" group renders in the grouped Demand view.
+### Project-spawned Demands
+
+Each non-Draft, non-Scoping Project has its child Demands spawned. The seed therefore includes:
+
+- 2 Demands from Project 3 ("Corporate Data Lake") — both Submitted.
+- 2 Demands from Project 4 ("Plant C MES Platform Migration") — DM in PartiallyAllocated, GroupIT in Approved.
+- 1 Demand from Project 5 ("MBM Foundation Library") — Allocated.
+- 1 Demand from Project 6 ("Plant B MES Refresh") — Allocated.
+
+Total: 6 spawned Demands across 4 Projects.
+
+### Direct Demands
+
+The seed must include direct Demands in **every Demand status** to demonstrate Manage Demand (section 4.6) end-to-end. All direct Demands belong to Digital Manufacturing (Group IT direct Demands are not required for the demo):
+
+| # | Direct Demand name | Function | Status | Type | Notes |
+|---|---|---|---|---|---|
+| D1 | "Ad-hoc shift pattern review" | DM | Draft | Plant Project | Demonstrates direct Demand Draft on Manage Demand. Has 1 phase, 1 internal requirement (MOM Basic), no external. |
+| D2 | "Plant A SCADA migration assist" | DM | Submitted | Plant Project | Direct path through Submitted — demonstrates Approve as the next-step CTA on a non-Project-spawned Demand. |
+| D3 | "MES Super User support — Plant B" | DM | PartiallyAllocated | BAU | Indefinite-phase BAU support stream with named allocation partly in place. Demonstrates the BAU-as-direct-Demand flow described in section 2.3. Has a small `Other Internal Team` external requirement (10 hrs/mo indefinite). |
+| D4 | "Historian configuration handover" | DM | Allocated | Plant Project | Fully allocated direct Demand. |
+
+Total: 4 direct Demands.
+
+**Total Demand pipeline in seed**: 10 Demands across both creation paths.
 
 **Providers**: pre-populated with `Managed Services`, `Contractor`, `OEM`, `Plant Team`, `Other Internal Team`, `Other`.
 
-**External resource requirements on Demands**: at least 3 of the seed Demand items must carry external requirements, spread across Providers. Suggested:
+**External resource requirements summary**: at least 3 entities carry external requirements. Suggested distribution:
+- "Plant C MES Platform Migration" (Project 4) — OEM (MES Platform Vendor Support, 40 hrs/mo on Build), Managed Services (SCADA Engineer, 120 hrs/mo on Build).
+- "Corporate Data Lake" (Project 3) — Contractor (Data Engineer, 80 hrs/mo on its main phase).
+- "MES Super User support — Plant B" (D3) — Other Internal Team (Plant electrician support, 10 hrs/mo indefinite).
 
-- "Plant C MES Platform Migration" — add external `OEM` requirement (MES Platform Vendor Support, 40 hrs/mo on Build phase) and `Managed Services` requirement (SCADA Engineer, 120 hrs/mo on Build phase). This is the headline example — a real MES project with meaningful external dependencies alongside its cross-Function internal dependencies.
-- "Corporate Data Lake" (Submitted) — add `Contractor` requirement (Data Engineer, 80 hrs/mo) on its main phase. Demonstrates external effort on a Submitted item rolling up into Programme/Project totals before approval.
-- One BAU item with a small `Other Internal Team` requirement (e.g. 10 hrs/mo indefinite for plant electrician support). Demonstrates the indefinite-phase external-requirement path.
+### Capacity reconciliation table — for the v1.18 capacity invariant (section 2.4.8)
 
-**Seed assertions**
+These are the seed-derived expected values for `function_capacity` and `domain_capacity` at the 12-month-horizon centre month (2026-08). Implementation must reconcile chart, aggregation, and table; runtime assertions in development builds verify against this table.
 
-These must hold on a fresh seed load; they are renderability invariants (see section 2.4.8 for the grey-band invariant pattern):
+| Function / Domain | function_capacity / domain_capacity (Aug 2026) | Source |
+|---|---|---|
+| Digital Manufacturing (Function) | sum of contracted hours of all DM People active in Aug 2026, minus DM BAU allocations active in Aug 2026 | computed from People + BAU at seed |
+| MOM (Domain) | sum of contracted hours of People holding any MOM Skill, minus their non-MOM committed hours | computed from People skill profiles |
+| MI&V (Domain) | analogous | analogous |
+| MBM (Domain) | analogous | analogous |
+| Group IT Enterprise Solutions (Function) | sum of contracted hours of all GroupIT People active in Aug 2026 | computed from People |
+| Infrastructure & Platforms | sum of contracted hours of People holding any I&P Skill | analogous |
+| Enterprise Applications | analogous | analogous |
+| Data & Integration | analogous | analogous |
 
-- **Programme/Project roll-up visibility**: grouping the Demand list by Project must produce at least one group with non-zero internal hours *and* non-zero external hours in the current 12-month window, with the external breakdown showing 2+ distinct providers.
-- **Scoping column visible**: opening Board mode must show the Scoping column with at least one card, and that card must show a mixed confirmation strip (one green chip, one amber chip).
-- **Cross-Function Demand visible (Section D renderability)**: with Digital Manufacturing as the active Function and "Show demand on other Functions" toggled on, Capacity Validation Section D's overview chart (D1) must show non-zero hours for Group IT Enterprise Solutions in at least one visible month. Clicking into the per-Function breakdown (D2) must surface the cross-Function Demand by name. This is the headline signal that the multi-Function cross-demand flow is working end-to-end.
-- **Function switch effect visible**: switching the active Function from Digital Manufacturing to Group IT Enterprise Solutions must measurably change the Capacity Validation view — specifically, the Domain charts in Section B change from MOM/MI&V/MBM to Infrastructure & Platforms / Enterprise Applications / Data & Integration, and the Demand page list shows a different set of Demands (including the cross-Function MES Platform Migration, visible under both lenses).
-- **Demand view renderable on fresh seed** *(introduced v1.17)*: navigating to the new Demand view (section 4.10) must produce at least one Programme card with a non-zero stacked area chart in the current 12-month window. Stacking By Funding Source must show at least 2 of the 3 funding source colours present. Stacking By Team must show at least 2 distinct Functions' teams plus at least 1 Provider (External) stack — guaranteed by the existing cross-Function "Plant C MES Platform Migration" Demand, which has internal requirements across both Functions and external requirements across at least 2 Providers.
-- **Demand view ignores Function lens**: switching the active Function while on the Demand view must not change the chart content (the same Programmes, Projects, and stack values must render). This is the renderability evidence for the section 11.17 lens-exception.
+The exact numerical values are derived at seed-build time from the People records' contracted_hours and skill profiles. The seed module must export these expected values alongside the People data so the runtime assertion has something to check against. **The Group IT Data & Integration value for Jul 2026 and Aug 2026 must be reconciled** — the v1.17 build's apparent "phantom capacity" symptom must either reproduce (and be debugged) or not occur from a fresh seed load.
+
+### Seed assertions (renderability invariants)
+
+These must hold on a fresh seed load. They extend the v1.12 grey-band invariant pattern into v1.18 territory:
+
+- **Manage Projects board renders all 5 columns** with at least one card in Draft, Scoping, Submitted, Approved, and Allocated columns respectively — exercising Project state machine.
+- **Manage Demand board renders all 5 columns** with at least one card in Draft, Submitted, Approved, PartiallyAllocated, and Allocated columns respectively — exercising Demand state machine. The Draft column shows direct Demands only (e.g. D1).
+- **Project-spawned Demand carries `parent_project_id`**: at least one Demand on Manage Demand can be opened, its drawer shows "Part of [Programme] › [Project]", and clicking that link opens the parent Project's drawer.
+- **Direct Demand carries no parent**: at least one Demand on Manage Demand shows the "Direct Demand" badge in its drawer.
+- **Cross-Function spawn**: Project 4 ("Plant C MES Platform Migration") has exactly 2 child Demands (DM and GroupIT). Each Demand's "Sibling Demands" line lists the other.
+- **Demand view Function lens applies**: the Demand view's landing page shows different chart values when the active Function switches between DM and GroupIT.
+- **Demand view Direct Demands card renders** for the active Function when at least one direct Demand exists for it. With DM active, the card shows D1–D4's contributions. With GroupIT active, the card is hidden (no GroupIT direct Demands in seed).
+- **Demand view By-Funding stacking only**: the toolbar has no "By Team" option; only By Funding Source is rendered. The aggregation module exports no `programme_demand_by_team` or `project_demand_by_team` functions.
+- **Demand view "Include Submitted" merges, does not differentiate**: toggling Include Submitted ON adds Project 3's hours into the same funding-source bucket; the chart shows no hatched fill, no opacity change, no `(Submitted)` suffix in tooltips.
+- **Demand view "Show external resource" toggle works**: toggling ON adds external hours into the same funding-source buckets; toggling OFF removes them.
+- **Demand view "Show demand on other Functions" toggle works**: toggling ON for the active Function adds sibling Demands' hours on shared Projects; the Direct Demands card is unaffected.
+- **Capacity Validation Section A re-renders on Function switch**: Section A's capacity-line value in any visible month differs between DM-active and GroupIT-active.
+- **Capacity Validation per-Domain reconciliation**: every Domain chart's capacity-line value matches the seed reconciliation table (above) for at least one tested month per Domain.
+- **Capacity Validation Section D reframed**: with DM active and "Show demand on other Functions" ON, Section D's D1 chart shows non-zero hours for GroupIT; the in-scope Demands are GroupIT Demands on **shared Projects** (Projects 3 and 4) — not all GroupIT Demands.
+- **No Park/Close/Revert/Revise/Duplicate anywhere**: the drawer overflow on every status shows only Delete; the drawer footer shows only the v1.18 status-appropriate primaries (no Park/Revert/Revise buttons exist anywhere in the UI). The Archive nav item is absent.
 
 ---
 
@@ -1730,21 +2002,72 @@ All edit access is open in v1. V2 will introduce authentication and role-based p
 
 ## 9. Build sequencing
 
-Suggested order for the v1 build (original ordering). **v1.14 additions are listed separately below — they slot into an already-built app and follow a different critical-path ordering.**
+### v1.18 — build order
 
-1. **Data model and admin** — domains, skills, people (inc. available_from/to), BAU streams, BAU allocations. Populated via seed data and simple admin screens. Includes the **DOMAIN > SKILL selector** as a shared component used in admin and elsewhere.
-2. **Demand items and phases** — CRUD for demand items with phases and skill-shaped requirements (per-month hours). Mode A of the edit page. Drawer (read-only preview).
-3. **State machine and status transitions** — the gated workflow from section 3. Apply to Table, Board, Drawer, and Edit page consistently.
-4. **Mode B — Allocation Workspace** — named allocations, per-requirement coverage indicators, auto-transitions between Approved / PartiallyAllocated / Allocated.
-5. **Archive view** — for Closed items, with Restore.
-6. **View 1: Capacity Validation** — the core value of the tool. Build this against live data.
-7. **View 2: Team Activity** — secondary MVP view.
-8. **Demand discovery** — Table mode first, then Board (with valid-transition drag constraints) and Search.
-9. **Post-MVP**: View 3 then View 4.
+This refactor is large enough that ordering matters. The dependency graph is: data model → aggregation → state machine → UI surfaces → seed → renderability invariants. Implementation order:
 
-Views 3 and 4 should not be started until 1 and 2 have been in active use for long enough to validate the data model and uncover real workflow patterns.
+1. **Data model migration** (no UI yet):
+   - Add Project as a first-class entity (status field added; phases and requirements migrate from today's Demand to Project for items that will become Project-spawned).
+   - Add `parent_project_id` (nullable) to Demand. Add `function_id` (required) to Demand.
+   - Rename `DemandTeamAssignment` to `ProjectTeamAssignment` and re-point its FK from demand to project.
+   - Drop the `Parked` and `Closed` statuses, the `Parked reason` field, the Archive view, and the Restore action from the schema and routing.
+   - Drop the `Project` field on Demand (replaced by `parent_project_id` on Project-spawned, null on direct).
+   - Update the seed migration: today's Demands become Projects, with their phases and requirements moved up; for cross-Function Demands, also create the corresponding child Demand records in their appropriate statuses.
 
-### v1.16 — build order
+2. **Aggregation layer rewrite**:
+   - Update `project_internal_hours` / `project_external_hours` / `programme_internal_hours` / `programme_external_hours` to walk Project → Phases → Requirements, scoped by child Demand status (per section 2.4.9).
+   - Add `direct_demand_internal_hours` / `direct_demand_external_hours` / `direct_demand_by_funding`.
+   - Update `programme_demand_by_funding` and `project_demand_by_funding` to take the v1.18 `opts` object (`status_set`, `function_id`, `include_external`, `include_other_functions`).
+   - **Delete** `programme_demand_by_team` and `project_demand_by_team` (dead code).
+   - Reframe `cross_function_demand_hours` to the shared-Project model (section 2.4.9).
+   - Add the v1.18 capacity reconciliation invariants to section 2.4.8: `function_capacity` and `domain_capacity` runtime assertions against the seed-derived table (section 6).
+
+3. **State machines**:
+   - Implement the Project state machine (Draft → Scoping → Submitted → Approved → Allocated). Submit-for-Scoping gate (phases-and-teams-assigned). Submit-Project triggers the spawn rule (section 2.2.4) atomically.
+   - Implement the Demand state machine (Draft → Submitted → Approved → PartiallyAllocated → Allocated). Direct Demands enter at Draft; Project-spawned Demands enter at Submitted via spawn.
+   - Implement Project status auto-transition (Submitted ↔ Approved ↔ Allocated based on child Demands per section 11.20).
+   - Remove all Park / Close / Revert / Revise / Duplicate / Revive / Restore transitions from the codebase. Wire Delete on Project (cascading to children + allocations) and Delete on direct Demand (cascading to allocations) per section 11.20.
+
+4. **UI — drawers and edit pages**:
+   - Update the drawer (section 4.5.1) for Project and Demand entities: header zones, body zones (Functions involved on Project, Function chip + parent-Project link on Demand), footer button tables (Project drawer with empty footer on Submitted/Approved/Allocated, Demand drawer with Approve/Model Capacity on Submitted), Delete-only overflow.
+   - Update the edit page (section 4.5.2) for Project Mode A (Draft + Scoping with phases-on-Project and Teams Assigned), direct Demand Mode A (Draft with phases-on-Demand), and Demand Mode B (Approved+ allocation workspace, scoped to Function for Project-spawned).
+   - Remove the Mode-A-on-Submitted/Parked branches; they are gone in v1.18.
+   - Update the "Definition is Locked" banner copy.
+
+5. **UI — Manage views**:
+   - Reshape Manage Demand (section 4.6) to the 5-column board (Draft/Submitted/Approved/PartiallyAllocated/Allocated). Function-lensed. Add "+ New Direct Demand" button. Update Origin and Domain filters per section 4.6.
+   - Build new Manage Projects view (section 4.6.A) — 5-column board (Draft/Scoping/Submitted/Approved/Allocated). Cross-Function visibility rule per section 4.6.A. Add "+ New Project" button.
+   - Remove the Archive view route (section 4.7 deleted).
+   - Update nav order to Capacity Validation / Demand / Manage Projects / Manage Demand / Team Activity / Forecast / Skills Development / Admin (section 11.19).
+
+6. **UI — Demand view (section 4.10)**:
+   - Apply Function lens (remove the v1.17 exception). Update aggregation calls to pass `function_id`.
+   - Replace the Stacking selector (segmented control) with no selector — only By Funding Source remains.
+   - Replace the v1.17 hatched-overlay rendering of Submitted with a merged-into-bucket rendering (no visual differentiation, no `(Submitted)` suffix). The toggle changes `status_set`, nothing else.
+   - Add "Show external resource" and "Show demand on other Functions" toggles to the toolbar.
+   - Add the Direct Demands virtual card on the landing page (active Function only). Add the Unaligned Projects virtual card (Programme-less Projects with active-Function Demands).
+   - Update segment-click side panels to surface origin (Project-spawned/Direct) and Function chip per row.
+
+7. **UI — Capacity Validation Section D (section 4 View 1)**:
+   - Reframe to "Other Functions' Demands on Shared Projects." Update the in-scope rule: Projects where the active Function has a Demand → surface other Functions' Demands' requirements on those Projects.
+   - Update the D2 stack-by from Demand-name to Project-name (each Project surfaces exactly one Demand per receiving Function — Project naming is more useful than Demand naming).
+   - Direct Demands are excluded by definition (no shared Projects).
+
+8. **Seed rebuild**:
+   - Implement the Project / Demand mix described in section 6 (6 Projects covering all 5 statuses; 4 direct Demands covering all 5 statuses; 2 cross-Function Projects with their spawned children).
+   - Implement the capacity reconciliation table (section 6) and export expected values for runtime assertions.
+
+9. **Renderability invariants and tests**:
+   - Wire all section 6 seed assertions as runtime assertions (development builds) per the section 2.4.8 pattern.
+   - Verify the Manage Projects board, Manage Demand board, Demand view (with both Function lenses), and Capacity Validation Section A re-render under Function switch.
+   - Investigate the v1.17 "Group IT Data & Integration phantom capacity in Jul–Aug 2026" symptom against the seed reconciliation table — reproduce or rule out.
+
+10. **Cleanup**:
+    - Remove all references to Park / Close / Revert / Revise / Duplicate / Archive in code, route paths, and test fixtures.
+    - Remove the `functionLensInactiveHint` token from `DESIGNSYSTEM.md`.
+    - Verify no `Project alignment` editing UI remains (the v1.17 inline picker on the edit page is removed; Programme picker on Project takes its place).
+
+### v1.16 — build order *(historical, retained for audit)*
 
 These are slotted into an app that's already at v1.15. Strict dependency order — data model and aggregation changes first, then admin, then the lens behaviour, then UI corrections.
 
@@ -2059,8 +2382,8 @@ Three creation paths, chosen by context:
 
 External requirements follow the same "locked once committed" discipline as internal skill-shaped requirements, but with their own specifics:
 
-- **Editable in Mode A** (Draft, Submitted, Parked) — add, remove, edit provider/role/notes/hours.
-- **Read-only in Mode B** (Approved, PartiallyAllocated, Allocated) — same locking as internal requirements (section 3 Allocation editing). To edit, the user must Park-and-revive (or use Revise from Approved).
+- **Editable in Mode A** — on Project Draft, Project Scoping, and direct Demand Draft. Add, remove, edit provider/role/notes/hours.
+- **Read-only everywhere else** — Project Submitted onwards, direct Demand Submitted onwards, and at every Demand status when viewed via a Project-spawned Demand. To edit external requirements, the user must Delete the parent Project (or direct Demand) and recreate, per the v1.18 simplification (no Park or Revise paths back).
 - **No allocation layer** — external requirements never have a Mode B workspace. They're demand-shaped only (section 2.6). Mode B simply renders them read-only alongside the internal allocation workspace.
 - **Validation on save** (Mode A):
   - Provider is required (must be selected from the admin-configured list).
@@ -2069,18 +2392,19 @@ External requirements follow the same "locked once committed" discipline as inte
   - No cross-requirement validation (unlike internal requirements, there's no "over-allocation" to check — external requirements don't interact).
 - **Delete is immediate** (in Mode A) — no confirmation required unless the requirement has non-zero hours in any month, in which case a lightweight "Delete external requirement for *{Provider}* — *{Role}*? This will remove {X} total hours across the phase." confirmation is shown.
 - **Provider rename cascade**: if a Provider is renamed in admin, all existing external requirements referencing that Provider show the new name immediately. No data migration needed — requirements store the Provider's id, not its name.
-- **Provider delete handling**: hard-delete of a Provider is blocked if any external requirement references it (section 5). The bulk-reassign action lets the user pick a replacement Provider for all affected requirements in one operation. Soft-delete (via admin's active flag) is always available — the Provider disappears from future pickers but existing requirements keep their reference unchanged.
+- **Provider delete handling**: hard-delete of a Provider is blocked if any external requirement references it (section 5). The bulk-reassign action lets the user pick a replacement Provider for all affected requirements in one operation.
 
 ### 11.16 Drawer button behaviours — navigational vs transitional
 
-The v1.14 drawer footer contains a mix of button types. Claude Code should treat them correctly:
+The drawer footer contains a mix of button types. Claude Code should treat them correctly:
 
-- **Transitional buttons** (Submit for Scoping, Submit for capacity assessment, Approve, Revert to Draft, Park, Revive, Restore): change the Demand's status in the store and re-render the drawer with the new status's footer/overflow contents. No navigation. The drawer stays open; the user can observe the status pill change and the footer/overflow contents update in place. Submit-for-capacity-assessment additionally surfaces the confirmation dialog described in section 3 before applying the transition.
-- **Navigational buttons** (Allocate, Model Capacity, Edit): navigate to a different route. Allocate and Edit both open the edit page — Edit opens it in whatever mode applies to the current status (Mode A for Draft/Scoping/Submitted/Parked, Mode B for Approved/PartiallyAllocated/Allocated); Allocate opens it in Mode B regardless (it's only surfaced on Approved/PartiallyAllocated, so Mode B is always the right mode). Model Capacity opens the Capacity Validation view with the current Demand pre-selected as the overlay (section 11.11).
-- **Overflow destructive buttons** (Close, Delete): require confirmation dialogs. Close is confirm-only ("This Demand will be archived. Restore from the Archive view if needed.") — no further friction. Delete is a harder confirm ("This permanently removes the Demand from the store. This cannot be undone.") requiring the user to type the Demand's name or tick an "I understand" checkbox, per DESIGNSYSTEM.md's destructive-action patterns.
-- **Overflow duplicate** (Duplicate): immediate, no confirmation. Per section 3 Duplicate behaviour, creates a new Draft copy. After creation, the drawer updates to show the newly-created duplicate (navigating within the drawer), not the original — the user's next action is almost always to edit the duplicate, so surfacing it immediately is the right default.
+- **Transitional buttons** (Submit for Scoping, Submit Project, Submit Demand, Approve): change the entity's status in the store and re-render the drawer with the new status's footer/overflow contents. No navigation. The drawer stays open; the user can observe the status pill change and the footer/overflow contents update in place. Submit Project (Project Scoping → Submitted) additionally surfaces the spawn confirmation dialog described in section 11.18 before applying the transition.
+- **Navigational buttons** (Allocate, Model Capacity, Edit): navigate to a different route. Allocate and Edit both open the edit page — Edit opens it in whatever mode applies (Mode A for Project Draft/Scoping or direct Demand Draft; Mode B for Demand Approved/PartiallyAllocated/Allocated; read-only summary on Submitted/Approved/Allocated Projects). Allocate opens Mode B regardless (only surfaced on Demand Approved/PartiallyAllocated). Model Capacity opens the Capacity Validation view with the current Demand pre-selected as the overlay (section 11.11).
+- **Overflow destructive button** (Delete): requires confirmation. Per section 3 Deletion, the dialog surfaces the cascade scope (count of child Demands and named allocations for Projects; count of allocations for direct Demands) and requires explicit confirmation. Delete is a hard delete — the user must understand cascading removal is permanent, with no Archive to retrieve from. The dialog uses the destructive-action treatment (red primary button, friction-confirmation per DESIGNSYSTEM.md).
 
-The **top-right Edit button** behaves identically to the overflow "Edit" would have — same Mode A/B routing logic based on current status. It is not a transition; it's navigation.
+The **top-right Edit button** behaves identically to a navigational button — same Mode A/B/read-only routing logic based on current status. It is not a transition; it's navigation.
+
+**Removed in v1.18**: Park, Revive, Revert to Draft, Revise, Close, Restore, Duplicate. These transitional and overflow buttons existed in v1.17 and earlier; they are eliminated in v1.18 (see Changelog). The drawer footer and overflow are correspondingly leaner — see section 4.5.1's footer/overflow tables.
 
 ### 11.17 Function selector lens behaviour
 
@@ -2131,33 +2455,26 @@ Page-level filters that depend on the active Function's taxonomy must reset to d
 
 A single toast after the switch confirms: "Switched to *{New Function}*. Some filters reset."
 
-**Exception — the Demand view (section 4.10) ignores the Function lens** *(introduced v1.17)*
+**Demand view — Function lens applies as of v1.18**
 
-The Demand view is the single deliberate exception to the lens-everywhere rule. Programmes are Function-agnostic, and the view's purpose — showing the full demand picture each Programme creates — would be defeated by lensing. When the Demand view is mounted:
+In v1.17 the Demand view (section 4.10) was the single exception to the lens-everywhere rule. v1.18 reverses that: the Demand view now respects the active Function lens like every other view. The aggregation functions take a `function_id` parameter (section 2.4.9) and the page re-renders on Function switch. Two toolbar toggles ("Show external resource", "Show demand on other Functions") expand the picture beyond the active Function when wanted. There is no longer any view in the tool that ignores the lens.
 
-- It does not call any of the `selectActiveFunction*` selectors. It reads Programmes, Projects, and Demands directly from the store.
-- The v1.17 aggregation functions (`programme_demand_by_funding`, `programme_demand_by_team`, etc.) take no Function parameter and aggregate across all Functions plus External resource.
-- Switching the active Function while on the Demand view does not change the page content. Other views still re-render in the background to the new Function as normal — the user can navigate to e.g. Capacity Validation and find it lensed correctly.
-- The Function selector itself remains visible and functional in the header — it has not been disabled — but a small contextual hint appears below it when the Demand view is active: "Function lens does not apply on this view." This is a one-line text token in `DESIGNSYSTEM.md` (`functionLensInactiveHint`), shown only on the `/demand/*` routes.
+### 11.18 Scoping → Submitted confirmation dialog (Project)
 
-This exception is documented here because it is the only place in the tool where the lens is ignored. Future views should follow the lens-everywhere default unless they have an equally strong rationale.
-
-### 11.18 Scoping → Submitted confirmation dialog
-
-The manual transition from Scoping to Submitted (section 3) is the only forward move out of Scoping. The **Submit for capacity assessment** button in the drawer footer always opens a confirmation dialog — even when all team assignments are confirmed — because moving a Demand from "being scoped" to "up for capacity assessment" is a real change in operational state that deserves a deliberate click.
+*Updated v1.18.* This dialog applies to **Projects** (not direct Demands — direct Demands have no Scoping step). The manual transition from Project Scoping to Submitted (section 3) triggers the spawn rule; the **Submit Project** button in the Project drawer footer always opens a confirmation dialog — even when all team assignments are confirmed — because spawning child Demands and locking the Project's definition is a real change in operational state that deserves a deliberate click.
 
 **Dialog content — all-confirmed path**
 
 When every assigned team has `confirmed = true`:
 
-> **Submit "Plant C MES Platform Migration" for capacity assessment?**
+> **Submit "Plant C MES Platform Migration"?**
 >
 > All 3 assigned teams have confirmed their requirements:
 > ✓ Central Delivery Team — 4 requirements
 > ✓ Plant Team A — 2 requirements
 > ✓ Infrastructure Team (Group IT Enterprise Solutions) — 3 requirements
 >
-> Once submitted, the Demand will appear on the Capacity Validation page as a candidate Submitted overlay, and allocation work can begin after approval.
+> 2 Demands will be spawned: Digital Manufacturing, Group IT Enterprise Solutions. The Project's definition will be locked from this point.
 >
 > **[Cancel]  [Submit]**
 
@@ -2165,61 +2482,181 @@ When every assigned team has `confirmed = true`:
 
 When one or more assigned teams have `confirmed = false`, replace the confirmed list with an unconfirmed list and a light warning treatment on those rows:
 
-> **Submit "Plant C MES Platform Migration" for capacity assessment?**
+> **Submit "Plant C MES Platform Migration"?**
 >
 > 1 of 3 assigned teams has not yet confirmed their requirements:
 > ✓ Central Delivery Team — 4 requirements
 > ✓ Plant Team A — 2 requirements
 > ⚠ Infrastructure Team (Group IT Enterprise Solutions) — 0 requirements, not confirmed
 >
-> You can still submit now and follow up with those teams afterwards. Their requirements can continue to be added before the Demand is Approved.
+> 2 Demands will be spawned: Digital Manufacturing, Group IT Enterprise Solutions. The Project's definition will be locked from this point — unconfirmed teams' requirements can no longer be added after submission.
 >
 > **[Cancel]  [Submit anyway]**
 
-The button label changes from "Submit" to "Submit anyway" in the unconfirmed path as a subtle friction signal — the user is proceeding past an informational warning. Neither button is destructive; both apply the same state transition.
+The button label changes from "Submit" to "Submit anyway" in the unconfirmed path as a subtle friction signal. The dialog explicitly notes that unconfirmed teams' requirements can no longer be added post-Submit (since the Project is read-only from Submitted onwards in v1.18 — unlike v1.17's Revert-to-Draft escape hatch). The user is making a final commitment.
 
-**Empty-teams path**
+**Zero-requirements path — blocking error**
 
-If the Demand is in Scoping but no teams are assigned to any phase (a legitimate edge case — a user scoping something small they'll do entirely themselves), the dialog shows:
-
-> **Submit "Ad-hoc shift pattern review" for capacity assessment?**
->
-> No teams are assigned to phases on this Demand. You can still submit now and assign teams or add requirements before Approval.
->
-> **[Cancel]  [Submit]**
-
-This is explicitly not blocked — sometimes the Scoping step is just a holding pen while the Demand is shaped.
+If the Project has zero internal requirements (no Functions involved), the dialog is replaced by a blocking error: *"This Project has no requirements. Add at least one internal requirement to a phase before submitting — the Submit step spawns one Demand per Function involved, and a Project with no requirements has no Demands to spawn."* The user cancels back to the Project edit page.
 
 **After submit**
 
-On confirmation, the store applies the `Scoping → Submitted` transition atomically. Named allocations (if any somehow existed from a prior Revive/Revert cycle) are preserved. The drawer re-renders with the Submitted-status footer (Approve / Model Capacity / Revert to Draft / Park) and the user can continue.
+On confirmation, the spawn rule (section 2.2.4) executes atomically with the Project status flip. The Project becomes read-only on its definition. The drawer re-renders showing the spawned Demands as a read-only summary (one row per child Demand, with click-through to each Demand's drawer). The Project's footer becomes empty (no further user-driven transitions; lifecycle continues automatically based on child Demand statuses).
 
 ### 11.19 Navigation order and rename
 
 *Introduced in v1.17.* The top-nav order is fixed and reads left-to-right:
 
 1. **Capacity Validation** — section 4 View 1.
-2. **Demand** — *new in v1.17*, section 4.10. Programme-level demand-shape view.
-3. **Team Activity** — section 4 View 2.
-4. **Manage Demand** — *renamed from "Demand" in v1.17*, section 4.6. Individual Demand-item lifecycle management.
-5. **Forecast** — section 4 View 3 (post-MVP).
-6. **Skills Development** — section 4 View 4 (post-MVP).
-7. **Archive** — section 4.7.
+2. **Demand** — section 4.10. Programme-level demand-shape view (Function-lensed as of v1.18).
+3. **Manage Projects** — *new in v1.18*, section 4.6.A. Project lifecycle Kanban.
+4. **Manage Demand** — section 4.6. Per-Function Demand lifecycle Kanban.
+5. **Team Activity** — section 4 View 2.
+6. **Forecast** — section 4 View 3 (post-MVP).
+7. **Skills Development** — section 4 View 4 (post-MVP).
 8. **Admin** — section 5.
 
 The Function selector (section 4.9) sits to the right of the nav links, in the same horizontal bar.
 
-**Rationale for placement of "Demand" between Capacity Validation and Team Activity**: the new view answers a planning-shape question that sits naturally between "can we resource it?" (Capacity Validation) and "what is each person doing?" (Team Activity). Putting it third in the order, after the two existing primary views, would relegate it visually; putting it first, before Capacity Validation, would over-promote a non-MVP view above the foundational capacity check. Second is the right home.
+**Removed in v1.18**: the **Archive** nav link (section 4.7 deleted along with the Closed status — see section 3 Deletion).
 
-**Rationale for "Manage Demand" rename**: the new "Demand" view uses the natural label, so the existing item-lifecycle page must move aside. "Manage Demand" is the most accurate label for what that page does — it manages individual Demand items through the state machine via Board, Table, and Search modes. The rename touches the nav link, the page heading, and section 4.6's heading; section 4.6's content (Board/Table/Search modes, filters, group-by-Project) is otherwise unchanged in v1.17.
+**Rationale for placement of Manage Projects and Manage Demand together (positions 3 and 4)**: the two Manage views form a natural pair — Projects are the planning vehicle, Demands are the execution slices that spawn from them. Placing them next to each other in the nav reinforces that mental model. Manage Projects sits before Manage Demand because Projects come first in the lifecycle (Draft Project → Scoping Project → Submitted Project, which spawns Demands). Putting Team Activity after the Manage views (rather than between them) keeps the planning-vs-execution group cohesive; Team Activity is "what is each person doing?" and is conceptually downstream of both planning and approval.
 
-**Implementation note**: the routing should treat `/demand` as the new Demand view (section 4.10) and `/manage-demand` (or equivalent) as the renamed Manage Demand page. Existing deep links to the old `/demand` route used by Capacity Validation segment-clicks, drawer Edit buttons, and admin-page back-links must be updated to point at `/manage-demand` so they continue to land on the Demand-item lifecycle page rather than the new Programme-shape view. This is a search-and-replace exercise across the codebase; section 11.16's "Navigational buttons" semantics are unchanged but the route they navigate to changes.
+**Rationale for Demand staying second**: it answers a planning-shape question that complements Capacity Validation. Both are read-only consumption views; placing them next to each other lets a user move quickly between "what shape is the demand?" and "can we resource it?". Manage Projects and Manage Demand are doing-views (the user is taking action there), so they form the next group.
+
+**Implementation note**: routing — `/demand` is the Demand view (section 4.10), `/manage-projects` is Manage Projects, `/manage-demand` is Manage Demand. Existing deep links from Capacity Validation segment-clicks and drawer Edit buttons should be reviewed and updated where they target the wrong page in the new model.
+
+### 11.20 Project / Demand spawn mechanics
+
+*Introduced in v1.18.* The Project → Demand spawn (section 2.2.4) is the core coupling between the Project and Demand state machines. Implementation guidance:
+
+**Selectors**
+
+- `selectProjectsForActiveFunction(store)` → Projects visible on Manage Projects under the active Function lens (Draft and Scoping Projects always visible; Submitted/Approved/Allocated Projects visible if at least one of their child Demands belongs to the active Function).
+- `selectDemandsForActiveFunction(store)` → Demands belonging to the active Function (`function_id = activeFunctionId`). Used by Manage Demand and the Demand view's Direct Demands card.
+- `selectChildDemandsOfProject(store, projectId)` → Demands with `parent_project_id = projectId`. Used by the Project drawer's read-only summary and by the Project state-machine auto-transition logic.
+- `selectSiblingDemandsOfDemand(store, demandId)` → for Project-spawned Demands, the other Demands sharing the same `parent_project_id`. Used by the Demand drawer's "Sibling Demands" line.
+
+**Spawn algorithm (Project Submit)**
+
+```
+function spawnDemandsOnProjectSubmit(project) {
+  // Compute Functions involved
+  const functionsInvolved = new Set(
+    project.phases
+      .flatMap(p => p.requirements)
+      .map(r => r.skill.domain.function_id)
+  );
+
+  if (functionsInvolved.size === 0) {
+    throw new BlockingError('Project has no requirements; cannot spawn Demands.');
+  }
+
+  // Atomic: spawn Demands AND flip Project status
+  store.transaction(() => {
+    for (const fn of functionsInvolved) {
+      store.demands.create({
+        function_id: fn,
+        parent_project_id: project.id,
+        name: `${project.name} — ${getFunctionName(fn)}`,
+        type: project.type,
+        owner: project.owner,
+        description: project.description,
+        status: 'Submitted',
+      });
+    }
+    store.projects.update(project.id, { status: 'Submitted' });
+  });
+}
+```
+
+The transaction must be atomic: if any Demand fails to spawn (e.g. duplicate-name validation), the Project's status flip is rolled back. The user sees a single error and the Project remains in Scoping.
+
+**Project status auto-transition logic**
+
+Triggered after any Demand status change. Read all child Demands of the Project; compute the Project's new auto-status:
+
+- If all child Demands are in `{Allocated}` → Project = `Allocated`.
+- Else if all child Demands are in `{Approved, PartiallyAllocated, Allocated}` → Project = `Approved`.
+- Else → Project = `Submitted`.
+
+Apply the auto-status only if it differs from the current; record no audit trail in v1.
+
+**Project Delete cascade**
+
+```
+function deleteProject(projectId) {
+  const childDemands = selectChildDemandsOfProject(store, projectId);
+  store.transaction(() => {
+    for (const demand of childDemands) {
+      // Delete demand's named allocations
+      store.allocations.deleteWhere(a => a.demand_id === demand.id);
+      store.demands.delete(demand.id);
+    }
+    // Delete ProjectTeamAssignments
+    store.projectTeamAssignments.deleteWhere(t => t.projectId === projectId);
+    store.projects.delete(projectId);
+  });
+}
+```
+
+The confirmation dialog computes the cascade scope (count of child Demands, count of allocations, count of phases) before invoking this and shows the user the impact.
+
+**Direct Demand Delete cascade**
+
+```
+function deleteDirectDemand(demandId) {
+  store.transaction(() => {
+    store.allocations.deleteWhere(a => a.demand_id === demandId);
+    store.demands.delete(demandId);
+  });
+}
+```
+
+Project-spawned Demands cannot be invoked through this path — their delete-cascade only happens via `deleteProject`.
+
+**Renderability invariant — spawn produces correct sibling counts**
+
+On a fresh seed load with the headline cross-Function Project (e.g. "Plant C MES Platform Migration") in any post-Submit status, the Project must have exactly N child Demands where N = the count of distinct Functions touched by the Project's requirements. The Project drawer's "Sibling Demands" line on each child Demand must list N-1 siblings. This is verified as a runtime assertion in development builds.
 
 ---
 
 ## Changelog
 
-**v1.17** (this revision): **Five changes. Demand workflow is tidied around clearer Draft / Scoping / Submitted responsibilities; new "Demand" view answers Programme-level demand-shape questions; minor labelling and de-duplication fixes.**
+**v1.18** (this revision): **Workflow refactor — split planning (Project) from execution (Demand). Capacity-line bug invariants. Demand view re-lensed by Function with shared toolbar toggles. By-Team stacking removed. Park/Close/Revert/Revise/Duplicate eliminated.**
+
+This is the largest single revision since v1.10. Approximately 30% of the spec touches; readers familiar with v1.17 should treat the data model (section 2), workflow (section 3), Manage views (section 4.6, new 4.6.A), Demand view (section 4.10), and seed (section 6) as effectively rewritten.
+
+Workflow refactor — Project / Demand split (sections 2.1.1, 2.2, 3, 4.5, 4.6, new 4.6.A, 6, 11.20):
+
+- **New Project entity replaces today's Project grouping layer**. The old "Project" — a thin grouping under Programme — is gone. The new **Project** is the planning unit that users scope: name, owner, description, optional Programme, phases (with shared timeline), Functions involved (derived from requirements), and skill-shaped + external requirements. Programmes remain as the optional parent grouping for new Projects. Today's `Project` records in seed migrate to new Project records.
+- **Demand redefined as the per-Function execution slice**. A Demand belongs to **exactly one Function** (`function_id` required). Demands have **two creation paths**: (1) Project-spawned — automatically created when a Project transitions Scoping → Submitted, one Demand per Function whose Skills are touched by any of the Project's requirements; (2) **Direct** — created manually from Manage Demand without a parent Project, for ad-hoc and BAU work that doesn't justify cross-Function planning. Project-spawned Demands carry `parent_project_id`; direct Demands carry `parent_project_id = null`. Both paths converge at the Submitted swimlane.
+- **Phases live on the Project** (for Project-spawned Demands) or **on the Demand directly** (for direct Demands). For direct Demands the model is identical to today's Demand-with-phases. For Project-spawned Demands a single Project phase can carry requirements across multiple Functions; each Demand is a Function-scoped view onto the Project's phases — phases with no requirements for that Function are hidden in that Demand's view. The Project's phase timeline is the shared, canonical timeline for Project-spawned work.
+- **Project state machine**: `Draft → Scoping → Submitted → Approved → Allocated`. Draft and Scoping are user-driven; Submitted is the spawn point (creates child Demands); Approved is auto when all child Demands reach Approved+; Allocated is auto when all child Demands reach Allocated.
+- **Demand state machine** (both paths): `Draft → Submitted → Approved → PartiallyAllocated → Allocated`. Project-spawned Demands skip Draft (they are spawned directly into Submitted at Project-Submit time). Direct Demands begin in Draft. Submitted onwards is identical regardless of origin. PartiallyAllocated and Allocated are auto from named-allocation coverage (rules unchanged from v1.17).
+- **Park, Closed, Archive view, Revert to Draft, Revise, Duplicate, Parked reason field, Restore action — all removed**. Only **Delete** remains as an off-flow action. This is a deliberate simplification for v1.18; richer lifecycle controls return in a later version once the core flow is bedded in.
+- **Submitted Demand drawer footer**: `Approve` (primary) and `Model Capacity` (secondary). Model Capacity is the only allowed off-flow action because it is decision-support (does not change state).
+- **Manage Demand reshaped** (section 4.6) — **5-column** Kanban: Draft / Submitted / Approved / PartiallyAllocated / Allocated. The Draft column shows direct Demands only; Submitted onwards mixes Project-spawned and direct Demands. Each card represents a single-Function Demand (active Function lens applies). Domain filter and group-by-Project still apply.
+- **New Manage Projects view** (section 4.6.A) — 5-column Kanban: Draft / Scoping / Submitted / Approved / Allocated. The planning surface for cross-Function and Project-shaped work.
+- **Navigation order updated** (section 11.19): Capacity Validation, Demand, Manage Projects, Manage Demand, Team Activity, Forecast, Skills Development, Admin. Archive removed from nav (Closed status no longer exists).
+
+Demand view re-lensed by Function (sections 4.10, 11.17, 2.4.9):
+
+- **Function lens now applies** to the Demand view, reversing the v1.17 exception. Section 11.17's exception note is removed.
+- **Two toolbar toggles added**: "Show external resource" (default OFF) and "Show demand on other Functions" (default OFF). Names and behaviour mirror Capacity Validation Sections C and D.
+- **"Include Submitted" no longer differentiates Submitted from committed** — Submitted hours merge into the same funding-source bucket as Approved/PartiallyAllocated/Allocated. No hatched fill, no opacity change, no `(Submitted)` suffix in tooltips. The whole stack is "demand," and the toggle just expands `status_set`.
+- **By-Team stacking option removed entirely**. The Stacking selector (segmented control) is removed from the toolbar — only By Funding Source remains. Aggregation functions `programme_demand_by_team` and `project_demand_by_team` are deleted.
+- **Aggregation function signatures change**: `programme_demand_by_funding(programme_id, month, {status_set, function_id, include_external, include_other_functions})` and the project-level equivalent. The function_id parameter applies the active Function lens; toggles control external and other-Functions inclusion.
+
+Capacity Validation — bug-fix invariants (sections 2.4.8, 4 View 1):
+
+- **Per-Function and per-Domain capacity reconciliation invariants added** to section 2.4.8. The fresh-seed must produce specific known capacity values for each Function and each Domain in known months. The v1.18 Group IT "Data & Integration shows phantom capacity in Jul–Aug 2026" symptom is investigated under this invariant — implementation must verify and reconcile.
+- **Function-switch renderability invariant strengthened**: switching the active Function must change `domain_capacity` results for at least one Domain in at least one visible month to a different known value. Section A's chart re-render is verified by the same.
+- **Section D reframed** (section 4 View 1) — "other Functions' Demands on shared Projects" replaces v1.16's "demand my Function's Demands are placing on other Functions." The chart vocabulary (D1 stacked by receiving Function, D2 per-Function with team drill-down) is unchanged; only the scope rule changes — the in-scope Demands are now those whose **Project** has at least one Demand belonging to the active Function. Aggregation function `cross_function_demand_hours` rewrites accordingly.
+
+No changes to: capacity formulas (sections 2.4.1–2.4.7), the projection algorithm (section 2.4.5), Team Activity (section 4 View 2), Skill detail view (section 4.8), the Function selector (section 4.9) other than the Demand-view exception removal, BAU's structural shape (now flowing through the same Project mechanism), Programme entity (unchanged).
+
+**v1.17**: **Five changes. Demand workflow is tidied around clearer Draft / Scoping / Submitted responsibilities; new "Demand" view answers Programme-level demand-shape questions; minor labelling and de-duplication fixes.**
 
 Capacity Validation — Section A label (section 4 View 1):
 

@@ -271,14 +271,14 @@ This file directs Claude Code to the work items for the v1.18 spec revision. Eac
 
 After all 13 changes are checked, perform a final verification pass:
 
-- [ ] Fresh seed loads without runtime assertion errors.
-- [ ] Manage Projects board shows all 5 columns populated.
-- [ ] Manage Demand board shows all 5 columns populated.
-- [ ] Function switch produces visible re-render on every page (especially Section A capacity line).
-- [ ] Section D shows non-zero hours for the other Function on shared Projects only.
-- [ ] Demand view's three toggles each visibly affect the chart values.
-- [ ] No Park / Close / Revert / Revise / Duplicate / Archive button or route exists anywhere.
-- [ ] Delete on a Project cascades to Demands + allocations with confirmation dialog showing accurate counts.
-- [ ] Spec version stamp in the running app matches `REQUIREMENTS.md` v1.18.
+- [x] Fresh seed loads without runtime assertion errors.
+- [x] Manage Projects board shows all 5 columns populated.
+- [x] Manage Demand board shows all 5 columns populated.
+- [x] Function switch produces visible re-render on every page (especially Section A capacity line).
+- [x] Section D shows non-zero hours for the other Function on shared Projects only.
+- [x] Demand view's three toggles each visibly affect the chart values.
+- [x] No Park / Close / Revert / Revise / Duplicate / Archive button or route exists anywhere.
+- [x] Delete on a Project cascades to Demands + allocations with confirmation dialog showing accurate counts.
+- [x] Spec version stamp in the running app matches `REQUIREMENTS.md` v1.18.
 
 When the verification list is complete, the build is at v1.18 parity with the spec.
