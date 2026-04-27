@@ -173,7 +173,7 @@ This file directs Claude Code to the work items for the v1.18 spec revision. Eac
 
 ## Change 9 — Capacity Validation Section A re-render bug + Section D reframe
 
-- [ ] Fix Section A "Overall Function Capacity" so it re-renders on Function switch using the active-Function selector pattern. Reframe Section D to "Other Functions' Demands on Shared Projects."
+- [x] Fix Section A "Overall Function Capacity" so it re-renders on Function switch using the active-Function selector pattern. Reframe Section D to "Other Functions' Demands on Shared Projects."
 
 **Scope**:
 - Section A: replace any hard-coded function id captured at mount time with `selectActiveFunctionCapacityLine(store, month)`. Add a runtime regression assertion that a Function-switch action causes Section A's data to recompute.

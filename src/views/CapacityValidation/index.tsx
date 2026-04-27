@@ -10,9 +10,9 @@ import {
   getPersonLoad, monthInRange,
 } from '../../utils/capacity'
 import {
-  domain_capacity, skill_capacity, team_capacity,
+  domain_capacity, skill_capacity,
   demand_hours_for, grey_band, computeProjection, projection_shortfalls,
-  checkInvariants, crossFunctionDemandHours,
+  checkInvariants, crossFunctionDemandHours, function_capacity,
   type DemandTarget, type ProjectionResult,
 } from '../../lib/capacity'
 import { CapacityChart } from '../../components/CapacityChart'
@@ -20,7 +20,7 @@ import type { ChartPoint } from '../../components/CapacityChart'
 import { DemandEditor } from '../../components/DemandEditor/DemandEditor'
 import { Button } from '../../components/ui/Button'
 import { clsx } from 'clsx'
-import type { DemandStatus, Level, DemandItem } from '../../types'
+import type { DemandStatus, Level, DemandItem, Project } from '../../types'
 
 const HORIZONS = [6, 12, 24, 60] as const
 const COMMITTED_STATUSES = new Set<DemandStatus>(['Approved', 'PartiallyAllocated', 'Allocated'])
@@ -442,10 +442,10 @@ function D1Tooltip({ active, payload, functions }: {
   )
 }
 
-function D2Tooltip({ active, payload, demandItems }: {
+function D2Tooltip({ active, payload, projects }: {
   active?: boolean
   payload?: Array<{ dataKey: string; value: number; payload: { label: string } }>
-  demandItems: DemandItem[]
+  projects: Array<{ id: string; name: string }>
 }) {
   if (!active || !payload?.length) return null
   const label = payload[0]?.payload?.label
@@ -456,10 +456,10 @@ function D2Tooltip({ active, payload, demandItems }: {
       <p className="font-semibold mb-2 text-near-black">{label}</p>
       <div className="space-y-1">
         {[...payload].reverse().filter(p => (p.value || 0) > 0).map(p => {
-          const item = demandItems.find(d => d.id === p.dataKey)
+          const proj = projects.find(pr => pr.id === p.dataKey)
           return (
             <div key={p.dataKey} className="flex justify-between gap-4">
-              <span className="text-gray-600 truncate max-w-[130px]">{item?.name ?? p.dataKey}</span>
+              <span className="text-gray-600 truncate max-w-[130px]">{proj?.name ?? p.dataKey}</span>
               <span>{Math.round(p.value)}h</span>
             </div>
           )
@@ -589,6 +589,15 @@ export default function CapacityValidation() {
     [store.domains, activeFunctionId]
   )
 
+  // Section A demand state: demand scoped to active Function only (§4 View 1, §11.17)
+  const sectionADemandState = useMemo(() => {
+    if (!activeFunctionId) return demandFilteredState
+    return {
+      ...demandFilteredState,
+      demandItems: demandFilteredState.demandItems.filter(d => d.function_id === activeFunctionId),
+    }
+  }, [demandFilteredState, activeFunctionId])
+
   const handleBackToDemand = () => {
     navigate('/manage-demand', { state: { openDrawer: modelImpactId } })
   }
@@ -599,18 +608,19 @@ export default function CapacityValidation() {
     [store, months, overlayId]
   )
 
-  // ── Section A: overall team chart ─────────────────────────────────────
+  // ── Section A: overall team chart — scoped to active Function (§4 View 1, §2.4.8) ──
   const EMPTY_STATUSES = useMemo(() => new Set<DemandStatus>(), [])
   const teamData: ChartPoint[] = useMemo(() => months.map(month => {
-    // demand_hours_for uses demandFilteredState; capacity uses full store
-    const committed = demand_hours_for({ type: 'overall' }, COMMITTED_STATUSES, month, demandFilteredState)
+    // Capacity: function_capacity for active Function only (selectActiveFunctionCapacityLine pattern)
+    // Demand: sectionADemandState scopes demandItems to active Function's Demands
+    const committed = demand_hours_for({ type: 'overall' }, COMMITTED_STATUSES, month, sectionADemandState)
     const overlayDemand = overlayId
-      ? demand_hours_for({ type: 'overall' }, EMPTY_STATUSES, month, demandFilteredState, overlayId)
+      ? demand_hours_for({ type: 'overall' }, EMPTY_STATUSES, month, sectionADemandState, overlayId)
       : { strategy: 0, plant: 0, npd: 0, bau: 0 }
     return {
       month,
       label: formatMonthLabel(month),
-      capacity: team_capacity(month, store),  // full store
+      capacity: function_capacity(activeFunctionId ?? '', month, store),  // active Function only
       bau: committed.bau,
       plant: committed.plant,
       npd: committed.npd,
@@ -618,7 +628,7 @@ export default function CapacityValidation() {
       overlay: overlayDemand.bau + overlayDemand.plant + overlayDemand.npd + overlayDemand.strategy,
       grey: 0,
     }
-  }), [months, store, demandFilteredState, overlayId, EMPTY_STATUSES])
+  }), [months, store, sectionADemandState, overlayId, EMPTY_STATUSES, activeFunctionId])
 
   const totalCapacity = teamData.reduce((s, d) => s + d.capacity, 0)
   const totalDemand = teamData.reduce((s, d) => s + d.bau + d.plant + d.npd + d.strategy, 0)
@@ -684,79 +694,106 @@ export default function CapacityValidation() {
     return store.domains.map(t => ({ domain: t, skills: groups.get(t.id) ?? [] })).filter(g => g.skills.length > 0)
   }, [skillCharts, store.domains])
 
-  // ── Section D: cross-Function demand data ─────────────────────────────
+  // ── Section D: Other Functions' Demands on Shared Projects (§4 View 1, reframed v1.18) ──
+  // Scope: Projects where the active Function has at least one child Demand.
+  // Surface the other Functions' Demands (in committed statuses) on those Projects.
+  // Direct Demands are excluded — they are not on shared Projects by definition.
   const sectionDData = useMemo(() => {
     if (!activeFunctionId) return null
 
     // Skill → owning Function mapping
-    const skillFnMap = new Map<string, string>()
+    const sklFn = new Map<string, string>()
     for (const s of store.skills) {
       const fnId = store.domains.find(d => d.id === s.domain_id)?.functionId ?? ''
-      skillFnMap.set(s.id, fnId)
+      sklFn.set(s.id, fnId)
     }
 
-    // Qualifying demands: touch active Function in committed statuses, scoped to prog/proj filter
-    const qualifying = demandFilteredState.demandItems.filter(item =>
-      COMMITTED_STATUSES.has(item.status) &&
-      item.phases.some(ph => ph.requirements.some(r => activeFnSkillIds.has(r.skill_id)))
-    )
-
-    // Collect receiving Function IDs and demand IDs per Function
-    const receivingFnIds = new Set<string>()
-    const demandIdsPerFn = new Map<string, Set<string>>()
-
-    for (const item of qualifying) {
-      for (const phase of item.phases) {
-        for (const req of phase.requirements) {
-          const fnId = skillFnMap.get(req.skill_id)
-          if (!fnId || fnId === activeFunctionId) continue
-          receivingFnIds.add(fnId)
-          if (!demandIdsPerFn.has(fnId)) demandIdsPerFn.set(fnId, new Set())
-          demandIdsPerFn.get(fnId)!.add(item.id)
-        }
+    // Projects where the active Function has at least one child Demand (any status)
+    const projectsWithActiveFn = new Set<string>()
+    for (const d of store.demandItems) {
+      if (d.parent_project_id && d.function_id === activeFunctionId) {
+        projectsWithActiveFn.add(d.parent_project_id)
       }
     }
 
+    // Apply Programme/Project filter (§4 View 1 Section D scope rules)
+    let filteredProjectIds = projectsWithActiveFn
+    if (filterProject) {
+      filteredProjectIds = projectsWithActiveFn.has(filterProject)
+        ? new Set([filterProject])
+        : new Set<string>()
+    } else if (filterProgramme) {
+      const progIds = new Set(store.projects.filter(p => p.programme_id === filterProgramme).map(p => p.id))
+      filteredProjectIds = new Set([...projectsWithActiveFn].filter(id => progIds.has(id)))
+    }
+
+    // Receiving Functions: non-active-Function Demands on filtered Projects, in committed statuses
+    const receivingFnIds = new Set<string>()
+    const projectIdsPerFn = new Map<string, Set<string>>()
+
+    for (const d of store.demandItems) {
+      if (!d.parent_project_id) continue  // exclude direct Demands
+      if (!filteredProjectIds.has(d.parent_project_id)) continue
+      if (d.function_id === activeFunctionId) continue
+      if (!COMMITTED_STATUSES.has(d.status)) continue
+      receivingFnIds.add(d.function_id)
+      if (!projectIdsPerFn.has(d.function_id)) projectIdsPerFn.set(d.function_id, new Set())
+      projectIdsPerFn.get(d.function_id)!.add(d.parent_project_id)
+    }
+
     // D1 chart data: per month × receiving Function
+    // Pass state with filtered projects so crossFunctionDemandHours respects the filter
+    const filteredState = filteredProjectIds !== projectsWithActiveFn
+      ? { ...store, projects: store.projects.filter(p => filteredProjectIds.has(p.id)) }
+      : store
     const d1Data: any[] = months.map(month => {
-      const raw = crossFunctionDemandHours(activeFunctionId, month, { by: 'function' }, { ...store, demandItems: demandFilteredState.demandItems })
+      const raw = crossFunctionDemandHours(activeFunctionId, month, { by: 'function' }, filteredState)
       const entry: Record<string, number | string> = { label: formatMonthLabel(month) }
       for (const fnId of receivingFnIds) entry[fnId] = raw[fnId] ?? 0
       return entry
     })
 
-    // D2 data: per receiving Function — use any[] for chart data (Recharts loosely typed)
+    // D2 data: per receiving Function — stacked by Project (§4 View 1 Section D2 spec)
     const d2ByFn = new Map<string, {
-      demandIds: string[]
-      byDemand: any[]
+      projectIds: string[]
+      byProject: any[]
       byTeam: any[]
       visibleTeamIds: string[]
     }>()
 
     for (const fnId of receivingFnIds) {
-      const demandIds = [...(demandIdsPerFn.get(fnId) ?? [])]
+      const projectIds = [...(projectIdsPerFn.get(fnId) ?? [])]
       const teamIdsSet = new Set<string>()
 
-      // Initialise per-month entries
-      const byDemand: any[] = months.map(month => {
+      const byProject: any[] = months.map(month => {
         const entry: Record<string, number | string> = { label: formatMonthLabel(month) }
-        demandIds.forEach(did => { entry[did] = 0 })
+        projectIds.forEach(pid => { entry[pid] = 0 })
         return entry
       })
       const byTeam: any[] = months.map(month => ({ label: formatMonthLabel(month) }))
 
       months.forEach((month, mi) => {
-        for (const item of qualifying) {
-          if (!demandIds.includes(item.id)) continue
-          for (const phase of item.phases) {
+        for (const d of store.demandItems) {
+          if (!d.parent_project_id) continue
+          if (!filteredProjectIds.has(d.parent_project_id)) continue
+          if (d.function_id !== fnId) continue
+          if (!COMMITTED_STATUSES.has(d.status)) continue
+          if (!projectIds.includes(d.parent_project_id)) continue
+
+          // Walk Project phases (v1.18) or Demand phases (legacy fallback)
+          const project = store.projects.find(p => p.id === d.parent_project_id)
+          const phases = project && project.phases.length > 0 ? project.phases : d.phases
+
+          for (const phase of phases) {
             if (!monthInRange(month, phase.start_month, phase.end_month)) continue
             for (const req of phase.requirements) {
-              if (skillFnMap.get(req.skill_id) !== fnId) continue
+              if (sklFn.get(req.skill_id) !== fnId) continue
               const hrs = phase.end_month === null
                 ? (req.steady_state_hours ?? 0)
                 : (req.hours_by_month[month] ?? 0)
               if (hrs <= 0) continue
-              byDemand[mi][item.id] = ((byDemand[mi][item.id] as number) ?? 0) + hrs
+              const pid = d.parent_project_id!
+              byProject[mi][pid] = ((byProject[mi][pid] as number) ?? 0) + hrs
               const teamKey = req.owningTeamId ?? '__unassigned__'
               if (req.owningTeamId) teamIdsSet.add(req.owningTeamId)
               byTeam[mi][teamKey] = ((byTeam[mi][teamKey] as number) ?? 0) + hrs
@@ -770,7 +807,7 @@ export default function CapacityValidation() {
         ...(byTeam.some(m => ((m['__unassigned__'] as number) ?? 0) > 0) ? ['__unassigned__'] : []),
       ]
 
-      d2ByFn.set(fnId, { demandIds, byDemand, byTeam, visibleTeamIds })
+      d2ByFn.set(fnId, { projectIds, byProject, byTeam, visibleTeamIds })
     }
 
     const receivingFunctions = [...receivingFnIds]
@@ -778,7 +815,7 @@ export default function CapacityValidation() {
       .filter((f): f is typeof store.functions[0] => !!f)
 
     return { d1Data, d2ByFn, receivingFunctions, receivingFnIds }
-  }, [months, store, demandFilteredState.demandItems, activeFunctionId, activeFnSkillIds, COMMITTED_STATUSES])
+  }, [months, store, activeFunctionId, filterProgramme, filterProject])
 
   // ── Section C: external demand data — scoped to active Function ────────
   const extDataByMonth = useMemo(() => {
@@ -938,6 +975,23 @@ export default function CapacityValidation() {
       }
     }
   }, [store, months, overlayId])
+
+  // Dev-mode: assert Section A re-renders on Function switch (§2.4.8 capacity reconciliation invariant)
+  // Switching Functions must produce a different Section A capacity value in at least one visible month.
+  useEffect(() => {
+    if (!(import.meta as any).env?.DEV) return
+    if (!activeFunctionId || store.functions.length < 2 || months.length === 0) return
+    const otherFn = store.functions.find(f => f.active && f.id !== activeFunctionId)
+    if (!otherFn) return
+    const month = months[0]
+    const activeCap = function_capacity(activeFunctionId, month, store)
+    const otherCap = function_capacity(otherFn.id, month, store)
+    if (activeCap === otherCap && activeCap > 0) {
+      console.error(
+        `[CV §2.4.8] Section A capacity is identical for both Functions in ${month} (${activeCap}h) — seed must have different headcounts per Function.`
+      )
+    }
+  }, [activeFunctionId, store, months])
 
   return (
     <div className="flex flex-col h-full overflow-auto bg-gray-50">
@@ -1243,17 +1297,17 @@ export default function CapacityValidation() {
           </div>
         )}
 
-        {/* Section D: Demand on Other Functions */}
+        {/* Section D: Other Functions' Demands on Shared Projects (reframed v1.18) */}
         {showSectionD && sectionDData && (
           <div className="mt-8 bg-purple-50/40 border border-purple-200 rounded-lg p-5">
             <div className="flex items-start gap-2 mb-5">
               <div>
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-purple-700 mb-1">
-                  Demand on Other Functions
+                  Other Functions' Demands on Shared Projects
                 </h2>
                 <p className="flex items-center gap-1.5 text-xs text-purple-600 italic">
                   <Info size={11} className="shrink-0" />
-                  Internal skill demand placed on other Functions by Demands my Function is involved in. These hours consume other Functions' capacity — not this page's.
+                  This shows internal skill demand from other Functions' Demands on Projects we share. These hours consume other Functions' capacity, not mine — they do not affect this page's capacity charts.
                 </p>
               </div>
             </div>
@@ -1299,7 +1353,7 @@ export default function CapacityValidation() {
                   </div>
                 </div>
 
-                {/* D2: Per-Function breakdown with team drill-down */}
+                {/* D2: Per-Function breakdown with team drill-down — stacked by Project (§4 View 1) */}
                 <div>
                   <h3 className="text-xs font-semibold text-purple-700 mb-3">Per-Function Breakdown</h3>
                   <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))' }}>
@@ -1307,9 +1361,9 @@ export default function CapacityValidation() {
                       const d2 = sectionDData.d2ByFn.get(fn.id)
                       if (!d2) return null
                       const isTeamView = d2TeamViewFnId === fn.id
-                      const activeDemandItems = d2.demandIds
-                        .map(did => store.demandItems.find(d => d.id === did))
-                        .filter((d): d is DemandItem => !!d)
+                      const activeProjects = d2.projectIds
+                        .map(pid => store.projects.find(p => p.id === pid))
+                        .filter((p): p is Project => !!p)
                       const fnTeams = store.teams.filter(t => t.functionId === fn.id)
 
                       return (
@@ -1321,7 +1375,7 @@ export default function CapacityValidation() {
                                 onClick={() => setD2TeamViewFnId(null)}
                                 className="flex items-center gap-1 text-[10px] text-purple-500 hover:text-purple-700"
                               >
-                                <X size={10} /> Back to Demands
+                                <X size={10} /> Back to Projects
                               </button>
                             ) : (
                               <span className="text-[10px] text-purple-400 italic">Click to drill into teams</span>
@@ -1367,17 +1421,17 @@ export default function CapacityValidation() {
                           ) : (
                             <>
                               <ResponsiveContainer width="100%" height={180}>
-                                <ComposedChart data={d2.byDemand} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
+                                <ComposedChart data={d2.byProject} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="#f3e8ff" vertical={false} />
                                   <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
                                   <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickFormatter={v => `${v}h`} />
-                                  <Tooltip content={<D2Tooltip demandItems={activeDemandItems} />} />
-                                  {d2.demandIds.map((did, i) => (
+                                  <Tooltip content={<D2Tooltip projects={activeProjects} />} />
+                                  {d2.projectIds.map((pid, i) => (
                                     <Area
-                                      key={did}
+                                      key={pid}
                                       type="monotone"
-                                      dataKey={did}
-                                      stackId="d2d"
+                                      dataKey={pid}
+                                      stackId="d2p"
                                       fill={D_COLORS[(fi + i) % D_COLORS.length]}
                                       stroke="none"
                                       fillOpacity={0.75}
@@ -1387,12 +1441,12 @@ export default function CapacityValidation() {
                                   ))}
                                 </ComposedChart>
                               </ResponsiveContainer>
-                              {activeDemandItems.length > 1 && (
+                              {activeProjects.length > 1 && (
                                 <div className="flex flex-wrap gap-2 mt-2 justify-end">
-                                  {activeDemandItems.map((item, i) => (
-                                    <span key={item.id} className="flex items-center gap-1 text-[10px] text-gray-500">
+                                  {activeProjects.map((project, i) => (
+                                    <span key={project.id} className="flex items-center gap-1 text-[10px] text-gray-500">
                                       <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: D_COLORS[(fi + i) % D_COLORS.length], opacity: 0.75 }} />
-                                      {item.name}
+                                      {project.name}
                                     </span>
                                   ))}
                                 </div>
