@@ -1,284 +1,94 @@
-# Changes — REQUIREMENTS.md v1.18
+# Changes — v1.19
 
-This file directs Claude Code to the work items for the v1.18 spec revision. Each section is a single change with a checkbox, scope, dependencies, and pointers to the authoritative spec sections in `REQUIREMENTS.md`.
+**Spec version:** REQUIREMENTS.md v1.19
+**Created:** 28 April 2026
 
-**Rules**:
-- Tick each checkbox only when the change is fully implemented and verified against the renderability invariants noted in the spec.
-- Implement changes in the order listed below. Dependencies are explicit — do not start a change whose prerequisites are unchecked.
-- This file does **not** restate spec content. For implementation detail, read the referenced sections of `REQUIREMENTS.md`.
+This file tracks v1.19 implementation progress and directs Claude Code to the right parts of REQUIREMENTS.md for full implementation detail. Each change is scoped tightly; complete them in order — later changes depend on earlier ones.
 
----
-
-## Change 1 — Data model migration (Project + Demand split)
-
-- [x] Restructure the data model around the new Project entity and the redefined per-Function Demand entity. Direct Demands carry their own phases; Project-spawned Demands present a Function-scoped view of the parent Project's phases.
-
-**Scope**:
-- Add Project as a first-class entity (status, phases, requirements, ProjectTeamAssignments).
-- Redefine Demand: add `function_id` (required), `parent_project_id` (nullable). Remove the v1.17 `Project` alignment field.
-- Rename `DemandTeamAssignment` → `ProjectTeamAssignment` (FK now points at Project, not Demand).
-- Drop `Parked`, `Closed` statuses, `Parked reason` field, Archive entity references, Restore action.
-- Drop `Submitted → Draft` (Revert), `Approved → Submitted` (Revise), Duplicate operations from the schema-level state machine definitions.
-
-**Dependencies**: none. This is the foundation.
-
-**Reference sections**:
-- `REQUIREMENTS.md` §2.1.1 — Programme / Project hierarchy
-- `REQUIREMENTS.md` §2.2 — Demand and Project requirements (especially §2.2.1 Demand entity, §2.2.4 spawn rule)
-- `REQUIREMENTS.md` §2.3 — BAU now flows through direct Demand path
-- `REQUIREMENTS.md` §3 Statuses tables — Project and Demand state definitions
+REQUIREMENTS.md is the single source of implementation detail. This file is the navigational map and progress tracker.
 
 ---
 
-## Change 2 — Aggregation layer rewrite
+## v1.19 — Manage Project simplification + Submitted-Demand editability + spawn materialisation
 
-- [x] Update the shared aggregation module to walk the new Project → Phases → Requirements → child Demand structure, add `direct_demand_*` functions, and revise `*_demand_by_funding` signatures with the new `opts` parameter. Delete dead-code by-team functions.
+### 1. Data model migration
 
-**Scope**:
-- Update `project_internal_hours`, `project_external_hours`, `programme_internal_hours`, `programme_external_hours` to walk Project phases and respect child-Demand status filtering.
-- Add `direct_demand_internal_hours`, `direct_demand_external_hours`, `direct_demand_by_funding`, `unaligned_project_hours`.
-- Replace `*_demand_by_funding(programme_id, month, {status_set})` with the v1.18 `opts`-bearing signature: `function_id`, `status_set`, `include_external`, `include_other_functions`.
-- **Delete** `programme_demand_by_team` and `project_demand_by_team` from the module.
-- Reframe `cross_function_demand_hours` to the shared-Project semantics (other Functions' Demands on Projects shared with the active Function).
+- [x] **Scope:** Add `functions_required: string[]` and `functions_actually_involved: string[]` to Project. Drop `ProjectTeamAssignment` entity entirely. Drop `owning_team_id` from internal requirements. Add `function_tag: string` to ExternalResourceRequirement (required field). Add `phases`, `internal_requirements`, `external_requirements` arrays to Demand entity (previously only on direct Demands). **Add `ProjectType` entity** (`id`, `name`, `display_order`, `colour_token`, `is_bau`, `active`) with four seeded records (BAU, NPD Demand, Plant Project, Group Strategy Project — `is_bau = true` on BAU only); migrate `Project.type` and `Demand.type` from string-enum to FK reference to ProjectType records; remove the hardcoded enum from the codebase entirely. Migrate seed: drop all `ProjectTeamAssignment` records; populate `functions_required` on every Project; set `function_tag` on every external requirement; for each existing Project-spawned Demand, materialise the Function-scoped slice from the parent Project as a deep copy; replace every Project's and Demand's type-enum value with the matching ProjectType record id.
+- **Dependencies:** None — this is the foundation.
+- **Read in REQUIREMENTS.md:** Sections 2.1.1 (Project entity table — `functions_required` / `functions_actually_involved` fields, `Type` references ProjectType), 2.1.2 (Project Type entity full definition + seed records), 2.2 (unified data ownership model on Demands; `Type` references ProjectType), 2.2.3 (Resource Requirement — `owning_team_id` removed), 2.6 (External Resource Requirement — `function_tag` field), section 9 build order step 1.
 
-**Dependencies**: Change 1 (data model must exist first).
+### 2. Spawn / materialisation logic
 
-**Reference sections**:
-- `REQUIREMENTS.md` §2.4.9 — full function inventory and signatures
-- `REQUIREMENTS.md` §2.4.8 — aggregation consistency rules and renderability invariant pattern
+- [ ] **Scope:** Implement the v1.19 spawn algorithm: deep-copy Function-scoped phases, internal requirements, and external requirements (Function-tag-routed) onto each spawned Demand atomically with Project status flip. Project's data is frozen post-spawn. Implement `resolveFunctionTag` helper for null-tagged externals (defaults to Project owner's primary Function, falling back to alphabetically-first Function in spawn set, with dev-mode warning). Wire the v1.19 spawn renderability invariants. Add Project 4 DM Demand spawn drift example to seed.
+- **Dependencies:** Change 1 (data model must be in place).
+- **Read in REQUIREMENTS.md:** Section 2.2.4 (spawn rule — full materialisation specification), section 11.20 (spawn algorithm pseudocode and renderability invariants), section 9 build order step 2.
 
----
+### 3. State machine adjustments
 
-## Change 3 — Capacity reconciliation invariants (bug-fix scaffolding)
+- [ ] **Scope:** Update Project Submit-for-Scoping gate to require ≥1 phase AND ≥1 entry in `functions_required` (replaces the previous "every phase has at least one team assigned" gate). Allow editing Demand definition in Submitted (lock point moves from Submit to Approve). Direct Demand Submitted permits phase edits; Project-spawned Demand Submitted does not (phases are frozen on the Project). Update section 11.18 confirmation dialog content to surface spawn outcome (Demands and materialised hour totals) instead of team-confirmation status.
+- **Dependencies:** Change 1.
+- **Read in REQUIREMENTS.md:** Section 3 (Project state machine, Project transition reference, Project workflow narrative; Demand state machine, Demand transition reference, Demand workflow narrative; Allocation editing — v1.19 lock-at-Approve rule), section 11.18 (rewritten confirmation dialog), section 9 build order step 3.
 
-- [x] Add per-Function and per-Domain capacity reconciliation invariants as runtime assertions in development builds. Build a seed-derived expected-value table and verify chart, aggregation, and table reconcile.
+### 4. UI — Mode A reshape
 
-**Scope**:
-- Implement `function_capacity(function_id, month)` and assert against the seed-derived table.
-- Implement `domain_capacity(domain_id, month)` per-Domain assertions.
-- Wire Function-switch renderability assertion: switching Functions must change `domain_capacity` results in at least one visible month.
-- Investigate the v1.17 "Group IT Data & Integration phantom capacity Jul–Aug 2026" symptom against the reconciliation table — reproduce or rule out.
+- [ ] **Scope:** Mode A becomes active on five status combinations: Project Draft, Project Scoping, Direct Demand Draft, Direct Demand Submitted, Project-spawned Demand Submitted. Add Functions Required multi-select picker on Projects (Draft and Scoping; frozen at Submit). Show Functions Actually Involved chips alongside Functions Required, with "added during Scoping" badge when they diverge. Remove the entire Teams Assigned picker section, per-team confirmation strip, and `owning_team_id` dropdown from internal requirement entry forms. Update Skill picker scoping: Project Scoping = full catalogue across all Functions; Demand Submitted = scoped to the Demand's Function only. Add Function tag picker on external requirement rows (Project Scoping only — auto-set and read-only on Demands). Phase fields read-only on Project-spawned Demand Submitted; editable on Direct Demand Submitted.
+- **Dependencies:** Changes 1, 3.
+- **Read in REQUIREMENTS.md:** Section 4.5.2 (Mode A status-aware list, content blocks, Internal/External requirements entry, Skill picker scoping rules, Functions Required picker), section 9 build order step 4.
 
-**Dependencies**: Change 1 (data model), Change 2 (aggregation layer).
+### 5. UI — Mode B touchups
 
-**Reference sections**:
-- `REQUIREMENTS.md` §2.4.8 — capacity reconciliation invariants block
-- `REQUIREMENTS.md` §6 — capacity reconciliation table (seed-derived expected values)
+- [ ] **Scope:** Update read-only Gantt scope language to "the Demand's own phases" (no more parent-Project-scoping filter). Update "Definition is Locked" banner copy to v1.19 language: locked from Approve onwards; Delete-and-recreate is the only path (parent Project for spawned Demands, this Demand for direct Demands).
+- **Dependencies:** Changes 1, 2 (Demand owns its data now).
+- **Read in REQUIREMENTS.md:** Section 4.5.2 (Mode B — Allocation Workspace; Phase timeline read-only; "Definition is Locked" banner), section 9 build order step 5.
 
----
+### 6. UI — drawer header & body updates
 
-## Change 4 — State machines (Project, Demand, spawn rule)
+- [ ] **Scope:** **Drawer header zone** — drop chevron-joined `Programme › Project` (and `Programme › Project › Function`) hierarchy from titles on both Project and Demand drawers. Title is now just the entity's name on its own row, full width. The "Edit" button on Submitted/Approved/Allocated Projects in Manage Projects is replaced with "View" (same position). **Drawer body zone** — add Programme line to both Project and Demand drawers ("No Programme" muted-italic when null; "Direct Demand (no Programme)" for direct Demands). Add "Part of: [Project name]" line to Demand drawer for Project-spawned Demands. Replace single "Functions involved" line with two adjacent chip rows on Project drawer: "Required (originator's plan):" (with "not declared (imported)" muted-italic for import-created Projects) and "Actually involved:" with mismatch badging. **Mode B top section** — drop chevron-joined "Programme › Project name" inline string; replace with separate "Part of: [Project name]" and "Programme: [Programme name]" lines, mirroring the drawer body convention. **Manage Demand surfaces** — Board mode card replaces "Programme › Project" tag with parent-Project name on its own line (no Programme prefix); Group-by-Project header becomes a two-row layout (Project name as primary, Programme as muted subtitle). **Delete cascade dialog scope text** — drop `ProjectTeamAssignment` count; replace with "this Project's child Demands and their materialised phases/requirements."
+- **Dependencies:** Changes 1, 2.
+- **Read in REQUIREMENTS.md:** Section 4.5.1 (drawer Header zone and Body zone — both updated), section 4.5.2 (Mode B top section), section 4.6 (Manage Demand Board mode card and Group-by-Project header), section 3 Deletion (cascade language), section 9 build order step 6.
 
-- [x] Implement the two state machines and the spawn rule (Project Scoping → Submitted creates child Demands atomically). Implement Project status auto-transitions from child Demand statuses. Implement Delete cascade rules.
+### 7. Admin — Project Types surface
 
-**Scope**:
-- Project state machine: Draft → Scoping → Submitted → Approved → Allocated. Submit-for-Scoping gate (phases-and-teams-assigned). Submit Project executes the spawn rule.
-- Demand state machine: Draft → Submitted → Approved → PartiallyAllocated → Allocated. Direct Demands enter at Draft; Project-spawned at Submitted via spawn.
-- Project status auto-transition logic (Submitted ↔ Approved ↔ Allocated based on child Demand statuses).
-- Delete cascade: Project Delete cascades to child Demands and their allocations atomically; direct Demand Delete cascades to its allocations.
-- Remove all Park / Close / Revert / Revise / Duplicate / Revive / Restore transitions from the codebase.
+- [ ] **Scope:** New flat admin screen listing all Project Type records with name, drag-handle for reordering (drives `display_order`), colour swatch picker (single-select from a fixed design-system palette of 8–12 named tokens — no arbitrary hex input), `is_bau` read-only badge ("BAU" on the one record), active toggle, and in-use indicator (count of Projects + Demands referencing this type). Add Project Type form: name (required, unique among active records, case-insensitive), `colour_token` (palette pick), `display_order` set via drag handle on the list, `is_bau` defaults to false and is not user-editable. Renames cascade trivially. Reordering changes capacity-stack ordering on every chart that stacks by Project Type — intentional. Hard-delete blocked when in-use count > 0; bulk-reassign action provided. **BAU record cannot be hard-deleted ever** — system requires exactly one record with `is_bau = true` at all times. BAU record can be renamed, reordered, recoloured, or deactivated like any other type. Soft-delete via active flag — inactive types stay on existing records but disappear from pickers.
+- **Dependencies:** Change 1 (the ProjectType entity must exist in the store).
+- **Read in REQUIREMENTS.md:** Section 5 (Project Types admin entry), section 2.1.2 (entity definition + seed records + colour palette + `is_bau` semantics), section 9 build order step 1 (data model migration).
 
-**Dependencies**: Change 1 (entities must exist).
+### 8. UI — Manage Projects view-only post-Submit
 
-**Reference sections**:
-- `REQUIREMENTS.md` §3 — state machine diagrams, transition reference, workflow narratives, deletion rules
-- `REQUIREMENTS.md` §11.20 — spawn algorithm pseudocode, Project status auto-transition logic, cascade pseudocode
+- [ ] **Scope:** Submitted, Approved, and Allocated Projects: drawer's "Edit" button replaced with "View" (opens the same edit page in fully read-only mode — no field editing, no "+ Add" affordances). Card content tweak: Functions Actually Involved chip row is the primary card content; "Required: …" footnote shown on Draft/Scoping cards only. Filter rename: "Functions involved" → "Functions Actually Involved" with clarifying tooltip.
+- **Dependencies:** Changes 1, 4 (Mode A read-only behaviour must be wired).
+- **Read in REQUIREMENTS.md:** Section 4.6.A (Manage Projects — Editability rule, Board mode card content, filter table), section 9 build order step 7.
 
----
+### 9. Excel import for bulk Project creation
 
-## Change 5 — Drawer and edit page (entity-aware)
+- [ ] **Scope:** Add `assets/import_template/master.xlsx` to the repo (the structural baseline workbook — checked-in artefact bundled with the build). Implement Download Template action on Manage Projects: read live store (Programmes, Skills, Providers, **Project Types**), populate the four Reference tabs, serialise via ExcelJS in-browser, trigger download. Project Types written in `display_order` order. Implement Import from Excel action: file picker (.xlsx only, CSV rejected with a clear error), parse + validate per the parser semantics in section 6.1; `project_type` validates against active Project Type records by `name` (case-sensitive match with "did you mean" suggestions). Render Preview screen with errors/warnings/Project preview cards including spawn outcome. On commit, atomic transaction creates Project records in `Submitted` with `functions_required = []` and immediately fires the spawn rule for each, materialising child Demands also in `Submitted`. Wire toolbar button order: `[Download Template] [Import from Excel] [+ New Project]`.
+- **Dependencies:** Changes 1, 2, 3, 4, 7, 8 (data model + spawn logic + state machine + Mode A + Project Types admin + Manage Projects view-only must all be in place — Project Types admin must exist before the import can read records for the dropdown source).
+- **Read in REQUIREMENTS.md:** Section 4.6.A.1 (Excel import surface — Download Template flow, Import from Excel flow, Preview screen, Authority and bypass semantics, What import does not support), section 6.1 (Import workbook schema — 9 tabs including the new `Reference - Project Types`, full tab/column/validation/parser specification), section 3 Project workflow narrative (Excel import path), section 7 Technology (ExcelJS row), section 9 build order step 9.
 
-- [x] Update the drawer (header / status / body / footer) and the edit page (Mode A, Mode B) to handle Projects and Demands distinctly. Wire the v1.18 footer button tables and the single-Delete overflow.
+### 10. Seed rebuild for v1.19
 
-**Scope**:
-- Drawer header zone: Project drawer shows Programme name + owner; Demand drawer shows Function chip + parent-Project link or Direct badge.
-- Drawer body zone: Functions involved (Project), Function badge + Origin + Sibling Demands (Demand), summary stats scoped appropriately.
-- Drawer footer: per the v1.18 status × entity tables in §4.5.1.
-- Drawer overflow: Delete only.
-- Edit page Mode A: Project Draft (no requirements UI), Project Scoping (full requirements UI + per-team confirmation strip), direct Demand Draft (single-Function, full UI). Programme picker on Projects (replaces v1.17 Project alignment picker on Demands).
-- Edit page Mode B: Demand-only, scoped to the Demand's Function for Project-spawned Demands. "Definition is Locked" banner copy updated; no return-to-Mode-A path.
-- Remove `DemandTeamAssignment` references in the edit page; rename to `ProjectTeamAssignment`.
+- [ ] **Scope:** Regenerate seed module to embody the new model: Functions Required entries on every Project (Project 2 set to `[DM]` only with GroupIT requirements added during Scoping to demonstrate the hint-not-binding flow); Function tags on every external requirement (DM-tagged and GroupIT-tagged on Project 3 to exercise both routes; auto-tagged on direct Demand externals); spawn drift example on Project 4 DM Demand (60 → 80); zero `ProjectTeamAssignment` records anywhere; ProjectType FK references on every Project and Demand. Update seed reconciliation table where totals shift due to materialisation drift.
+- **Dependencies:** Changes 1, 2.
+- **Read in REQUIREMENTS.md:** Section 6 (Projects table updated for v1.19, Project-spawned Demands, capacity reconciliation), section 9 build order step 10.
 
-**Dependencies**: Changes 1, 2, 4.
+### 11. Renderability invariants and tests
 
-**Reference sections**:
-- `REQUIREMENTS.md` §4.5.1 — Drawer (header, body, footer button tables, overflow)
-- `REQUIREMENTS.md` §4.5.2 — Edit page Mode A and Mode B
-- `REQUIREMENTS.md` §11.16 — drawer button taxonomy (transitional / navigational / destructive)
+- [ ] **Scope:** Wire all v1.19-specific seed assertions (section 6) as runtime assertions in development builds. Verify spawn produces correct sibling counts, materialised data integrity, external Function-tag routing, frozen Project record, drift example. Verify Mode A is reachable on Demand Submitted (Project-spawned and direct) and that the Skill picker is correctly scoped. Verify Manage Projects renders view-only from Submitted onwards (no edit affordances anywhere on the Project surface). Verify the Excel import invariants from section 6.1: Download Template produces a 9-tab workbook with correct headers; Import of empty template produces zero records; Import of a single-Project workbook produces one Project + N spawned Demands all in `Submitted`; Import with unknown reference produces blocking error with zero records created. Verify Project Types behaviour: admin reorder via drag updates `display_order` and immediately changes capacity-stack ordering on Capacity Validation; admin recolour updates the stack colour; admin add of a new type makes it pickable in the Mode A type dropdown and in the import workbook's Reference tab on next download; hard-delete blocked when in-use; BAU record hard-delete blocked unconditionally.
+- **Dependencies:** Changes 1–10.
+- **Read in REQUIREMENTS.md:** Section 6 (Seed assertions — v1.19-specific block at the end), section 6.1 (Renderability invariants subsection), section 11.20 (spawn renderability invariants), section 9 build order step 11.
+
+### 12. Cleanup
+
+- [ ] **Scope:** Remove all references to `ProjectTeamAssignment`, `DemandTeamAssignment`, `owning_team_id`, "Teams Assigned", and "per-team confirmation" in code, route paths, test fixtures, and store types. Remove the v1.18 "Function-scoped slice of the parent Project" computed-view code path on spawned Demands. Remove every hardcoded list of Project Type enum values from the codebase — every runtime use must read from active ProjectType records sorted by `display_order`. Audit DESIGNSYSTEM.md for any team-related visual tokens that are no longer used.
+- **Dependencies:** Changes 1–11.
+- **Read in REQUIREMENTS.md:** Section 9 build order step 12.
 
 ---
 
-## Change 6 — Manage Demand reshape (5-column board)
+## Notes for Claude Code
 
-- [x] Reshape Manage Demand to a 5-column Kanban (Draft / Submitted / Approved / PartiallyAllocated / Allocated). Add the "+ New Direct Demand" button. Add the Origin filter. Apply the active Function lens.
-
-**Scope**:
-- Kanban columns reduced to 5. Draft column shows direct Demands only; Submitted onwards mixes both origins.
-- Drag-and-drop transitions: Draft → Submitted (direct Demands), Submitted → Approved (any). Drags to PartiallyAllocated/Allocated rejected with tooltip.
-- "+ New Direct Demand" button creates a Draft Demand with `function_id = activeFunctionId`, immutable.
-- Origin filter (All / Project-spawned / Direct).
-- Cards show parent-Project link or Direct badge.
-- Active Function lens — only Demands matching `activeFunctionId` are shown.
-
-**Dependencies**: Changes 1, 4, 5.
-
-**Reference sections**:
-- `REQUIREMENTS.md` §4.6 — Manage Demand
-- `REQUIREMENTS.md` §11.19 — navigation order
-
----
-
-## Change 7 — Manage Projects view (new)
-
-- [x] Build the new Manage Projects view as a 5-column Kanban (Draft / Scoping / Submitted / Approved / Allocated). Add the "+ New Project" button. Apply the cross-Function visibility rule.
-
-**Scope**:
-- Kanban columns: 5 statuses. Drag-and-drop: Draft → Scoping (gated), Scoping → Submitted (triggers spawn confirmation dialog). Approved/Allocated drags rejected (auto-only).
-- "+ New Project" button creates a Project Draft (Function-agnostic, picks Programme later).
-- Visibility rule: Draft/Scoping Projects always visible; Submitted+ Projects visible only if at least one child Demand belongs to the active Function.
-- Functions involved chips on cards.
-- Filters: Status, Type, Programme, Functions involved, Has external requirements.
-- Group-by-Programme view in Table mode.
-
-**Dependencies**: Changes 1, 4, 5.
-
-**Reference sections**:
-- `REQUIREMENTS.md` §4.6.A — Manage Projects (full spec)
-- `REQUIREMENTS.md` §11.18 — Submit Project confirmation dialog (all-confirmed / unconfirmed / zero-requirements paths)
-- `REQUIREMENTS.md` §11.19 — navigation order
-
----
-
-## Change 8 — Demand view (4.10) Function-lensed with toggles
-
-- [x] Apply Function lens. Replace Stacking selector with funding-source-only. Add "Show external resource" and "Show demand on other Functions" toggles. Replace hatched-overlay Submitted with merged-bucket Submitted. Add Direct Demands and Unaligned Projects virtual cards.
-
-**Scope**:
-- Wire the Function lens via `function_id` parameter on `programme_demand_by_funding`, `project_demand_by_funding`, `direct_demand_by_funding`.
-- Remove the Stacking segmented control from the toolbar — only By Funding Source remains.
-- Add "Show external resource" toggle (default OFF; expands buckets to include externals).
-- Add "Show demand on other Functions" toggle (default OFF; adds sibling Demands' hours on shared Projects to the same buckets).
-- "Include Submitted" toggle behaviour change: no visual differentiation, no `(Submitted)` suffix; just expands `status_set`.
-- Add Direct Demands virtual card on the landing page (active Function only; hidden when none).
-- Add Unaligned Projects virtual card (Programme-less Projects with active-Function Demands).
-- Update segment-click side panel rows to surface origin + Function chip.
-
-**Dependencies**: Changes 1, 2, 4.
-
-**Reference sections**:
-- `REQUIREMENTS.md` §4.10 — Demand view (full revision)
-- `REQUIREMENTS.md` §11.17 — Function lens (exception removal note)
-
----
-
-## Change 9 — Capacity Validation Section A re-render bug + Section D reframe
-
-- [x] Fix Section A "Overall Function Capacity" so it re-renders on Function switch using the active-Function selector pattern. Reframe Section D to "Other Functions' Demands on Shared Projects."
-
-**Scope**:
-- Section A: replace any hard-coded function id captured at mount time with `selectActiveFunctionCapacityLine(store, month)`. Add a runtime regression assertion that a Function-switch action causes Section A's data to recompute.
-- Section D: update in-scope rule to "Projects where the active Function has a Demand → surface other Functions' requirements on those Projects."
-- Section D2: stack by **Project** (not Demand name); keep team drill-down.
-- Direct Demands excluded from Section D by definition.
-- Update aggregation calls to the reframed `cross_function_demand_hours` signature (Change 2).
-
-**Dependencies**: Changes 1, 2, 3.
-
-**Reference sections**:
-- `REQUIREMENTS.md` §4 View 1 — Section A (re-render rule), Section D (reframed scope, D1/D2 specs)
-- `REQUIREMENTS.md` §2.4.8 — Function-switch renderability assertion
-- `REQUIREMENTS.md` §11.17 — selector pattern for active Function
-
----
-
-## Change 10 — Archive view removal + nav updates
-
-- [x] Remove the Archive view route, remove the Archive nav item, update the nav order to the v1.18 sequence, update routing for the new `/manage-projects` route.
-
-**Scope**:
-- Delete the Archive view component and its route.
-- Remove the Archive nav link.
-- Update nav order: Capacity Validation, Demand, Manage Projects, Manage Demand, Team Activity, Forecast, Skills Development, Admin.
-- Add `/manage-projects` route.
-- Verify deep links from Capacity Validation segment-clicks and Demand drawer Edit buttons land on the correct page in the new model.
-
-**Dependencies**: Changes 5, 6, 7.
-
-**Reference sections**:
-- `REQUIREMENTS.md` §4.7 — (now removal note only)
-- `REQUIREMENTS.md` §11.19 — navigation order
-
----
-
-## Change 11 — Admin updates (Programmes, Projects, Providers)
-
-- [x] Update the admin Programmes screen for the new Project-as-planning-entity model. Build the admin Projects list (with Delete cascade dialog). Update Provider in-use indicator to reflect new model.
-
-**Scope**:
-- Programmes admin: hard-delete blocked when Programme has Projects (no longer "Closed Projects" condition).
-- Projects admin: list view across all Functions with name, Programme, status, owner, type, Demand count, rolled-up internal/external hours; Delete with cascade dialog (matches §11.20 cascade pseudocode).
-- Remove "Closed Projects" / soft-delete-via-active-flag concept from Projects admin.
-- Providers admin: in-use indicator counts external requirements across Projects + direct Demands.
-
-**Dependencies**: Changes 1, 4.
-
-**Reference sections**:
-- `REQUIREMENTS.md` §5 — Admin (Programmes, Projects, Providers entries)
-- `REQUIREMENTS.md` §11.20 — Project Delete cascade pseudocode
-
----
-
-## Change 12 — Seed rebuild
-
-- [x] Rebuild the seed around the new Project + direct Demand model: 6 Projects across all 5 statuses, 4 direct Demands across all 5 statuses, headline cross-Function Project with 2 spawned Demands, and the capacity reconciliation table.
-
-**Scope**:
-- 6 Projects per the table in §6 (covering Draft, Scoping, Submitted, Approved, Allocated).
-- 4 direct Demands per §6 (covering Draft, Submitted, Approved, PartiallyAllocated, Allocated — D3 BAU lands in PartiallyAllocated).
-- Spawn the appropriate child Demands for each non-Draft, non-Scoping Project (6 spawned Demands total).
-- Cross-Function "Plant C MES Platform Migration" with DM (PartiallyAllocated) and GroupIT (Approved) child Demands; Project sits at Approved.
-- External requirements per §6.
-- Capacity reconciliation table exported alongside People data.
-
-**Dependencies**: Changes 1, 2, 3, 4. Cannot meaningfully test without all four.
-
-**Reference sections**:
-- `REQUIREMENTS.md` §6 — full seed specification including Projects table, direct Demands table, capacity reconciliation table
-
----
-
-## Change 13 — Renderability invariants and final cleanup
-
-- [x] Wire all v1.18 seed assertions as runtime assertions. Remove residual Park / Close / Revert / Revise / Duplicate / Archive references from code, route paths, fixtures, design system tokens.
-
-**Scope**:
-- All seed assertions in §6 ("Seed assertions" block) wired as dev-build runtime assertions per the §2.4.8 pattern.
-- Verify Manage Projects board, Manage Demand board, Demand view (under both Function lenses), Capacity Validation Section A re-render under Function switch.
-- Remove `functionLensInactiveHint` token from `DESIGNSYSTEM.md` (no longer used after Change 8).
-- Code audit for residual Park/Close/Revise/Revert/Duplicate/Archive/Revive/Restore references.
-- Verify the v1.17 "Project alignment" inline picker is fully removed from edit page Mode A.
-
-**Dependencies**: All previous changes.
-
-**Reference sections**:
-- `REQUIREMENTS.md` §6 — Seed assertions block
-- `REQUIREMENTS.md` §2.4.8 — runtime assertion pattern
-- `REQUIREMENTS.md` §9 v1.18 — build order section, especially step 10 (Cleanup)
-
----
-
-## Verification before marking v1.18 complete
-
-After all 13 changes are checked, perform a final verification pass:
-
-- [x] Fresh seed loads without runtime assertion errors.
-- [x] Manage Projects board shows all 5 columns populated.
-- [x] Manage Demand board shows all 5 columns populated.
-- [x] Function switch produces visible re-render on every page (especially Section A capacity line).
-- [x] Section D shows non-zero hours for the other Function on shared Projects only.
-- [x] Demand view's three toggles each visibly affect the chart values.
-- [x] No Park / Close / Revert / Revise / Duplicate / Archive button or route exists anywhere.
-- [x] Delete on a Project cascades to Demands + allocations with confirmation dialog showing accurate counts.
-- [x] Spec version stamp in the running app matches `REQUIREMENTS.md` v1.18.
-
-When the verification list is complete, the build is at v1.18 parity with the spec.
+1. The dependency graph is strict: data model first, spawn logic second, state machine third, then UI surfaces in any order, then seed, then assertions, then cleanup. Don't bundle.
+2. After each change, smoke-test the user-observable outcome. Each change has one.
+3. The aggregation layer (sections 2.4.1–2.4.8) and Function selector behaviour (sections 4.9, 11.17) are unchanged in v1.19. Don't modify those code paths unless explicitly required by one of the changes above.
+4. The capacity model and visual treatment on Capacity Validation, Team Activity, Skill detail view, and Demand view are unchanged. The Demand drawer body (other than item 6 above) is also unchanged — phases and requirements are now read from the Demand directly, but for direct Demands that was always true and for spawned Demands the data shape is identical (just sourced differently).
+5. Section D2's team drill-down sub-view is removed in v1.19 alongside the broader removal of Teams from the workflow. The aggregation function `cross_function_demand_hours` loses its `by: 'team'` decomposition.

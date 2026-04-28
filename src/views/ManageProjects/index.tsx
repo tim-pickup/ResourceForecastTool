@@ -15,7 +15,7 @@ import { ProjectDrawer } from '../../components/ProjectDrawer/ProjectDrawer'
 import { DemandDrawer } from '../../components/DemandEditor/DemandEditor'
 import { ProjectStatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
-import type { Project, ProjectStatus, DemandType } from '../../types'
+import type { Project, ProjectStatus } from '../../types'
 import { clsx } from 'clsx'
 import { getCurrentMonth, generateMonths } from '../../utils/capacity'
 import { project_internal_hours, project_external_hours } from '../../lib/capacity'
@@ -100,22 +100,6 @@ function SubmitProjectDialog({
     )
   }
 
-  // Check for unconfirmed teams
-  const assignments = store.projectTeamAssignments.filter(a => a.projectId === projectId)
-  const unconfirmed = assignments.filter(a => !a.confirmed)
-  const confirmed = assignments.filter(a => a.confirmed)
-  const hasUnconfirmed = unconfirmed.length > 0
-
-  function getTeamReqCount(teamId: string) {
-    let count = 0
-    for (const phase of project.phases) {
-      for (const req of phase.requirements) {
-        if (req.owningTeamId === teamId) count++
-      }
-    }
-    return count
-  }
-
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30" onClick={onCancel} />
@@ -124,60 +108,16 @@ function SubmitProjectDialog({
           Submit "{project.name}"?
         </h2>
 
-        {/* Team confirmation status */}
-        <div className="mb-3">
-          {hasUnconfirmed ? (
-            <p className="text-xs text-amber-700 mb-2">
-              {unconfirmed.length} of {assignments.length} assigned team{assignments.length !== 1 ? 's' : ''}{' '}
-              {unconfirmed.length === 1 ? 'has' : 'have'} not yet confirmed their requirements:
-            </p>
-          ) : assignments.length > 0 ? (
-            <p className="text-xs text-green-700 mb-2">
-              All {assignments.length} assigned team{assignments.length !== 1 ? 's' : ''} have confirmed their requirements:
-            </p>
-          ) : null}
-
-          <div className="space-y-1">
-            {confirmed.map(a => {
-              const team = store.teams.find(t => t.id === a.teamId)
-              const fn = team ? store.functions.find(f => f.id === team.functionId) : null
-              const reqCount = getTeamReqCount(a.teamId)
-              return (
-                <div key={a.id} className="flex items-center gap-2 text-xs text-gray-600">
-                  <span className="text-green-600 font-medium w-3">✓</span>
-                  <span>{team?.name ?? a.teamId}{fn ? ` (${fn.name})` : ''}</span>
-                  <span className="text-gray-400">— {reqCount} requirement{reqCount !== 1 ? 's' : ''}</span>
-                </div>
-              )
-            })}
-            {unconfirmed.map(a => {
-              const team = store.teams.find(t => t.id === a.teamId)
-              const fn = team ? store.functions.find(f => f.id === team.functionId) : null
-              const reqCount = getTeamReqCount(a.teamId)
-              return (
-                <div key={a.id} className="flex items-center gap-2 text-xs text-amber-700">
-                  <span className="font-medium w-3">⚠</span>
-                  <span>{team?.name ?? a.teamId}{fn ? ` (${fn.name})` : ''}</span>
-                  <span className="text-amber-500">— {reqCount} requirement{reqCount !== 1 ? 's' : ''}, not confirmed</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
         {/* Spawned Demands summary */}
-        <p className="text-xs text-gray-600 mb-1">
+        <p className="text-xs text-gray-600 mb-3">
           {functionsToSpawn.length} Demand{functionsToSpawn.length !== 1 ? 's' : ''} will be spawned:{' '}
           {functionsToSpawn.map(f => f?.name).join(', ')}.
-          {' '}The Project's definition will be locked from this point
-          {hasUnconfirmed ? ' — unconfirmed teams\' requirements can no longer be added after submission.' : '.'}
+          {' '}The Project's phases and requirements will be frozen as a planning record.
         </p>
 
         <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-border">
           <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
-          <Button size="sm" variant="primary" onClick={onConfirm}>
-            {hasUnconfirmed ? 'Submit anyway' : 'Submit'}
-          </Button>
+          <Button size="sm" variant="primary" onClick={onConfirm}>Submit</Button>
         </div>
       </div>
     </div>
@@ -491,7 +431,9 @@ export default function ManageProjects() {
             </select>
             <select value={filterType} onChange={e => setFilterType(e.target.value)} className="text-xs border border-border rounded px-2 py-1 bg-white">
               <option value="">All Types</option>
-              {(['Group Strategy Project', 'Plant Project', 'NPD Demand', 'BAU'] as DemandType[]).map(t => <option key={t}>{t}</option>)}
+              {store.projectTypes.filter(pt => pt.active).sort((a, b) => a.display_order - b.display_order).map(pt => (
+                <option key={pt.id} value={pt.id}>{pt.name}</option>
+              ))}
             </select>
             <select value={filterProgramme} onChange={e => setFilterProgramme(e.target.value)} className="text-xs border border-border rounded px-2 py-1 bg-white">
               <option value="">All Programmes</option>

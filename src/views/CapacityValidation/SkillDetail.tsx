@@ -11,8 +11,19 @@ import {
   real_committed_hours, skill_capacity, demand_hours_for, computeProjection, projection_shortfalls,
 } from '../../lib/capacity'
 import { DemandEditor } from '../../components/DemandEditor/DemandEditor'
-import type { DemandItem, DemandStatus, DemandType, Level } from '../../types'
+import type { DemandItem, DemandStatus, Level, ProjectType } from '../../types'
 import { DEMAND_COLORS } from '../../components/CapacityChart'
+
+const COLOUR_TOKEN_MAP: Record<string, string> = {
+  'colour-bau':            DEMAND_COLORS.bau,
+  'colour-npd':            DEMAND_COLORS.npd,
+  'colour-plant-project':  DEMAND_COLORS.plant,
+  'colour-group-strategy': DEMAND_COLORS.strategy,
+}
+
+function projectTypeColour(pt: ProjectType): string {
+  return COLOUR_TOKEN_MAP[pt.colour_token] ?? '#94a3b8'
+}
 
 const HORIZONS = [6, 12, 24, 60] as const
 const COMMITTED_STATUSES = new Set<DemandStatus>(['Approved', 'PartiallyAllocated', 'Allocated'])
@@ -249,13 +260,6 @@ function PeopleList({
 
 // ─── Demand Gantt ─────────────────────────────────────────────────────────────
 
-const DEMAND_TYPE_COLOR: Record<DemandType, string> = {
-  'BAU':                    DEMAND_COLORS.bau,
-  'Plant Project':           DEMAND_COLORS.plant,
-  'NPD Demand':              DEMAND_COLORS.npd,
-  'Group Strategy Project':  DEMAND_COLORS.strategy,
-}
-
 const STATUS_ORDER: Partial<Record<DemandStatus, number>> = {
   Allocated: 0, PartiallyAllocated: 1, Approved: 2, Submitted: 3, Draft: 4,
 }
@@ -319,16 +323,17 @@ function DemandSkillGantt({
 }) {
   const store = useAppStore()
 
+  const allProjectTypes = store.projectTypes.filter(pt => pt.active).sort((a, b) => a.display_order - b.display_order)
+
   const [statusFilter, setStatusFilter] = useState<Set<DemandStatus>>(
     new Set(['Approved', 'PartiallyAllocated', 'Allocated'])
   )
-  const [typeFilter, setTypeFilter] = useState<Set<DemandType>>(
-    new Set(['Group Strategy Project', 'Plant Project', 'NPD Demand', 'BAU'])
+  const [typeFilter, setTypeFilter] = useState<Set<string>>(
+    new Set(allProjectTypes.map(pt => pt.id))
   )
   const [levelFilter, setLevelFilter] = useState<Level | null>(null)
 
   const ALL_STATUSES: DemandStatus[] = ['Draft', 'Submitted', 'Approved', 'PartiallyAllocated', 'Allocated']
-  const ALL_TYPES: DemandType[] = ['Group Strategy Project', 'Plant Project', 'NPD Demand', 'BAU']
   const ALL_LEVELS: Array<Level | null> = [null, 'Basic', 'Advanced', 'Specialist']
 
   const rows = useMemo(() => {
@@ -368,7 +373,7 @@ function DemandSkillGantt({
     })
   }
 
-  function toggleType(t: DemandType) {
+  function toggleType(t: string) {
     setTypeFilter(prev => {
       const next = new Set(prev)
       next.has(t) ? next.delete(t) : next.add(t)
@@ -397,19 +402,19 @@ function DemandSkillGantt({
         ))}
         <span className="text-gray-400">|</span>
         <span className="text-gray-500 font-semibold uppercase tracking-wider">Type:</span>
-        {ALL_TYPES.map(t => (
+        {allProjectTypes.map(pt => (
           <button
-            key={t}
-            onClick={() => toggleType(t)}
+            key={pt.id}
+            onClick={() => toggleType(pt.id)}
             className={clsx(
               'px-2 py-0.5 rounded border font-medium transition-colors',
-              typeFilter.has(t)
+              typeFilter.has(pt.id)
                 ? 'border-transparent text-white'
                 : 'bg-white text-gray-500 border-gray-300 hover:border-gray-500'
             )}
-            style={typeFilter.has(t) ? { backgroundColor: DEMAND_TYPE_COLOR[t] } : {}}
+            style={typeFilter.has(pt.id) ? { backgroundColor: projectTypeColour(pt) } : {}}
           >
-            {t === 'Group Strategy Project' ? 'Strategy' : t === 'Plant Project' ? 'Plant' : t === 'NPD Demand' ? 'NPD' : t}
+            {pt.name}
           </button>
         ))}
         <span className="text-gray-400">|</span>
@@ -459,7 +464,8 @@ function DemandSkillGantt({
             {/* Rows — with vertical padding above and below bars */}
             <div style={{ paddingTop: 6, paddingBottom: 10 }}>
               {rows.map(({ item, runs }) => {
-                const barColor = DEMAND_TYPE_COLOR[item.type]
+                const pt = store.projectTypes.find(p => p.id === item.type)
+                const barColor = pt ? projectTypeColour(pt) : '#94a3b8'
                 const statusLabel = STATUS_LABEL[item.status] ?? item.status
 
                 return (

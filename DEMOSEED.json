@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "version": "1.18",
+    "version": "1.19",
     "description": "v1.18 seed: 6 Projects (Draft/Scoping/Submitted/Approved/Allocated), 6 spawned Demands, 5 direct DM Demands (all 5 statuses). Cross-Function Project 4 (DM PartiallyAllocated + GroupIT Approved). DM function_capacity Aug-2026 = 1534h. GroupIT function_capacity Aug-2026 = 882h. Data & Integration domain_capacity: 152h Jul-2026, 304h Aug-2026.",
     "today": "2026-05-01"
   },
@@ -641,16 +641,24 @@
       "active": true
     }
   ],
+  "project_types": [
+    { "id": "pt_bau",          "name": "BAU",                    "display_order": 0, "colour_token": "colour-bau",            "is_bau": true,  "active": true },
+    { "id": "pt_npd",          "name": "NPD Demand",              "display_order": 1, "colour_token": "colour-npd",            "is_bau": false, "active": true },
+    { "id": "pt_plant",        "name": "Plant Project",           "display_order": 2, "colour_token": "colour-plant-project",  "is_bau": false, "active": true },
+    { "id": "pt_group_strat",  "name": "Group Strategy Project",  "display_order": 3, "colour_token": "colour-group-strategy", "is_bau": false, "active": true }
+  ],
   "projects": [
     {
       "id": "prj_001",
       "name": "Plant D MES Concept Study",
       "owner": "Sarah Chen",
-      "type": "Plant Project",
+      "type": "pt_plant",
       "programme_id": "prg_001",
-      "description": "Feasibility study for Plant D MES infrastructure upgrade. Draft — requirements not yet defined. PTAs in place for DM and GroupIT teams.",
+      "description": "Feasibility study for Plant D MES infrastructure upgrade. Draft â€” requirements not yet defined.",
       "status": "Draft",
       "active": true,
+      "functions_required": ["func_001", "func_002"],
+      "functions_actually_involved": [],
       "phases": [
         {
           "id": "phs_prj001_concept",
@@ -676,11 +684,13 @@
       "id": "prj_002",
       "name": "Plant E MES Refresh",
       "owner": "Marcus Vogel",
-      "type": "Plant Project",
+      "type": "pt_plant",
       "programme_id": "prg_001",
-      "description": "MES refresh at Plant E. DM MOM/MI&V + GroupIT Data & Integration. Teams assigned; DM confirmed, GroupIT pending.",
+      "description": "MES refresh at Plant E. DM MOM/MI&V + GroupIT Data & Integration. Functions Required = [DM]; GroupIT requirements added during Scoping (demonstrates hint-not-binding).",
       "status": "Scoping",
       "active": true,
+      "functions_required": ["func_001"],
+      "functions_actually_involved": ["func_001", "func_002"],
       "phases": [
         {
           "id": "phs_prj002_spec",
@@ -700,7 +710,6 @@
                 "2026-09": 60
               },
               "notes": null,
-              "owningTeamId": "team_001",
               "allocations": []
             },
             {
@@ -713,7 +722,6 @@
                 "2026-09": 40
               },
               "notes": null,
-              "owningTeamId": "team_001",
               "allocations": []
             },
             {
@@ -726,7 +734,6 @@
                 "2026-09": 40
               },
               "notes": null,
-              "owningTeamId": "team_005",
               "allocations": []
             }
           ]
@@ -750,7 +757,6 @@
                 "2026-12": 80
               },
               "notes": null,
-              "owningTeamId": "team_001",
               "allocations": []
             },
             {
@@ -764,7 +770,6 @@
                 "2026-12": 40
               },
               "notes": null,
-              "owningTeamId": "team_002",
               "allocations": []
             },
             {
@@ -778,7 +783,6 @@
                 "2026-12": 60
               },
               "notes": null,
-              "owningTeamId": "team_005",
               "allocations": []
             },
             {
@@ -792,7 +796,6 @@
                 "2026-12": 40
               },
               "notes": null,
-              "owningTeamId": "team_005",
               "allocations": []
             }
           ]
@@ -803,52 +806,60 @@
       "id": "prj_003",
       "name": "Corporate Data Lake",
       "owner": "Anya Petrov",
-      "type": "Group Strategy Project",
+      "type": "pt_group_strat",
       "programme_id": null,
-      "description": "Enterprise data lake build. Cross-Function: DM MI&V + GroupIT Data & Integration. No Programme — demonstrates Unaligned Projects card.",
+      "description": "Enterprise data lake build. Cross-Function: DM MI&V + GroupIT Data & Integration. No Programme â€” demonstrates Unaligned Projects card.",
       "status": "Submitted",
       "active": true,
+      "functions_required": ["func_001", "func_002"],
+      "functions_actually_involved": ["func_001", "func_002"],
       "phases": []
     },
     {
       "id": "prj_004",
       "name": "Plant C MES Platform Migration",
       "owner": "David Lin",
-      "type": "Plant Project",
+      "type": "pt_plant",
       "programme_id": "prg_001",
       "description": "Full MES platform migration at Plant C. Headline cross-Function flagship. DM (MOM+MI&V) PartiallyAllocated; GroupIT (Data & Integration) Approved.",
       "status": "Approved",
       "active": true,
+      "functions_required": ["func_001", "func_002"],
+      "functions_actually_involved": ["func_001", "func_002"],
       "phases": []
     },
     {
       "id": "prj_005",
       "name": "MBM Foundation Library",
       "owner": "Marcus Vogel",
-      "type": "Group Strategy Project",
+      "type": "pt_group_strat",
       "programme_id": "prg_002",
       "description": "Digital twin foundation library for process simulation. Single-Function DM (MBM). Fully allocated.",
       "status": "Allocated",
       "active": true,
+      "functions_required": ["func_001"],
+      "functions_actually_involved": ["func_001"],
       "phases": []
     },
     {
       "id": "prj_006",
       "name": "Plant B MES Refresh",
       "owner": "Priya Kumar",
-      "type": "Plant Project",
+      "type": "pt_plant",
       "programme_id": "prg_001",
       "description": "MES platform refresh at Plant B. Single-Function DM (MOM). Fully allocated.",
       "status": "Allocated",
       "active": true,
+      "functions_required": ["func_001"],
+      "functions_actually_involved": ["func_001"],
       "phases": []
     }
   ],
   "demand_items": [
     {
       "id": "dmd_p3_dm",
-      "name": "Corporate Data Lake — Digital Manufacturing",
-      "type": "Group Strategy Project",
+      "name": "Corporate Data Lake â€” Digital Manufacturing",
+      "type": "pt_group_strat",
       "status": "Submitted",
       "owner": "James Whitfield",
       "description": "DM MI&V integration slice for the Corporate Data Lake.",
@@ -883,8 +894,8 @@
     },
     {
       "id": "dmd_p3_git",
-      "name": "Corporate Data Lake — Group IT Enterprise Solutions",
-      "type": "Group Strategy Project",
+      "name": "Corporate Data Lake â€” Group IT Enterprise Solutions",
+      "type": "pt_group_strat",
       "status": "Submitted",
       "owner": "Anya Petrov",
       "description": "GroupIT Data & Integration platform build for the Corporate Data Lake.",
@@ -911,7 +922,6 @@
                 "2026-10": 80
               },
               "notes": null,
-              "owningTeamId": "team_005",
               "allocations": []
             },
             {
@@ -926,7 +936,6 @@
                 "2026-10": 40
               },
               "notes": null,
-              "owningTeamId": "team_005",
               "allocations": []
             }
           ]
@@ -935,8 +944,8 @@
     },
     {
       "id": "dmd_p4_dm",
-      "name": "Plant C MES Platform Migration — Digital Manufacturing",
-      "type": "Plant Project",
+      "name": "Plant C MES Platform Migration â€” Digital Manufacturing",
+      "type": "pt_plant",
       "status": "PartiallyAllocated",
       "owner": "David Lin",
       "description": "DM MOM and MI&V work for Plant C MES Platform Migration. Phase 1 fully allocated; Phase 2 partially in progress.",
@@ -961,7 +970,6 @@
                 "2026-07": 60
               },
               "notes": "Lead platform architect",
-              "owningTeamId": "team_002",
               "allocations": [
                 {
                   "id": "alc_p4dm_spec_mes",
@@ -984,7 +992,6 @@
                 "2026-07": 40
               },
               "notes": "Data integration design",
-              "owningTeamId": "team_001",
               "allocations": [
                 {
                   "id": "alc_p4dm_spec_int",
@@ -1017,7 +1024,7 @@
                 "2026-09": 80,
                 "2026-10": 80
               },
-              "notes": "Platform build lead — 20 hrs/mo gap remains",
+              "notes": "Platform build lead â€” 20 hrs/mo gap remains",
               "allocations": [
                 {
                   "id": "alc_p4dm_build_mes",
@@ -1027,7 +1034,7 @@
                     "2026-09": 60,
                     "2026-10": 60
                   },
-                  "notes": "Partial — 20 hrs/mo unplanned"
+                  "notes": "Partial â€” 20 hrs/mo unplanned"
                 }
               ]
             },
@@ -1055,7 +1062,6 @@
                 "2026-10": 40
               },
               "notes": null,
-              "owningTeamId": "team_001",
               "allocations": [
                 {
                   "id": "alc_p4dm_build_int",
@@ -1075,8 +1081,8 @@
     },
     {
       "id": "dmd_p4_git",
-      "name": "Plant C MES Platform Migration — Group IT Enterprise Solutions",
-      "type": "Plant Project",
+      "name": "Plant C MES Platform Migration â€” Group IT Enterprise Solutions",
+      "type": "pt_plant",
       "status": "Approved",
       "owner": "Anya Petrov",
       "description": "GroupIT Data & Integration work for Plant C MES Platform Migration. Approved, pending resource planning.",
@@ -1101,7 +1107,6 @@
                 "2026-07": 40
               },
               "notes": null,
-              "owningTeamId": "team_005",
               "allocations": []
             }
           ]
@@ -1125,7 +1130,6 @@
                 "2026-10": 60
               },
               "notes": "Data integration layer for MES platform",
-              "owningTeamId": "team_005",
               "allocations": []
             },
             {
@@ -1139,7 +1143,6 @@
                 "2026-10": 40
               },
               "notes": null,
-              "owningTeamId": "team_005",
               "allocations": []
             }
           ]
@@ -1148,8 +1151,8 @@
     },
     {
       "id": "dmd_p5_dm",
-      "name": "MBM Foundation Library — Digital Manufacturing",
-      "type": "Group Strategy Project",
+      "name": "MBM Foundation Library â€” Digital Manufacturing",
+      "type": "pt_group_strat",
       "status": "Allocated",
       "owner": "Marcus Vogel",
       "description": "DM MBM work for the MBM Foundation Library. Fully allocated.",
@@ -1222,8 +1225,8 @@
     },
     {
       "id": "dmd_p6_dm",
-      "name": "Plant B MES Refresh — Digital Manufacturing",
-      "type": "Plant Project",
+      "name": "Plant B MES Refresh â€” Digital Manufacturing",
+      "type": "pt_plant",
       "status": "Allocated",
       "owner": "Priya Kumar",
       "description": "DM MOM work for Plant B MES Refresh. Fully allocated.",
@@ -1293,7 +1296,7 @@
     {
       "id": "dmd_d1",
       "name": "Ad-hoc shift pattern review",
-      "type": "Plant Project",
+      "type": "pt_plant",
       "status": "Draft",
       "owner": "Daniel Okafor",
       "description": "Ad-hoc review of MES shift patterns at Plant A. 1 phase, 1 MOM Basic requirement. No external.",
@@ -1327,10 +1330,10 @@
     {
       "id": "dmd_d2",
       "name": "Plant A SCADA migration assist",
-      "type": "Plant Project",
+      "type": "pt_plant",
       "status": "Submitted",
       "owner": "Priya Kumar",
-      "description": "Assist with SCADA migration at Plant A. Submitted — Approve is the next-step CTA.",
+      "description": "Assist with SCADA migration at Plant A. Submitted â€” Approve is the next-step CTA.",
       "function_id": "func_001",
       "parent_project_id": null,
       "phases": [
@@ -1361,8 +1364,8 @@
     },
     {
       "id": "dmd_d3",
-      "name": "MES Super User support — Plant B",
-      "type": "BAU",
+      "name": "MES Super User support â€” Plant B",
+      "type": "pt_bau",
       "status": "PartiallyAllocated",
       "owner": "Alex Morgan",
       "description": "Ongoing BAU MES super user support at Plant B. Indefinite phase; partial allocation in place. Has Other Internal Team external requirement.",
@@ -1400,7 +1403,7 @@
     {
       "id": "dmd_d4",
       "name": "Historian configuration handover",
-      "type": "Plant Project",
+      "type": "pt_plant",
       "status": "Allocated",
       "owner": "James Whitfield",
       "description": "Configuration handover for historian upgrade at Plant B. Fully allocated.",
@@ -1444,7 +1447,7 @@
     {
       "id": "dmd_d5",
       "name": "Plant A OEE enhancement",
-      "type": "Plant Project",
+      "type": "pt_plant",
       "status": "Approved",
       "owner": "Fatima Al-Rashid",
       "description": "OEE metric enhancement at Plant A. Approved, ready for resource planning.",
@@ -1521,6 +1524,7 @@
       "provider_id": "prv_003",
       "role": "MES Platform Vendor Support",
       "notes": "OEM provides specialist platform configuration support during build.",
+      "function_tag": "func_001",
       "hours_by_month": {
         "2026-08": 40,
         "2026-09": 40,
@@ -1534,6 +1538,7 @@
       "provider_id": "prv_001",
       "role": "SCADA Engineer",
       "notes": "Managed Services SCADA resource for integration work.",
+      "function_tag": "func_001",
       "hours_by_month": {
         "2026-08": 120,
         "2026-09": 120,
@@ -1547,6 +1552,7 @@
       "provider_id": "prv_002",
       "role": "Data Engineer",
       "notes": "Contract data engineer for pipeline build and integration testing.",
+      "function_tag": "func_002",
       "hours_by_month": {
         "2026-07": 80,
         "2026-08": 80,
@@ -1561,46 +1567,10 @@
       "provider_id": "prv_005",
       "role": "Plant Electrician Support",
       "notes": "Plant B electricians provide hardware first-line support for MES-connected equipment.",
+      "function_tag": "func_001",
       "hours_by_month": {},
       "steady_state_hours": 10
     }
   ],
-  "project_team_assignments": [
-    {
-      "id": "pta_prj001_dm",
-      "projectId": "prj_001",
-      "phaseId": "phs_prj001_concept",
-      "teamId": "team_001",
-      "confirmed": false,
-      "confirmedBy": null,
-      "confirmedAt": null
-    },
-    {
-      "id": "pta_prj001_git",
-      "projectId": "prj_001",
-      "phaseId": "phs_prj001_concept",
-      "teamId": "team_004",
-      "confirmed": false,
-      "confirmedBy": null,
-      "confirmedAt": null
-    },
-    {
-      "id": "pta_prj002_dm",
-      "projectId": "prj_002",
-      "phaseId": "phs_prj002_spec",
-      "teamId": "team_001",
-      "confirmed": true,
-      "confirmedBy": "Marcus Vogel",
-      "confirmedAt": "2026-05-10"
-    },
-    {
-      "id": "pta_prj002_git",
-      "projectId": "prj_002",
-      "phaseId": "phs_prj002_spec",
-      "teamId": "team_005",
-      "confirmed": false,
-      "confirmedBy": null,
-      "confirmedAt": null
-    }
-  ]
+  "project_team_assignments": []
 }

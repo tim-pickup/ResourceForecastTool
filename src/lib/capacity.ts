@@ -7,7 +7,8 @@
  */
 
 import type { AppState, DemandItem, DemandStatus, FundingSource, Level, Phase, Requirement, SkillRequirement } from '../types'
-import { monthInRange } from '../utils/capacity'
+import { monthInRange, typeToBreakdownKey, DemandBreakdown } from '../utils/capacity'
+export type { DemandBreakdown }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -143,13 +144,6 @@ export function skill_capacity(skillId: string, month: string, state: AppState, 
 // Pass overlayItemId to include that Submitted item's demand on top of the
 // committed statuses.
 
-export interface DemandBreakdown {
-  strategy: number
-  plant: number
-  npd: number
-  bau: number
-}
-
 export type DemandTarget =
   | { type: 'overall' }
   | { type: 'domain'; id: string }
@@ -173,11 +167,7 @@ export function demand_hours_for(
     if (isOverlay && item.status !== 'Submitted') continue
     if (!isOverlay && !statuses.has(item.status)) continue
 
-    let key: keyof DemandBreakdown | null = null
-    if (item.type === 'Group Strategy Project') key = 'strategy'
-    else if (item.type === 'Plant Project') key = 'plant'
-    else if (item.type === 'NPD Demand') key = 'npd'
-    else if (item.type === 'BAU') key = 'bau'
+    const key = typeToBreakdownKey(item.type, state.projectTypes)
     if (!key) continue
 
     for (const phase of item.phases) {
@@ -824,26 +814,23 @@ export function unaligned_project_hours(
 // Direct Demands are excluded — they are not on shared Projects by definition.
 //
 // opts.by = 'function'  → keyed by receiving functionId
-// opts.by = 'team'      → keyed by owningTeamId, '__unassigned__' for nulls
 
 export type CrossFunctionDemandGroup = Record<string, number>
 
 export function crossFunctionDemandHours(
   activeFunctionId: string,
   month: string,
-  opts: { by: 'function' | 'team'; status_set?: ReadonlySet<DemandStatus> },
+  opts: { by: 'function'; status_set?: ReadonlySet<DemandStatus> },
   state: AppState
 ): CrossFunctionDemandGroup {
   const statusSet = opts.status_set ?? REAL_STATUSES
 
   const domFn = new Map(state.domains.map(d => [d.id, d.functionId]))
   const sklFn = new Map(state.skills.map(s => [s.id, domFn.get(s.domain_id) ?? '']))
-  const teamFn = new Map(state.teams.map(t => [t.id, t.functionId]))
 
   const result: CrossFunctionDemandGroup = {}
 
-  // Collect Projects where activeFunctionId has at least one child Demand,
-  // plus the per-Function Demand status map for each such Project.
+  // Collect Projects where activeFunctionId has at least one child Demand
   const projectsWithActive = new Set<string>()
   const projectFnStatus = new Map<string, Map<string, DemandStatus>>()
   for (const d of state.demandItems) {
@@ -860,7 +847,7 @@ export function crossFunctionDemandHours(
     const fnStatus = projectFnStatus.get(project.id)!
 
     if (project.phases.length > 0) {
-      // v1.18: walk Project phases
+      // Walk Project phases (frozen planning record for Submitted+ Projects)
       for (const phase of project.phases) {
         if (!monthInRange(month, phase.start_month, phase.end_month)) continue
         for (const req of phase.requirements) {
@@ -870,25 +857,14 @@ export function crossFunctionDemandHours(
           if (!ds || !statusSet.has(ds)) continue
           const hours = reqHoursForMonth(req, phase, month)
           if (hours <= 0) continue
-          if (opts.by === 'function') {
-            result[reqFnId] = (result[reqFnId] ?? 0) + hours
-          } else {
-            const teamId = req.owningTeamId
-            if (teamId && teamFn.get(teamId) === reqFnId) {
-              result[teamId] = (result[teamId] ?? 0) + hours
-            } else {
-              result['__unassigned__'] = (result['__unassigned__'] ?? 0) + hours
-            }
-          }
+          result[reqFnId] = (result[reqFnId] ?? 0) + hours
         }
       }
     } else {
-      // Legacy fallback: walk Demands on this project; find non-active-Function reqs
+      // Fallback: walk Demands on this project
       for (const d of state.demandItems) {
         if (d.parent_project_id !== project.id) continue
         if (!statusSet.has(d.status)) continue
-        // Include: Demands for non-active Functions, OR the active-Function Demand's
-        // cross-function requirements (v1.17 model where one Demand spans functions)
         for (const phase of d.phases) {
           if (!monthInRange(month, phase.start_month, phase.end_month)) continue
           for (const req of phase.requirements) {
@@ -896,16 +872,7 @@ export function crossFunctionDemandHours(
             if (!reqFnId || reqFnId === activeFunctionId) continue
             const hours = reqHoursForMonth(req, phase, month)
             if (hours <= 0) continue
-            if (opts.by === 'function') {
-              result[reqFnId] = (result[reqFnId] ?? 0) + hours
-            } else {
-              const teamId = req.owningTeamId
-              if (teamId && teamFn.get(teamId) === reqFnId) {
-                result[teamId] = (result[teamId] ?? 0) + hours
-              } else {
-                result['__unassigned__'] = (result['__unassigned__'] ?? 0) + hours
-              }
-            }
+            result[reqFnId] = (result[reqFnId] ?? 0) + hours
           }
         }
       }

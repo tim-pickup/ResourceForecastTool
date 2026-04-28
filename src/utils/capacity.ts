@@ -1,5 +1,27 @@
 import { addMonths, format, parseISO, isAfter, isBefore, differenceInMonths } from 'date-fns'
-import type { Person, DemandItem, AppState, Level, Requirement, Phase, NamedAllocation } from '../types'
+import type { Person, DemandItem, AppState, Level, Requirement, Phase, NamedAllocation, ProjectType } from '../types'
+
+// ─── Shared type-to-breakdown key mapping ────────────────────────────────────
+// Defined here (utils) to avoid circular deps with lib/capacity.
+
+export interface DemandBreakdown {
+  strategy: number
+  plant: number
+  npd: number
+  bau: number
+}
+
+export function typeToBreakdownKey(typeId: string, projectTypes: ProjectType[]): keyof DemandBreakdown | null {
+  const pt = projectTypes.find(p => p.id === typeId)
+  if (!pt) return null
+  if (pt.is_bau) return 'bau'
+  const nonBau = [...projectTypes].filter(p => !p.is_bau).sort((a, b) => a.display_order - b.display_order)
+  const idx = nonBau.findIndex(p => p.id === typeId)
+  if (idx === 0) return 'npd'
+  if (idx === 1) return 'plant'
+  if (idx === 2) return 'strategy'
+  return null
+}
 
 export function monthInRange(month: string, from: string | null, to: string | null): boolean {
   const d = parseISO(month + '-01')
@@ -182,13 +204,6 @@ export function utilColor(pct: number): string {
 
 // ─── Aggregate capacity & demand (chart-level) ───────────────────────────────
 
-export interface DemandBreakdown {
-  strategy: number // Group Strategy Project
-  plant: number    // Plant Project
-  npd: number      // NPD Demand
-  bau: number      // BAU-type demand items
-}
-
 const LEVEL_ORDER: Record<Level, number> = { Basic: 0, Advanced: 1, Specialist: 2 }
 
 function meetsLevel(held: Level, required: Level): boolean {
@@ -216,21 +231,21 @@ function demandFromItems(
   items: DemandItem[],
   month: string,
   reqFilter: (r: Requirement) => boolean,
-  statuses: Set<string>
+  statuses: Set<string>,
+  state: AppState
 ): DemandBreakdown {
   const out: DemandBreakdown = { strategy: 0, plant: 0, npd: 0, bau: 0 }
   for (const item of items) {
     if (!statuses.has(item.status)) continue
+    const key = typeToBreakdownKey(item.type, state.projectTypes)
+    if (!key) continue
     for (const phase of item.phases) {
       if (!monthInRange(month, phase.start_month, phase.end_month)) continue
       const hrs = phase.requirements.filter(reqFilter).reduce((s, r) => {
         return s + getReqHoursForMonth(r, month, phase)
       }, 0)
       if (hrs === 0) continue
-      if (item.type === 'Group Strategy Project') out.strategy += hrs
-      else if (item.type === 'Plant Project') out.plant += hrs
-      else if (item.type === 'NPD Demand') out.npd += hrs
-      else if (item.type === 'BAU') out.bau += hrs
+      out[key] += hrs
     }
   }
   return out
@@ -248,7 +263,7 @@ export function getTeamDemand(
   state: AppState,
   statuses: string[] = ['Approved', 'PartiallyAllocated', 'Allocated']
 ): DemandBreakdown {
-  return demandFromItems(state.demandItems, month, () => true, new Set(statuses))
+  return demandFromItems(state.demandItems, month, () => true, new Set(statuses), state)
 }
 
 export function getDomainCapacity(domainId: string, month: string, state: AppState): number {
@@ -266,7 +281,7 @@ export function getDomainDemand(
 ): DemandBreakdown {
   const domainSkillIds = new Set(state.skills.filter(s => s.domain_id === domainId).map(s => s.id))
   const reqFilter = (r: Requirement) => domainSkillIds.has(r.skill_id)
-  return demandFromItems(state.demandItems, month, reqFilter, new Set(statuses))
+  return demandFromItems(state.demandItems, month, reqFilter, new Set(statuses), state)
 }
 
 export function getSkillCapacity(skillId: string, month: string, state: AppState, minLevel?: Level): number {
@@ -283,7 +298,7 @@ export function getSkillDemand(
   statuses: string[] = ['Approved', 'PartiallyAllocated', 'Allocated']
 ): DemandBreakdown {
   const reqFilter = (r: Requirement) => r.skill_id === skillId
-  return demandFromItems(state.demandItems, month, reqFilter, new Set(statuses))
+  return demandFromItems(state.demandItems, month, reqFilter, new Set(statuses), state)
 }
 
 export function getOverlayDemand(month: string, overlayItems: DemandItem[]): number {

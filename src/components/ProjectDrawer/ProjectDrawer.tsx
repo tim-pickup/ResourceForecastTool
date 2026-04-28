@@ -168,15 +168,6 @@ export function ProjectDrawer({ projectId, onClose, onOpenDemand }: Props) {
       const err = store.submitProjectForScoping(projectId!)
       if (err) setSubmitError(err)
     } else if (action === 'submit-project') {
-      // Check for unconfirmed team assignments (§11.18 — surface but don't block)
-      const unconfirmed = store.projectTeamAssignments
-        .filter(pta => pta.projectId === projectId && !pta.confirmed)
-      if (unconfirmed.length > 0) {
-        const names = unconfirmed
-          .map(pta => store.teams.find(t => t.id === pta.teamId)?.name ?? pta.teamId)
-          .join(', ')
-        if (!window.confirm(`${unconfirmed.length} team(s) have not confirmed requirements:\n${names}\n\nProceed and spawn Demands anyway?`)) return
-      }
       const err = store.submitProject(projectId!)
       if (err) setSubmitError(err)
     }

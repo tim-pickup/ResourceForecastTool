@@ -197,11 +197,11 @@ function requirementsToFinite(reqs: Requirement[], months: string[], defaultHrs:
 export function blankSkillReq(skillId: string, months: string[]): SkillRequirement {
   const hours_by_month: Record<string, number> = {}
   months.forEach(m => { hours_by_month[m] = 0 })
-  return { id: generateId('req'), shape: 'skill', skill_id: skillId, level: 'Basic', hours_by_month, steady_state_hours: null, notes: null, allocations: [], owningTeamId: null }
+  return { id: generateId('req'), shape: 'skill', skill_id: skillId, level: 'Basic', hours_by_month, steady_state_hours: null, notes: null, allocations: [] }
 }
 
 export function blankSkillReqIndefinite(skillId: string): SkillRequirement {
-  return { id: generateId('req'), shape: 'skill', skill_id: skillId, level: 'Basic', hours_by_month: {}, steady_state_hours: 0, notes: null, allocations: [], owningTeamId: null }
+  return { id: generateId('req'), shape: 'skill', skill_id: skillId, level: 'Basic', hours_by_month: {}, steady_state_hours: 0, notes: null, allocations: [] }
 }
 
 export function blankPhase(): Phase {
@@ -210,26 +210,20 @@ export function blankPhase(): Phase {
 
 // ─── Requirement row (finite) ─────────────────────────────────────────────────
 
-type AssignedTeam = { id: string; name: string; functionId: string }
-
 interface ReqRowProps {
   req: SkillRequirement
   months: string[]
   onChange: (r: SkillRequirement) => void
   onDelete: () => void
-  assignedTeams?: AssignedTeam[]
 }
 
-function RequirementRow({ req, months, onChange, onDelete, assignedTeams = [] }: ReqRowProps) {
+function RequirementRow({ req, months, onChange, onDelete }: ReqRowProps) {
   const { skills, domains, activeFunctionId } = useAppStore()
   const [fillVal, setFillVal] = useState(0)
 
   const totalHrs = months.reduce((s, m) => s + (req.hours_by_month[m] ?? 0), 0)
 
-  // Scope DomainSkillSelector to owning team's Function, or active Function if no owning team (§4.5.2)
-  const owningTeam = req.owningTeamId ? assignedTeams.find(t => t.id === req.owningTeamId) : null
-  const scopingFnId = owningTeam?.functionId ?? activeFunctionId
-  const scopedDomains = scopingFnId ? domains.filter(d => d.functionId === scopingFnId) : domains
+  const scopedDomains = activeFunctionId ? domains.filter(d => d.functionId === activeFunctionId) : domains
   const scopedDomainIds = new Set(scopedDomains.map(d => d.id))
   const scopedSkills = skills.filter(s => scopedDomainIds.has(s.domain_id))
 
@@ -245,17 +239,6 @@ function RequirementRow({ req, months, onChange, onDelete, assignedTeams = [] }:
   return (
     <div className="border border-border rounded p-2.5 bg-gray-50/50 flex flex-col gap-2">
       <div className="flex items-center gap-2 flex-wrap">
-        {assignedTeams.length > 0 && (
-          <select
-            value={req.owningTeamId ?? ''}
-            onChange={e => onChange({ ...req, owningTeamId: e.target.value || null })}
-            className="text-xs border border-border rounded px-1.5 py-1 bg-white"
-            title="Owning team"
-          >
-            <option value="">— Owning Team —</option>
-            {assignedTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        )}
         <div className="flex-1 min-w-[160px]">
           <DomainSkillSelector
             value={req.skill_id}
@@ -329,29 +312,16 @@ function RequirementRow({ req, months, onChange, onDelete, assignedTeams = [] }:
 
 // ─── Requirement row (indefinite) ─────────────────────────────────────────────
 
-function IndefiniteRequirementRow({ req, onChange, onDelete, assignedTeams = [] }: { req: SkillRequirement; onChange: (r: SkillRequirement) => void; onDelete: () => void; assignedTeams?: AssignedTeam[] }) {
+function IndefiniteRequirementRow({ req, onChange, onDelete }: { req: SkillRequirement; onChange: (r: SkillRequirement) => void; onDelete: () => void }) {
   const { skills, domains, activeFunctionId } = useAppStore()
 
-  const owningTeam = req.owningTeamId ? assignedTeams.find(t => t.id === req.owningTeamId) : null
-  const scopingFnId = owningTeam?.functionId ?? activeFunctionId
-  const scopedDomains = scopingFnId ? domains.filter(d => d.functionId === scopingFnId) : domains
+  const scopedDomains = activeFunctionId ? domains.filter(d => d.functionId === activeFunctionId) : domains
   const scopedDomainIds = new Set(scopedDomains.map(d => d.id))
   const scopedSkills = skills.filter(s => scopedDomainIds.has(s.domain_id))
 
   return (
     <div className="border border-border rounded p-2.5 bg-gray-50/50 flex flex-col gap-2">
       <div className="flex items-center gap-2 flex-wrap">
-        {assignedTeams.length > 0 && (
-          <select
-            value={req.owningTeamId ?? ''}
-            onChange={e => onChange({ ...req, owningTeamId: e.target.value || null })}
-            className="text-xs border border-border rounded px-1.5 py-1 bg-white"
-            title="Owning team"
-          >
-            <option value="">— Owning Team —</option>
-            {assignedTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        )}
         <div className="flex-1 min-w-[160px]">
           <DomainSkillSelector
             value={req.skill_id}
@@ -395,7 +365,7 @@ function IndefiniteRequirementRow({ req, onChange, onDelete, assignedTeams = [] 
 
 // ─── External resource requirement helpers ────────────────────────────────────
 
-export function blankExtReq(phase_id: string): ExternalResourceRequirement {
+export function blankExtReq(phase_id: string, function_tag: string | null = null): ExternalResourceRequirement {
   return {
     id: generateId('ext'),
     phase_id,
@@ -404,6 +374,7 @@ export function blankExtReq(phase_id: string): ExternalResourceRequirement {
     notes: null,
     hours_by_month: {},
     steady_state_hours: null,
+    function_tag,
   }
 }
 

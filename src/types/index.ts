@@ -1,8 +1,20 @@
 export type Level = 'Basic' | 'Advanced' | 'Specialist'
 export type DemandStatus = 'Draft' | 'Submitted' | 'Approved' | 'PartiallyAllocated' | 'Allocated'
 export type ProjectStatus = 'Draft' | 'Scoping' | 'Submitted' | 'Approved' | 'Allocated'
-export type DemandType = 'Group Strategy Project' | 'Plant Project' | 'NPD Demand' | 'BAU'
+// v1.19: DemandType is now a string (FK to ProjectType.id). No longer a hardcoded union.
+export type DemandType = string
 export type FundingSource = 'Investment Scheme' | 'Plant/Sector Allocation' | 'Mixed'
+
+// ─── v1.19 — Project Type entity (§2.1.2) ────────────────────────────────────
+
+export interface ProjectType {
+  id: string
+  name: string
+  display_order: number   // drives picker order and capacity-stack order (bottom-to-top)
+  colour_token: string    // named token from design-system palette
+  is_bau: boolean         // exactly one record has this set; system-managed
+  active: boolean
+}
 
 export interface AppFunction {
   id: string
@@ -19,20 +31,6 @@ export interface Team {
   type: 'Plant' | 'Central' | 'Specialist' | 'Other'
   active: boolean
 }
-
-// Renamed from DemandTeamAssignment in v1.18 — FK now points at Project, not Demand
-export interface ProjectTeamAssignment {
-  id: string
-  projectId: string    // was demandId
-  phaseId: string
-  teamId: string
-  confirmed: boolean
-  confirmedBy: string | null
-  confirmedAt: string | null
-}
-
-// Keep old name as alias so existing imports don't all break at once
-export type DemandTeamAssignment = ProjectTeamAssignment
 
 export interface Domain {
   id: string
@@ -81,7 +79,6 @@ export interface SkillRequirement {
   steady_state_hours?: number | null
   notes: string | null
   allocations: NamedAllocation[]
-  owningTeamId: string | null
 }
 
 export type Requirement = SkillRequirement
@@ -99,13 +96,13 @@ export interface Phase {
 export interface DemandItem {
   id: string
   name: string
-  type: DemandType
+  type: string             // FK to ProjectType.id (v1.19)
   status: DemandStatus
   owner: string
   description: string
-  function_id: string          // required — single Function this Demand belongs to
+  function_id: string      // required — single Function this Demand belongs to
   parent_project_id: string | null  // null for direct Demands
-  phases: Phase[]              // direct Demands own their phases; Project-spawned present Project's phases
+  phases: Phase[]          // Demands own their phases (materialised at spawn for Project-spawned)
 }
 
 // ─── v1.14 entities ───────────────────────────────────────────────────────────
@@ -117,17 +114,18 @@ export interface Programme {
   active: boolean
 }
 
-// Upgraded in v1.18: Project is now the planning vehicle (holds phases + requirements)
 export interface Project {
   id: string
   name: string
   owner: string
-  type: DemandType
-  programme_id: string | null  // nullable — a Project may be unaligned (no Programme)
+  type: string             // FK to ProjectType.id (v1.19)
+  programme_id: string | null
   description: string
   status: ProjectStatus
-  phases: Phase[]    // phases and requirements live on the Project for spawned Demands
+  phases: Phase[]
   active: boolean
+  functions_required: string[]          // originator's declared Functions; frozen at Submit
+  functions_actually_involved: string[] // derived from requirements; frozen at Submit
 }
 
 export interface Provider {
@@ -135,17 +133,15 @@ export interface Provider {
   name: string       // globally unique, case-insensitive
 }
 
-// Hours representation mirrors SkillRequirement: exactly one of
-// hours_by_month (finite phase) or steady_state_hours (indefinite phase)
-// is populated per requirement.
 export interface ExternalResourceRequirement {
   id: string
   phase_id: string
   provider_id: string
-  role: string       // free text, required
+  role: string
   notes: string | null
   hours_by_month: Record<string, number>
   steady_state_hours: number | null
+  function_tag: string | null  // Function that owns coordinating this external req (v1.19)
 }
 
 // ─── App state ────────────────────────────────────────────────────────────────
@@ -154,7 +150,7 @@ export interface AppState {
   activeFunctionId: string | null
   functions: AppFunction[]
   teams: Team[]
-  projectTeamAssignments: ProjectTeamAssignment[]  // renamed from demandTeamAssignments
+  projectTypes: ProjectType[]
   domains: Domain[]
   skills: Skill[]
   people: Person[]
@@ -192,13 +188,11 @@ export function derivedPrimaryDomain(item: Pick<DemandItem, 'phases'>, domains: 
 }
 
 // User-driven Demand state machine transitions (system auto-transitions excluded)
-// v1.18: Draft → Submitted (direct Demands), Submitted → Approved
 export const VALID_DEMAND_TRANSITIONS: Partial<Record<DemandStatus, DemandStatus[]>> = {
   Draft: ['Submitted'],
   Submitted: ['Approved'],
 }
 
-// Alias for backward compatibility with existing callers
 export const VALID_TRANSITIONS = VALID_DEMAND_TRANSITIONS
 
 export function isValidTransition(from: DemandStatus, to: DemandStatus): boolean {

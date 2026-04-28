@@ -7,7 +7,7 @@ import { useAppStore } from '../../store/useAppStore'
 import { DemandDrawer } from '../../components/DemandEditor/DemandEditor'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
-import type { DemandItem, DemandStatus, DemandType, AppFunction } from '../../types'
+import type { DemandItem, DemandStatus, AppFunction } from '../../types'
 import { isValidTransition } from '../../types'
 import { clsx } from 'clsx'
 import { getCurrentMonth, generateMonths } from '../../utils/capacity'
@@ -469,7 +469,9 @@ export default function DemandDiscovery() {
             </select>
             <select value={filterType} onChange={e => setFilterType(e.target.value)} className="text-xs border border-border rounded px-2 py-1 bg-white">
               <option value="">All Types</option>
-              {(['Group Strategy Project', 'Plant Project', 'NPD Demand', 'BAU'] as DemandType[]).map(t => <option key={t}>{t}</option>)}
+              {store.projectTypes.filter(pt => pt.active).sort((a, b) => a.display_order - b.display_order).map(pt => (
+                <option key={pt.id} value={pt.id}>{pt.name}</option>
+              ))}
             </select>
             <DomainMultiSelect
               domains={activeFunctionDomains}

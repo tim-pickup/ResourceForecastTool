@@ -1,8 +1,8 @@
 /**
  * ProjectEdit — Mode A editor for Projects (§4.5.2)
  *
- * Project Draft:   name, type, owner, description, Programme, phases + Teams Assigned (no requirements)
- * Project Scoping: same + requirements UI + per-team confirmation strip
+ * Project Draft:   name, type, owner, description, Programme, phases + requirements
+ * Project Scoping: same + requirements UI
  * Submitted+:      read-only, shows child Demands summary
  */
 
@@ -10,124 +10,26 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
-import type { Project, ProjectStatus, DemandType, ExternalResourceRequirement, Phase } from '../../types'
+import type { Project, ProjectStatus, ExternalResourceRequirement, Phase } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { Input, Select, Textarea } from '../../components/ui/FormFields'
 import { ProjectStatusBadge } from '../../components/ui/Badge'
 import { PhaseEditor, blankPhase, PhaseGantt } from '../DemandEdit/ModeAEditor'
-import { generateId } from '../../utils/ids'
 
-const TYPES: DemandType[] = ['Group Strategy Project', 'Plant Project', 'NPD Demand', 'BAU']
 
 function blankProject(): Omit<Project, 'id'> {
   return {
     name: '',
-    type: 'Group Strategy Project',
+    type: '',
     owner: '',
     description: '',
     programme_id: null,
     status: 'Draft',
     phases: [],
     active: true,
+    functions_required: [],
+    functions_actually_involved: [],
   }
-}
-
-// ─── Teams Assigned picker (Projects only) ────────────────────────────────────
-
-function TeamsAssignedSection({
-  projectId,
-  phaseId,
-  projectStatus,
-}: {
-  projectId: string
-  phaseId: string
-  projectStatus: ProjectStatus
-}) {
-  const store = useAppStore()
-  const readOnly = projectStatus !== 'Draft' && projectStatus !== 'Scoping'
-  const assignments = store.projectTeamAssignments.filter(
-    a => a.projectId === projectId && a.phaseId === phaseId
-  )
-  const assignedTeamIds = new Set(assignments.map(a => a.teamId))
-  const allTeams = store.teams.filter(t => t.active)
-  const unassignedTeams = allTeams.filter(t => !assignedTeamIds.has(t.id))
-
-  function handleAdd(teamId: string) {
-    if (!teamId) return
-    store.addProjectTeamAssignment({
-      projectId,
-      phaseId,
-      teamId,
-      confirmed: false,
-      confirmedBy: null,
-      confirmedAt: null,
-    })
-  }
-
-  function handleRemove(assignmentId: string) {
-    store.deleteProjectTeamAssignment(assignmentId)
-  }
-
-  function handleConfirmToggle(assignmentId: string, confirmed: boolean) {
-    store.updateProjectTeamAssignment(assignmentId, { confirmed: !confirmed })
-  }
-
-  return (
-    <div className="border border-dashed border-gray-300 rounded p-2.5">
-      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Teams Assigned</div>
-
-      {/* Assigned list */}
-      {assignments.length === 0 ? (
-        <p className="text-xs text-gray-400 italic mb-2">No teams assigned. Add at least one team before submitting for scoping.</p>
-      ) : (
-        <div className="flex flex-col gap-1 mb-2">
-          {assignments.map(a => {
-            const team = store.teams.find(t => t.id === a.teamId)
-            const fn = team ? store.functions.find(f => f.id === team.functionId) : null
-            return (
-              <div key={a.id} className="flex items-center gap-2 px-2 py-1 rounded bg-gray-50 border border-border">
-                <div className="flex-1">
-                  <span className="text-xs font-medium text-near-black">{team?.name ?? a.teamId}</span>
-                  {fn && <span className="ml-1.5 text-[10px] text-gray-400">{fn.name}</span>}
-                </div>
-                {projectStatus === 'Scoping' && (
-                  <button
-                    onClick={() => handleConfirmToggle(a.id, a.confirmed)}
-                    className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${a.confirmed ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}
-                  >
-                    {a.confirmed ? '✓ Confirmed' : 'Confirm'}
-                  </button>
-                )}
-                {!readOnly && (
-                  <button
-                    onClick={() => handleRemove(a.id)}
-                    className="text-gray-300 hover:text-accent-red text-[10px] ml-1"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Picker */}
-      {!readOnly && unassignedTeams.length > 0 && (
-        <select
-          onChange={e => { handleAdd(e.target.value); e.target.value = '' }}
-          defaultValue=""
-          className="w-full text-xs border border-border rounded px-2 py-1 bg-white"
-        >
-          <option value="">Add a team to this phase…</option>
-          {unassignedTeams.map(t => {
-            const fn = store.functions.find(f => f.id === t.functionId)
-            return <option key={t.id} value={t.id}>{t.name}{fn ? ` (${fn.name})` : ''}</option>
-          })}
-        </select>
-      )}
-    </div>
-  )
 }
 
 // ─── Programme picker ─────────────────────────────────────────────────────────
@@ -151,12 +53,11 @@ function ProgrammePicker({ value, onChange }: { value: string | null; onChange: 
   )
 }
 
-// ─── Project phase wrapper (adds Teams Assigned) ───────────────────────────────
+// ─── Project phase wrapper ────────────────────────────────────────────────────
 
 function ProjectPhaseEditor({
   phase,
   index,
-  projectId,
   projectStatus,
   onChange,
   onDelete,
@@ -165,7 +66,6 @@ function ProjectPhaseEditor({
 }: {
   phase: Phase
   index: number
-  projectId: string
   projectStatus: ProjectStatus
   onChange: (p: Phase) => void
   onDelete: () => void
@@ -176,7 +76,6 @@ function ProjectPhaseEditor({
 
   return (
     <div className="border-2 border-border rounded-lg overflow-hidden">
-      {/* Phase header */}
       <div className="px-4 py-3 bg-gray-100 border-b border-border">
         <h3 className="text-sm font-semibold text-near-black">
           Phase {index + 1}{phase.name ? ` · ${phase.name}` : ''}{' '}
@@ -197,14 +96,6 @@ function ProjectPhaseEditor({
           onExtReqsChange={showRequirements ? onExtReqsChange : () => undefined}
           showRequirements={showRequirements}
         />
-        {/* Teams Assigned (Projects only) */}
-        {projectId && (
-          <TeamsAssignedSection
-            projectId={projectId}
-            phaseId={phase.id}
-            projectStatus={projectStatus}
-          />
-        )}
       </div>
     </div>
   )
@@ -289,11 +180,6 @@ export default function ProjectEdit() {
   // Submit Project (Scoping → Submitted + spawn)
   const handleSubmitProject = () => {
     if (!id) return
-    const unconfirmed = store.projectTeamAssignments.filter(pta => pta.projectId === id && !pta.confirmed)
-    if (unconfirmed.length > 0) {
-      const names = unconfirmed.map(pta => store.teams.find(t => t.id === pta.teamId)?.name ?? pta.teamId).join(', ')
-      if (!window.confirm(`${unconfirmed.length} team(s) unconfirmed:\n${names}\n\nProceed and spawn Demands?`)) return
-    }
     store.updateProject(id, draft)
     const err = store.submitProject(id)
     if (err) { setSubmitError(err); return }
@@ -326,10 +212,6 @@ export default function ProjectEdit() {
   // Gate hints
   const submitHint = id && draft.status === 'Draft' ? (() => {
     if (draft.phases.length === 0) return 'Add at least one phase.'
-    const phasesWithoutTeams = draft.phases.filter(ph =>
-      !store.projectTeamAssignments.some(pta => pta.projectId === id && pta.phaseId === ph.id)
-    )
-    if (phasesWithoutTeams.length > 0) return `${phasesWithoutTeams.length} phase(s) need at least one team assigned.`
     return null
   })() : null
 
@@ -395,10 +277,13 @@ export default function ProjectEdit() {
               <Select
                 label="Type"
                 value={draft.type}
-                onChange={e => update(d => ({ ...d, type: e.target.value as DemandType }))}
+                onChange={e => update(d => ({ ...d, type: e.target.value }))}
                 disabled={isReadOnly}
               >
-                {TYPES.map(t => <option key={t}>{t}</option>)}
+                <option value="">— Select type —</option>
+                {store.projectTypes.filter(pt => pt.active).sort((a, b) => a.display_order - b.display_order).map(pt => (
+                  <option key={pt.id} value={pt.id}>{pt.name}</option>
+                ))}
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -481,7 +366,6 @@ export default function ProjectEdit() {
                       <ProjectPhaseEditor
                         phase={phase}
                         index={idx}
-                        projectId={id}
                         projectStatus={draft.status as ProjectStatus}
                         onChange={p => updatePhase(phase.id, p)}
                         onDelete={() => deletePhase(phase.id)}

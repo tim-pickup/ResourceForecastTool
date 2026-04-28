@@ -472,37 +472,6 @@ function D2Tooltip({ active, payload, projects }: {
   )
 }
 
-function D2TeamTooltip({ active, payload, teams }: {
-  active?: boolean
-  payload?: Array<{ dataKey: string; value: number; payload: { label: string } }>
-  teams: Array<{ id: string; name: string }>
-}) {
-  if (!active || !payload?.length) return null
-  const label = payload[0]?.payload?.label
-  const total = payload.reduce((s, p) => s + (p.value || 0), 0)
-  if (total === 0) return null
-  return (
-    <div className="bg-white border border-purple-200 rounded shadow-md p-3 text-xs min-w-[160px]">
-      <p className="font-semibold mb-2 text-near-black">{label}</p>
-      <div className="space-y-1">
-        {[...payload].reverse().filter(p => (p.value || 0) > 0).map(p => {
-          const team = teams.find(t => t.id === p.dataKey)
-          const label = p.dataKey === '__unassigned__' ? 'Unassigned team' : (team?.name ?? p.dataKey)
-          return (
-            <div key={p.dataKey} className="flex justify-between gap-4">
-              <span className={clsx('truncate max-w-[130px]', p.dataKey === '__unassigned__' ? 'text-gray-400 italic' : 'text-gray-600')}>{label}</span>
-              <span>{Math.round(p.value)}h</span>
-            </div>
-          )
-        })}
-        <div className="pt-1 border-t border-gray-100 flex justify-between gap-4 font-medium">
-          <span>Total</span><span>{Math.round(total)}h</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ─── Main view ───────────────────────────────────────────────────────────────
 
 export default function CapacityValidation() {
@@ -523,8 +492,6 @@ export default function CapacityValidation() {
   const [filterProject, setFilterProject] = useState('')
   const [showExternal, setShowExternal] = useState(false)
   const [showSectionD, setShowSectionD] = useState(false)
-  // Section D: track which receiving Function's D2 chart is in team drill-down view
-  const [d2TeamViewFnId, setD2TeamViewFnId] = useState<string | null>(null)
 
   // Read URL query params for Model Capacity deep-link
   useEffect(() => {
@@ -753,24 +720,20 @@ export default function CapacityValidation() {
       return entry
     })
 
-    // D2 data: per receiving Function — stacked by Project (§4 View 1 Section D2 spec)
+    // D2 data: per receiving Function — stacked by Project
     const d2ByFn = new Map<string, {
       projectIds: string[]
       byProject: any[]
-      byTeam: any[]
-      visibleTeamIds: string[]
     }>()
 
     for (const fnId of receivingFnIds) {
       const projectIds = [...(projectIdsPerFn.get(fnId) ?? [])]
-      const teamIdsSet = new Set<string>()
 
       const byProject: any[] = months.map(month => {
         const entry: Record<string, number | string> = { label: formatMonthLabel(month) }
         projectIds.forEach(pid => { entry[pid] = 0 })
         return entry
       })
-      const byTeam: any[] = months.map(month => ({ label: formatMonthLabel(month) }))
 
       months.forEach((month, mi) => {
         for (const d of store.demandItems) {
@@ -780,11 +743,7 @@ export default function CapacityValidation() {
           if (!COMMITTED_STATUSES.has(d.status)) continue
           if (!projectIds.includes(d.parent_project_id)) continue
 
-          // Walk Project phases (v1.18) or Demand phases (legacy fallback)
-          const project = store.projects.find(p => p.id === d.parent_project_id)
-          const phases = project && project.phases.length > 0 ? project.phases : d.phases
-
-          for (const phase of phases) {
+          for (const phase of d.phases) {
             if (!monthInRange(month, phase.start_month, phase.end_month)) continue
             for (const req of phase.requirements) {
               if (sklFn.get(req.skill_id) !== fnId) continue
@@ -794,20 +753,12 @@ export default function CapacityValidation() {
               if (hrs <= 0) continue
               const pid = d.parent_project_id!
               byProject[mi][pid] = ((byProject[mi][pid] as number) ?? 0) + hrs
-              const teamKey = req.owningTeamId ?? '__unassigned__'
-              if (req.owningTeamId) teamIdsSet.add(req.owningTeamId)
-              byTeam[mi][teamKey] = ((byTeam[mi][teamKey] as number) ?? 0) + hrs
             }
           }
         }
       })
 
-      const visibleTeamIds = [
-        ...[...teamIdsSet].filter(tid => byTeam.some(m => ((m[tid] as number) ?? 0) > 0)),
-        ...(byTeam.some(m => ((m['__unassigned__'] as number) ?? 0) > 0) ? ['__unassigned__'] : []),
-      ]
-
-      d2ByFn.set(fnId, { projectIds, byProject, byTeam, visibleTeamIds })
+      d2ByFn.set(fnId, { projectIds, byProject })
     }
 
     const receivingFunctions = [...receivingFnIds]
@@ -1338,7 +1289,6 @@ export default function CapacityValidation() {
                           stroke="none"
                           fillOpacity={0.75}
                           isAnimationActive={false}
-                          onClick={() => setD2TeamViewFnId(null)}
                         />
                       ))}
                     </ComposedChart>
@@ -1360,104 +1310,44 @@ export default function CapacityValidation() {
                     {sectionDData.receivingFunctions.map((fn, fi) => {
                       const d2 = sectionDData.d2ByFn.get(fn.id)
                       if (!d2) return null
-                      const isTeamView = d2TeamViewFnId === fn.id
                       const activeProjects = d2.projectIds
                         .map(pid => store.projects.find(p => p.id === pid))
                         .filter((p): p is Project => !!p)
-                      const fnTeams = store.teams.filter(t => t.functionId === fn.id)
 
                       return (
                         <div key={fn.id} className="bg-white border border-purple-200 rounded-lg p-4">
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="text-xs font-semibold text-purple-700">{fn.name}</h4>
-                            {isTeamView ? (
-                              <button
-                                onClick={() => setD2TeamViewFnId(null)}
-                                className="flex items-center gap-1 text-[10px] text-purple-500 hover:text-purple-700"
-                              >
-                                <X size={10} /> Back to Projects
-                              </button>
-                            ) : (
-                              <span className="text-[10px] text-purple-400 italic">Click to drill into teams</span>
-                            )}
                           </div>
-                          {isTeamView ? (
-                            <>
-                              <ResponsiveContainer width="100%" height={180}>
-                                <ComposedChart data={d2.byTeam} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
-                                  <CartesianGrid strokeDasharray="3 3" stroke="#f3e8ff" vertical={false} />
-                                  <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                                  <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickFormatter={v => `${v}h`} />
-                                  <Tooltip content={<D2TeamTooltip teams={fnTeams} />} />
-                                  {d2.visibleTeamIds.map((tid, i) => (
-                                    <Area
-                                      key={tid}
-                                      type="monotone"
-                                      dataKey={tid}
-                                      stackId="d2t"
-                                      fill={tid === '__unassigned__' ? '#d1d5db' : D_COLORS[(fi + i) % D_COLORS.length]}
-                                      stroke="none"
-                                      fillOpacity={0.75}
-                                      isAnimationActive={false}
-                                    />
-                                  ))}
-                                </ComposedChart>
-                              </ResponsiveContainer>
-                              {d2.visibleTeamIds.length > 1 && (
-                                <div className="flex flex-wrap gap-2 mt-2 justify-end">
-                                  {d2.visibleTeamIds.map((tid, i) => {
-                                    const team = fnTeams.find(t => t.id === tid)
-                                    const label = tid === '__unassigned__' ? 'Unassigned' : (team?.name ?? tid)
-                                    return (
-                                      <span key={tid} className="flex items-center gap-1 text-[10px] text-gray-500">
-                                        <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: tid === '__unassigned__' ? '#d1d5db' : D_COLORS[(fi + i) % D_COLORS.length], opacity: 0.75 }} />
-                                        {label}
-                                      </span>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              <ResponsiveContainer width="100%" height={180}>
-                                <ComposedChart data={d2.byProject} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
-                                  <CartesianGrid strokeDasharray="3 3" stroke="#f3e8ff" vertical={false} />
-                                  <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                                  <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickFormatter={v => `${v}h`} />
-                                  <Tooltip content={<D2Tooltip projects={activeProjects} />} />
-                                  {d2.projectIds.map((pid, i) => (
-                                    <Area
-                                      key={pid}
-                                      type="monotone"
-                                      dataKey={pid}
-                                      stackId="d2p"
-                                      fill={D_COLORS[(fi + i) % D_COLORS.length]}
-                                      stroke="none"
-                                      fillOpacity={0.75}
-                                      isAnimationActive={false}
-                                      onClick={() => setD2TeamViewFnId(fn.id)}
-                                    />
-                                  ))}
-                                </ComposedChart>
-                              </ResponsiveContainer>
-                              {activeProjects.length > 1 && (
-                                <div className="flex flex-wrap gap-2 mt-2 justify-end">
-                                  {activeProjects.map((project, i) => (
-                                    <span key={project.id} className="flex items-center gap-1 text-[10px] text-gray-500">
-                                      <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: D_COLORS[(fi + i) % D_COLORS.length], opacity: 0.75 }} />
-                                      {project.name}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              <button
-                                onClick={() => setD2TeamViewFnId(fn.id)}
-                                className="mt-2 text-[10px] text-purple-500 hover:text-purple-700 w-full text-right"
-                              >
-                                Drill into teams →
-                              </button>
-                            </>
+                          <ResponsiveContainer width="100%" height={180}>
+                            <ComposedChart data={d2.byProject} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f3e8ff" vertical={false} />
+                              <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                              <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickFormatter={v => `${v}h`} />
+                              <Tooltip content={<D2Tooltip projects={activeProjects} />} />
+                              {d2.projectIds.map((pid, i) => (
+                                <Area
+                                  key={pid}
+                                  type="monotone"
+                                  dataKey={pid}
+                                  stackId="d2p"
+                                  fill={D_COLORS[(fi + i) % D_COLORS.length]}
+                                  stroke="none"
+                                  fillOpacity={0.75}
+                                  isAnimationActive={false}
+                                />
+                              ))}
+                            </ComposedChart>
+                          </ResponsiveContainer>
+                          {activeProjects.length > 1 && (
+                            <div className="flex flex-wrap gap-2 mt-2 justify-end">
+                              {activeProjects.map((project, i) => (
+                                <span key={project.id} className="flex items-center gap-1 text-[10px] text-gray-500">
+                                  <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: D_COLORS[(fi + i) % D_COLORS.length], opacity: 0.75 }} />
+                                  {project.name}
+                                </span>
+                              ))}
+                            </div>
                           )}
                         </div>
                       )

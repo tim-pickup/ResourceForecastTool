@@ -1,23 +1,20 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type {
-  AppFunction, Team, ProjectTeamAssignment,
+  AppFunction, Team,
   Domain, Skill, Person, DemandItem, AppState, DemandStatus,
   Programme, Project, ProjectStatus, Provider, ExternalResourceRequirement,
+  ProjectType,
 } from '../types'
 import { generateId } from '../utils/ids'
 import seedRaw from '../../DEMOSEED.json'
 
-// Status conversions for old statuses that no longer exist in v1.18
 function migrateDemandStatus(s: string): DemandStatus {
   if (s === 'Parked' || s === 'Closed' || s === 'Scoping') return 'Draft'
   if (s === 'Accepted') return 'Approved'
   return s as DemandStatus
 }
 
-// §3 Project auto-transition: compute Project status from child Demand statuses.
-// Called after any child Demand status change; only applies to post-spawn Projects
-// (Submitted / Approved / Allocated).
 function computeProjectAutoStatusFromDemands(childDemands: DemandItem[]): ProjectStatus {
   if (childDemands.length === 0) return 'Submitted'
   if (childDemands.every(d => d.status === 'Allocated')) return 'Allocated'
@@ -31,25 +28,11 @@ function normalizeSeed(raw: any): AppState {
   const activeFns: AppFunction[] = (raw.functions || []).filter((f: any) => f.active)
   activeFns.sort((a, b) => a.name.localeCompare(b.name))
 
-  // Support both old seed format (demand_team_assignments with demandId)
-  // and new format (project_team_assignments with projectId)
-  const rawPtas: any[] = raw.project_team_assignments || raw.demand_team_assignments || []
-  const projectTeamAssignments: ProjectTeamAssignment[] = rawPtas.map((a: any) => ({
-    id: a.id,
-    projectId: a.projectId ?? a.demandId ?? '',  // migrate old demandId field
-    phaseId: a.phaseId,
-    teamId: a.teamId,
-    confirmed: a.confirmed ?? false,
-    confirmedBy: a.confirmedBy ?? null,
-    confirmedAt: a.confirmedAt ?? null,
-  }))
-
-  // Upgrade old Project format (no status/phases/owner/type) to v1.18 Project
   const projects: Project[] = (raw.projects || []).map((p: any): Project => ({
     id: p.id,
     name: p.name,
     owner: p.owner ?? '',
-    type: p.type ?? 'Group Strategy Project',
+    type: p.type ?? 'pt_group_strat',
     programme_id: p.programme_id ?? null,
     description: p.description ?? '',
     status: (p.status ?? 'Draft') as ProjectStatus,
@@ -68,7 +51,6 @@ function normalizeSeed(raw: any): AppState {
         hours_by_month: r.hours_by_month ?? {},
         steady_state_hours: r.steady_state_hours ?? null,
         notes: r.notes ?? null,
-        owningTeamId: r.owningTeamId ?? null,
         allocations: (r.allocations ?? []).map((a: any) => ({
           id: a.id,
           person_id: a.person_id,
@@ -79,6 +61,8 @@ function normalizeSeed(raw: any): AppState {
       })),
     })),
     active: p.active ?? true,
+    functions_required: p.functions_required ?? [],
+    functions_actually_involved: p.functions_actually_involved ?? [],
   }))
 
   const defaultFunctionId = activeFns[0]?.id ?? null
@@ -87,7 +71,7 @@ function normalizeSeed(raw: any): AppState {
     activeFunctionId: defaultFunctionId,
     functions: (raw.functions || []) as AppFunction[],
     teams: (raw.teams || []) as Team[],
-    projectTeamAssignments,
+    projectTypes: (raw.project_types || []) as ProjectType[],
     domains: raw.domains || [],
     skills: raw.skills || [],
     people: (raw.people || []).map((p: any) => ({
@@ -102,6 +86,7 @@ function normalizeSeed(raw: any): AppState {
       notes: e.notes ?? null,
       hours_by_month: e.hours_by_month ?? {},
       steady_state_hours: e.steady_state_hours ?? null,
+      function_tag: e.function_tag ?? null,
     })) as ExternalResourceRequirement[],
     demandItems: items.map((d: any): DemandItem => ({
       id: d.id,
@@ -110,9 +95,7 @@ function normalizeSeed(raw: any): AppState {
       status: migrateDemandStatus(d.status),
       owner: d.owner ?? '',
       description: d.description ?? '',
-      // v1.18: function_id (was createdUnderFunctionId); fallback to first function
       function_id: d.function_id ?? d.createdUnderFunctionId ?? defaultFunctionId ?? '',
-      // v1.18: parent_project_id (was project_id)
       parent_project_id: d.parent_project_id ?? d.project_id ?? null,
       phases: (d.phases || []).map((p: any) => ({
         id: p.id,
@@ -129,7 +112,6 @@ function normalizeSeed(raw: any): AppState {
           hours_by_month: r.hours_by_month ?? {},
           steady_state_hours: r.steady_state_hours ?? null,
           notes: r.notes ?? null,
-          owningTeamId: r.owningTeamId ?? null,
           allocations: (r.allocations ?? []).map((a: any) => ({
             id: a.id,
             person_id: a.person_id,
@@ -156,13 +138,9 @@ interface Store extends AppState {
   updateTeam: (id: string, t: Partial<Team>) => void
   deleteTeam: (id: string) => void
 
-  addProjectTeamAssignment: (a: Omit<ProjectTeamAssignment, 'id'>) => void
-  updateProjectTeamAssignment: (id: string, a: Partial<ProjectTeamAssignment>) => void
-  deleteProjectTeamAssignment: (id: string) => void
-  // Alias for any remaining callers that haven't been updated yet
-  addDemandTeamAssignment: (a: Omit<ProjectTeamAssignment, 'id'>) => void
-  updateDemandTeamAssignment: (id: string, a: Partial<ProjectTeamAssignment>) => void
-  deleteDemandTeamAssignment: (id: string) => void
+  addProjectType: (pt: Omit<ProjectType, 'id'>) => void
+  updateProjectType: (id: string, pt: Partial<ProjectType>) => void
+  deleteProjectType: (id: string) => void
 
   addDomain: (t: Omit<Domain, 'id'>) => void
   updateDomain: (id: string, t: Partial<Domain>) => void
@@ -187,7 +165,6 @@ interface Store extends AppState {
   addProject: (p: Omit<Project, 'id'>) => void
   updateProject: (id: string, p: Partial<Project>) => void
   deleteProject: (id: string) => void
-  // §3 Project state machine actions
   submitProjectForScoping: (projectId: string) => string | null
   submitProject: (projectId: string) => string | null
 
@@ -217,17 +194,9 @@ export const useAppStore = create<Store>()(
       updateTeam: (id, t) => set(s => ({ teams: s.teams.map(x => x.id === id ? { ...x, ...t } : x) })),
       deleteTeam: id => set(s => ({ teams: s.teams.filter(x => x.id !== id) })),
 
-      addProjectTeamAssignment: a => set(s => ({ projectTeamAssignments: [...s.projectTeamAssignments, { ...a, id: generateId('pta') }] })),
-      updateProjectTeamAssignment: (id, a) => set(s => ({
-        projectTeamAssignments: s.projectTeamAssignments.map(x => x.id === id ? { ...x, ...a } : x),
-      })),
-      deleteProjectTeamAssignment: id => set(s => ({ projectTeamAssignments: s.projectTeamAssignments.filter(x => x.id !== id) })),
-      // Aliases (callers will be migrated in later Changes)
-      addDemandTeamAssignment: a => set(s => ({ projectTeamAssignments: [...s.projectTeamAssignments, { ...a, id: generateId('pta') }] })),
-      updateDemandTeamAssignment: (id, a) => set(s => ({
-        projectTeamAssignments: s.projectTeamAssignments.map(x => x.id === id ? { ...x, ...a } : x),
-      })),
-      deleteDemandTeamAssignment: id => set(s => ({ projectTeamAssignments: s.projectTeamAssignments.filter(x => x.id !== id) })),
+      addProjectType: pt => set(s => ({ projectTypes: [...s.projectTypes, { ...pt, id: generateId('ptp') }] })),
+      updateProjectType: (id, pt) => set(s => ({ projectTypes: s.projectTypes.map(x => x.id === id ? { ...x, ...pt } : x) })),
+      deleteProjectType: id => set(s => ({ projectTypes: s.projectTypes.filter(x => x.id !== id) })),
 
       addDomain: t => set(s => ({ domains: [...s.domains, { ...t, id: generateId('thm') }] })),
       updateDomain: (id, t) => set(s => ({ domains: s.domains.map(x => x.id === id ? { ...x, ...t } : x) })),
@@ -244,7 +213,6 @@ export const useAppStore = create<Store>()(
       addDemandItem: d => set(s => ({ demandItems: [...s.demandItems, { ...d, id: generateId('dmd') }] })),
       updateDemandItem: (id, d) => set(s => {
         const newItems = s.demandItems.map(x => x.id === id ? { ...x, ...d } : x)
-        // §3 Project auto-transition: when a child Demand's status changes, recompute parent Project status
         if ('status' in d) {
           const updatedItem = newItems.find(x => x.id === id)
           const projectId = updatedItem?.parent_project_id
@@ -267,7 +235,6 @@ export const useAppStore = create<Store>()(
       deleteDemandItem: (id) => set(s => {
         const demand = s.demandItems.find(d => d.id === id)
         if (!demand) return {}
-        // §3 cascade: delete external requirements for this demand's phases (direct Demands only)
         const phaseIds = new Set(demand.phases.map(p => p.id))
         return {
           demandItems: s.demandItems.filter(d => d.id !== id),
@@ -283,20 +250,23 @@ export const useAppStore = create<Store>()(
 
       addProject: p => set(s => ({ projects: [...s.projects, { ...p, id: generateId('prj') }] })),
       updateProject: (id, p) => set(s => ({ projects: s.projects.map(x => x.id === id ? { ...x, ...p } : x) })),
-      // §3 cascade: delete child demands, their allocations (embedded), external reqs, and PTAs
       deleteProject: (id) => set(s => {
         const project = s.projects.find(p => p.id === id)
         const projectPhaseIds = new Set((project?.phases ?? []).map(ph => ph.id))
+        // Also collect child demand phase IDs for external req cleanup
+        const childDemands = s.demandItems.filter(d => d.parent_project_id === id)
+        const childPhaseIds = new Set(childDemands.flatMap(d => d.phases.map(ph => ph.id)))
+        const allPhaseIds = new Set([...projectPhaseIds, ...childPhaseIds])
         return {
           projects: s.projects.filter(p => p.id !== id),
           demandItems: s.demandItems.filter(d => d.parent_project_id !== id),
-          projectTeamAssignments: s.projectTeamAssignments.filter(a => a.projectId !== id),
-          externalResourceRequirements: projectPhaseIds.size > 0
-            ? s.externalResourceRequirements.filter(e => !projectPhaseIds.has(e.phase_id))
+          externalResourceRequirements: allPhaseIds.size > 0
+            ? s.externalResourceRequirements.filter(e => !allPhaseIds.has(e.phase_id))
             : s.externalResourceRequirements,
         }
       }),
       // §3 Project state machine — Submit for Scoping (Draft → Scoping)
+      // v1.19: gate requires ≥1 phase (team assignment gate removed; functions_required gate added in Change 3)
       submitProjectForScoping: (projectId) => {
         let error: string | null = null
         set(s => {
@@ -304,25 +274,18 @@ export const useAppStore = create<Store>()(
           if (!project) { error = 'Project not found.'; return {} }
           if (project.status !== 'Draft') { error = 'Project must be in Draft status.'; return {} }
           if (project.phases.length === 0) { error = 'Add at least one phase before submitting for scoping.'; return {} }
-          const phasesWithoutTeams = project.phases.filter(ph =>
-            !s.projectTeamAssignments.some(pta => pta.projectId === projectId && pta.phaseId === ph.id)
-          )
-          if (phasesWithoutTeams.length > 0) {
-            error = `${phasesWithoutTeams.length} phase(s) have no team assigned. Assign at least one team to each phase.`
-            return {}
-          }
           return { projects: s.projects.map(p => p.id === projectId ? { ...p, status: 'Scoping' as ProjectStatus } : p) }
         })
         return error
       },
       // §3 Project state machine — Submit Project (Scoping → Submitted) + spawn Demands
+      // v1.19: materialises a deep copy of Function-scoped phases/requirements onto each spawned Demand
       submitProject: (projectId) => {
         let error: string | null = null
         set(s => {
           const project = s.projects.find(p => p.id === projectId)
           if (!project) { error = 'Project not found.'; return {} }
           if (project.status !== 'Scoping') { error = 'Project must be in Scoping status.'; return {} }
-          // Compute Functions involved from project phase requirements
           const domFn = new Map(s.domains.map(d => [d.id, d.functionId]))
           const sklFn = new Map(s.skills.map(sk => [sk.id, domFn.get(sk.domain_id) ?? '']))
           const functionsInvolved = new Set<string>()
@@ -333,10 +296,49 @@ export const useAppStore = create<Store>()(
             }
           }
           if (functionsInvolved.size === 0) { error = 'Project has no requirements — cannot spawn Demands.'; return {} }
-          // Spawn one Demand per Function involved
+
+          // Get external requirements for all project phases
+          const projectPhaseIds = new Set(project.phases.map(ph => ph.id))
+          const projectExternals = s.externalResourceRequirements.filter(e => projectPhaseIds.has(e.phase_id))
+
+          // Alphabetically-first Function in spawn set (fallback for untagged externals)
+          const alphabeticalFirstFn = [...functionsInvolved].sort((a, b) => {
+            const fa = s.functions.find(f => f.id === a)?.name ?? a
+            const fb = s.functions.find(f => f.id === b)?.name ?? b
+            return fa.localeCompare(fb)
+          })[0] ?? ''
+
           const newDemands: DemandItem[] = []
+          const newExternals: ExternalResourceRequirement[] = []
+
           for (const fnId of functionsInvolved) {
             const fn = s.functions.find(f => f.id === fnId)
+
+            // Collect project phases relevant to this Function (has ≥1 internal OR external for this Function)
+            const relevantOrigPhases = project.phases.filter(ph =>
+              ph.requirements.some(r => sklFn.get(r.skill_id) === fnId) ||
+              projectExternals.some(e => {
+                if (e.phase_id !== ph.id) return false
+                return e.function_tag === fnId || (e.function_tag === null && fnId === alphabeticalFirstFn)
+              })
+            )
+
+            if (relevantOrigPhases.length === 0) continue
+
+            // Build a map from original phase ID → new cloned phase
+            const origToClone = new Map<string, typeof relevantOrigPhases[0] & { id: string }>()
+            const fnPhases = relevantOrigPhases.map(origPh => {
+              const cloned = {
+                ...origPh,
+                id: generateId('phs'),
+                requirements: origPh.requirements
+                  .filter(r => sklFn.get(r.skill_id) === fnId)
+                  .map(r => ({ ...r, id: generateId('req'), allocations: [] })),
+              }
+              origToClone.set(origPh.id, cloned)
+              return cloned
+            })
+
             newDemands.push({
               id: generateId('dmd'),
               function_id: fnId,
@@ -346,12 +348,32 @@ export const useAppStore = create<Store>()(
               owner: project.owner,
               description: project.description,
               status: 'Submitted' as DemandStatus,
-              phases: [],  // Project-spawned Demands derive phases from the parent Project
+              phases: fnPhases,
             })
+
+            // Route external requirements using the phase ID map
+            for (const [origPhId, clonedPh] of origToClone.entries()) {
+              const phExternals = projectExternals.filter(e => {
+                if (e.phase_id !== origPhId) return false
+                return e.function_tag === fnId || (e.function_tag === null && fnId === alphabeticalFirstFn)
+              })
+              for (const ext of phExternals) {
+                newExternals.push({ ...ext, id: generateId('ext'), phase_id: clonedPh.id, function_tag: fnId })
+              }
+            }
           }
+
+          // Freeze the Project: set functions_actually_involved
+          const functionsActuallyInvolved = [...functionsInvolved]
+
           return {
             demandItems: [...s.demandItems, ...newDemands],
-            projects: s.projects.map(p => p.id === projectId ? { ...p, status: 'Submitted' as ProjectStatus } : p),
+            externalResourceRequirements: [...s.externalResourceRequirements, ...newExternals],
+            projects: s.projects.map(p => p.id === projectId ? {
+              ...p,
+              status: 'Submitted' as ProjectStatus,
+              functions_actually_involved: functionsActuallyInvolved,
+            } : p),
           }
         })
         return error
@@ -369,7 +391,7 @@ export const useAppStore = create<Store>()(
     }),
     {
       name: 'resource-forecast-v1',
-      version: 11,
+      version: 12,
       migrate: (_state, version) => {
         if (version < 9) return SEED
         if (version < 10) {
@@ -379,57 +401,64 @@ export const useAppStore = create<Store>()(
           return { ...s, activeFunctionId: activeFns[0]?.id ?? null } as Store
         }
         if (version < 11) {
-          // v10 → v11: data model migration (v1.18)
-          // - demandTeamAssignments → projectTeamAssignments (demandId → projectId)
-          // - DemandItem: add function_id, parent_project_id; remove project_id etc.
-          // - Project: add status, phases, owner, type; make programme_id nullable
-          // - DemandStatus: Parked/Closed/Scoping → Draft
           const s = _state as any
           const activeFns = (s.functions || []).filter((f: any) => f.active)
             .sort((a: any, b: any) => a.name.localeCompare(b.name))
           const defaultFunctionId = activeFns[0]?.id ?? null
-
-          const rawDtas: any[] = s.demandTeamAssignments || s.projectTeamAssignments || []
-          const projectTeamAssignments: ProjectTeamAssignment[] = rawDtas.map((a: any) => ({
-            id: a.id,
-            projectId: a.projectId ?? a.demandId ?? '',
-            phaseId: a.phaseId,
-            teamId: a.teamId,
-            confirmed: a.confirmed ?? false,
-            confirmedBy: a.confirmedBy ?? null,
-            confirmedAt: a.confirmedAt ?? null,
-          }))
-
-          const projects: Project[] = (s.projects || []).map((p: any): Project => ({
-            id: p.id,
-            name: p.name,
-            owner: p.owner ?? '',
-            type: p.type ?? 'Group Strategy Project',
-            programme_id: p.programme_id ?? null,
-            description: p.description ?? '',
-            status: (p.status ?? 'Draft') as ProjectStatus,
-            phases: p.phases ?? [],
-            active: p.active ?? true,
-          }))
-
-          const demandItems: DemandItem[] = (s.demandItems || []).map((d: any): DemandItem => ({
-            id: d.id,
-            name: d.name,
-            type: d.type,
+          const demandItems = (s.demandItems || []).map((d: any): DemandItem => ({
+            id: d.id, name: d.name, type: d.type,
             status: migrateDemandStatus(d.status),
-            owner: d.owner ?? '',
-            description: d.description ?? '',
+            owner: d.owner ?? '', description: d.description ?? '',
             function_id: d.function_id ?? d.createdUnderFunctionId ?? defaultFunctionId ?? '',
             parent_project_id: d.parent_project_id ?? d.project_id ?? null,
             phases: d.phases ?? [],
           }))
-
+          const projects = (s.projects || []).map((p: any): Project => ({
+            id: p.id, name: p.name, owner: p.owner ?? '',
+            type: p.type ?? 'Group Strategy Project',
+            programme_id: p.programme_id ?? null, description: p.description ?? '',
+            status: (p.status ?? 'Draft') as ProjectStatus,
+            phases: p.phases ?? [], active: p.active ?? true,
+            functions_required: [], functions_actually_involved: [],
+          }))
+          return { ...s, projects, demandItems } as Store
+        }
+        if (version < 12) {
+          // v11 → v12: v1.19 data model migration
+          // - drop projectTeamAssignments (remove from state)
+          // - add projectTypes (seed with defaults)
+          // - add functions_required / functions_actually_involved to Projects
+          // - migrate type string enum → ProjectType id
+          // - add function_tag to ExternalResourceRequirements
+          const s = _state as any
+          const typeMap: Record<string, string> = {
+            'BAU': 'pt_bau',
+            'NPD Demand': 'pt_npd',
+            'Plant Project': 'pt_plant',
+            'Group Strategy Project': 'pt_group_strat',
+          }
+          const projects = (s.projects || []).map((p: any): Project => ({
+            ...p,
+            type: typeMap[p.type] ?? p.type,
+            functions_required: p.functions_required ?? [],
+            functions_actually_involved: p.functions_actually_involved ?? [],
+          }))
+          const demandItems = (s.demandItems || []).map((d: any): DemandItem => ({
+            ...d,
+            type: typeMap[d.type] ?? d.type,
+          }))
+          const externalResourceRequirements = (s.externalResourceRequirements || []).map((e: any) => ({
+            ...e,
+            function_tag: e.function_tag ?? null,
+          }))
+          const projectTypes: ProjectType[] = s.projectTypes?.length > 0 ? s.projectTypes : SEED.projectTypes
           return {
             ...s,
-            projectTeamAssignments,
-            demandTeamAssignments: undefined,
             projects,
             demandItems,
+            externalResourceRequirements,
+            projectTypes,
+            projectTeamAssignments: undefined,
           } as Store
         }
         return _state as Store

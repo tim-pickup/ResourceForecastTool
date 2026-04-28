@@ -10,7 +10,7 @@
  * localStorage state, so they reflect the canonical seed fixture.
  */
 
-import type { AppState, DemandItem, DemandStatus, ProjectStatus } from '../types'
+import type { AppState, DemandItem, DemandStatus, ProjectStatus, ProjectType } from '../types'
 import {
   computeProjection,
   projected_consumption,
@@ -43,7 +43,7 @@ function buildSeedState(): AppState {
     })(),
     functions: raw.functions || [],
     teams: raw.teams || [],
-    projectTeamAssignments: raw.project_team_assignments || raw.demand_team_assignments || [],
+    projectTypes: (raw.project_types || []) as ProjectType[],
     domains: raw.domains || [],
     skills: raw.skills || [],
     people: (raw.people || []).map((p: Record<string, unknown>) => ({ ...p, teamId: (p.teamId ?? '') as string })),
@@ -51,11 +51,13 @@ function buildSeedState(): AppState {
     projects: (raw.projects || []).map((p: Record<string, unknown>) => ({
       ...p,
       owner: (p.owner ?? '') as string,
-      type: (p.type ?? 'Group Strategy Project') as string,
+      type: (p.type ?? 'pt_group_strat') as string,
       programme_id: (p.programme_id ?? null) as string | null,
       status: (p.status ?? 'Draft') as ProjectStatus,
       phases: (p.phases ?? []) as [],
       active: (p.active ?? true) as boolean,
+      functions_required: (p.functions_required ?? []) as string[],
+      functions_actually_involved: (p.functions_actually_involved ?? []) as string[],
     })),
     providers: raw.providers || [],
     externalResourceRequirements: (raw.external_resource_requirements || []).map((e: Record<string, unknown>) => ({
@@ -63,11 +65,12 @@ function buildSeedState(): AppState {
       notes: (e.notes ?? null) as string | null,
       hours_by_month: (e.hours_by_month ?? {}) as Record<string, number>,
       steady_state_hours: (e.steady_state_hours ?? null) as number | null,
+      function_tag: (e.function_tag ?? null) as string | null,
     })),
     demandItems: items.map((d): DemandItem => ({
       id: d.id as string,
       name: d.name as string,
-      type: d.type as DemandItem['type'],
+      type: d.type as string,
       status: (['Parked', 'Closed', 'Scoping'].includes(d.status as string) ? 'Draft' : d.status === 'Accepted' ? 'Approved' : d.status) as DemandStatus,
       owner: d.owner as string,
       description: d.description as string,
@@ -88,7 +91,6 @@ function buildSeedState(): AppState {
           hours_by_month: (r.hours_by_month ?? {}) as Record<string, number>,
           steady_state_hours: (r.steady_state_hours ?? null) as number | null,
           notes: (r.notes ?? null) as string | null,
-          owningTeamId: (r.owningTeamId ?? null) as string | null,
           allocations: ((r.allocations ?? []) as Record<string, unknown>[]).map(a => ({
             id: a.id as string,
             person_id: a.person_id as string,

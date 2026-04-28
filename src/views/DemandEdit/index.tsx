@@ -2,14 +2,12 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
-import type { DemandItem, DemandStatus, DemandType, ExternalResourceRequirement } from '../../types'
+import type { DemandItem, DemandStatus, ExternalResourceRequirement } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { Input, Select, Textarea } from '../../components/ui/FormFields'
 import { StatusBadge } from '../../components/ui/Badge'
 import { PhaseEditor, blankPhase, PhaseGantt } from './ModeAEditor'
 import { AllocationWorkspace, computeAutoStatus } from './AllocationWorkspace'
-
-const TYPES: DemandType[] = ['Group Strategy Project', 'Plant Project', 'NPD Demand', 'BAU']
 // v1.18: Mode A = pre-Approved statuses; Mode B = allocation workspace
 const MODE_A: DemandStatus[] = ['Draft', 'Submitted']
 const MODE_B: DemandStatus[] = ['Approved', 'PartiallyAllocated', 'Allocated']
@@ -30,7 +28,7 @@ function pageTransitions(status: DemandStatus, isNew: boolean): Transition[] {
 
 function blankDemand(activeFunctionId: string | null): Omit<DemandItem, 'id'> {
   return {
-    name: '', type: 'Plant Project', status: 'Draft', owner: '',
+    name: '', type: '', status: 'Draft', owner: '',
     description: '',
     function_id: activeFunctionId ?? '',
     parent_project_id: null,
@@ -206,8 +204,11 @@ export default function DemandEdit() {
                   onChange={e => update(d => ({ ...d, name: e.target.value }))}
                   placeholder="e.g. Plant B MES Phase 2 Rollout"
                 />
-                <Select label="Type" value={draft.type} onChange={e => update(d => ({ ...d, type: e.target.value as DemandType }))}>
-                  {TYPES.map(t => <option key={t}>{t}</option>)}
+                <Select label="Type" value={draft.type} onChange={e => update(d => ({ ...d, type: e.target.value }))}>
+                  <option value="">— Select type —</option>
+                  {store.projectTypes.filter(pt => pt.active).sort((a, b) => a.display_order - b.display_order).map(pt => (
+                    <option key={pt.id} value={pt.id}>{pt.name}</option>
+                  ))}
                 </Select>
                 <Input label="Owner" value={draft.owner} onChange={e => update(d => ({ ...d, owner: e.target.value }))} placeholder="Name or role" />
                 {/* Parent Project (read-only badge for project-spawned; editable for direct Demands in Draft) */}

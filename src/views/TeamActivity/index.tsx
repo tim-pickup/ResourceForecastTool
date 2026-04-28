@@ -6,11 +6,10 @@ import {
 } from '../../utils/capacity'
 import { DemandEditor } from '../../components/DemandEditor/DemandEditor'
 import { clsx } from 'clsx'
-import type { DemandType, Person } from '../../types'
+import type { Person } from '../../types'
+import { typeToBreakdownKey } from '../../utils/capacity'
 
 const HORIZONS = [6, 12, 24, 60]
-// Secondary accent from DESIGN.md — distinct from all demand-type colours
-const CROSS_TEAM_BORDER = '#ff6b00'
 
 const SEG_COLORS = {
   bau:       '#94a3b8',
@@ -23,20 +22,12 @@ const SEG_COLORS = {
 
 type SegKey = 'bau' | 'npd' | 'plant' | 'strategy'
 
-const SEGMENTS: { key: SegKey; label: string; type?: DemandType }[] = [
-  { key: 'bau',      label: 'BAU',                    type: 'BAU' },
-  { key: 'npd',      label: 'NPD Demand',              type: 'NPD Demand' },
-  { key: 'plant',    label: 'Plant Project',           type: 'Plant Project' },
-  { key: 'strategy', label: 'Group Strategy Project',  type: 'Group Strategy Project' },
-]
-
 interface HoursByType { bau: number; npd: number; plant: number; strategy: number }
-interface CrossTeamItem { demandName: string; teamName: string }
 
 interface ContributingItem {
   demandId: string
   name: string
-  type: DemandType
+  type: string
   hours: number
   phase: string
 }
@@ -71,6 +62,18 @@ export default function TeamActivity() {
   const months = useMemo(() => generateMonths(getCurrentMonth(), horizon), [horizon])
   const now = getCurrentMonth()
 
+  // Derive segments from ProjectType records (using typeToBreakdownKey mapping)
+  const segments = useMemo(() => {
+    const nonBau = store.projectTypes.filter(pt => pt.active && !pt.is_bau).sort((a, b) => a.display_order - b.display_order)
+    const bauType = store.projectTypes.find(pt => pt.active && pt.is_bau)
+    const result: Array<{ key: SegKey; label: string; typeId: string }> = []
+    if (bauType) result.push({ key: 'bau', label: bauType.name, typeId: bauType.id })
+    if (nonBau[0]) result.push({ key: 'npd',      label: nonBau[0].name, typeId: nonBau[0].id })
+    if (nonBau[1]) result.push({ key: 'plant',    label: nonBau[1].name, typeId: nonBau[1].id })
+    if (nonBau[2]) result.push({ key: 'strategy', label: nonBau[2].name, typeId: nonBau[2].id })
+    return result
+  }, [store.projectTypes])
+
   const activeDemand = useMemo(
     () => store.demandItems.filter(d =>
       d.status === 'Approved' || d.status === 'PartiallyAllocated' || d.status === 'Allocated'
@@ -104,6 +107,8 @@ export default function TeamActivity() {
   function getHoursByType(personId: string, month: string): HoursByType {
     const r: HoursByType = { bau: 0, npd: 0, plant: 0, strategy: 0 }
     for (const item of activeDemand) {
+      const key = typeToBreakdownKey(item.type, store.projectTypes) as keyof HoursByType | null
+      if (!key) continue
       for (const phase of item.phases) {
         if (!monthInRange(month, phase.start_month, phase.end_month)) continue
         for (const req of phase.requirements) {
@@ -113,10 +118,7 @@ export default function TeamActivity() {
               ? (alloc.steady_state_hours ?? 0)
               : (alloc.hours_by_month[month] ?? 0)
             if (hours <= 0) continue
-            if (item.type === 'BAU')                         r.bau      += hours
-            else if (item.type === 'NPD Demand')             r.npd      += hours
-            else if (item.type === 'Plant Project')          r.plant    += hours
-            else if (item.type === 'Group Strategy Project') r.strategy += hours
+            r[key] += hours
           }
         }
       }
@@ -124,16 +126,14 @@ export default function TeamActivity() {
     return r
   }
 
-  // Returns segment hours + cross-team markers for a single person cell
-  function getPersonCellData(personId: string, personTeamId: string, month: string): {
+  // Returns segment hours for a single person cell
+  function getPersonCellData(personId: string, _personTeamId: string, month: string): {
     hrs: HoursByType
-    crossTeam: Partial<Record<SegKey, CrossTeamItem[]>>
   } {
     const hrs: HoursByType = { bau: 0, npd: 0, plant: 0, strategy: 0 }
-    const crossTeam: Partial<Record<SegKey, CrossTeamItem[]>> = {}
     for (const item of activeDemand) {
-      const seg = SEGMENTS.find(s => s.type === item.type)
-      if (!seg) continue
+      const key = typeToBreakdownKey(item.type, store.projectTypes) as keyof HoursByType | null
+      if (!key) continue
       for (const phase of item.phases) {
         if (!monthInRange(month, phase.start_month, phase.end_month)) continue
         for (const req of phase.requirements) {
@@ -143,17 +143,12 @@ export default function TeamActivity() {
               ? (alloc.steady_state_hours ?? 0)
               : (alloc.hours_by_month[month] ?? 0)
             if (hours <= 0) continue
-            hrs[seg.key] += hours
-            if (req.owningTeamId && req.owningTeamId !== personTeamId) {
-              const teamName = store.teams.find(t => t.id === req.owningTeamId)?.name ?? 'Unknown Team'
-              if (!crossTeam[seg.key]) crossTeam[seg.key] = []
-              crossTeam[seg.key]!.push({ demandName: item.name, teamName })
-            }
+            hrs[key] += hours
           }
         }
       }
     }
-    return { hrs, crossTeam }
+    return { hrs }
   }
 
   // Aggregate hours across all visible people in a team for the team summary bar
@@ -172,8 +167,8 @@ export default function TeamActivity() {
   function getContributing(personId: string, month: string, filterKey?: SegKey): ContributingItem[] {
     const items: ContributingItem[] = []
     for (const item of activeDemand) {
-      const seg = SEGMENTS.find(s => s.type === item.type)
-      if (filterKey && seg?.key !== filterKey) continue
+      const key = typeToBreakdownKey(item.type, store.projectTypes) as SegKey | null
+      if (filterKey && key !== filterKey) continue
       for (const phase of item.phases) {
         if (!monthInRange(month, phase.start_month, phase.end_month)) continue
         for (const req of phase.requirements) {
@@ -236,7 +231,7 @@ export default function TeamActivity() {
             )
           }
 
-          const { hrs, crossTeam } = getPersonCellData(person.id, person.teamId, month)
+          const { hrs } = getPersonCellData(person.id, person.teamId, month)
           const committed = hrs.bau + hrs.npd + hrs.plant + hrs.strategy
           const available = Math.max(0, contracted - committed)
           const isOver = committed > contracted
@@ -253,13 +248,9 @@ export default function TeamActivity() {
                 title={`${person.name} · ${formatMonthLabel(month)}\nBAU ${hrs.bau}h · NPD ${hrs.npd}h · Plant ${hrs.plant}h · Strategy ${hrs.strategy}h · Available ${available}h / ${contracted}h`}
               >
                 <div className="absolute inset-0 flex">
-                  {SEGMENTS.map(seg => {
+                  {segments.map(seg => {
                     const h = hrs[seg.key]
                     if (h <= 0) return null
-                    const ct = crossTeam[seg.key]
-                    const ctLabel = ct
-                      ? ct.map(c => `Cross-team: ${c.demandName} owned by ${c.teamName}`).join('\n')
-                      : `${seg.label}: ${h}h`
                     return (
                       <div
                         key={seg.key}
@@ -268,9 +259,8 @@ export default function TeamActivity() {
                           backgroundColor: SEG_COLORS[seg.key],
                           flexShrink: 0,
                           boxSizing: 'border-box',
-                          ...(ct ? { border: `2px solid ${CROSS_TEAM_BORDER}` } : {}),
                         }}
-                        title={ctLabel}
+                        title={`${seg.label}: ${h}h`}
                         onClick={e => { e.stopPropagation(); setDrillCell({ personId: person.id, personName: person.name, month, filterKey: seg.key }) }}
                       />
                     )
@@ -392,7 +382,7 @@ export default function TeamActivity() {
                           <div className="relative h-7 bg-gray-100 rounded overflow-hidden"
                             title={`${group.team.name} · ${formatMonthLabel(month)}\n${Math.round(committed)}h committed / ${Math.round(s.contracted)}h contracted`}>
                             <div className="absolute inset-0 flex">
-                              {SEGMENTS.map(seg => {
+                              {segments.map(seg => {
                                 const h = s[seg.key]
                                 if (h <= 0) return null
                                 return <div key={seg.key} style={{ width: `${Math.min(toW(h), 100)}%`, backgroundColor: SEG_COLORS[seg.key], flexShrink: 0 }} />
@@ -433,7 +423,7 @@ export default function TeamActivity() {
 
       {/* Legend */}
       <div className="flex items-center gap-4 px-5 py-2 border-t border-border bg-gray-50 text-xs text-gray-500 flex-wrap">
-        {SEGMENTS.map(s => (
+        {segments.map(s => (
           <div key={s.key} className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: SEG_COLORS[s.key] }} />
             {s.label}
@@ -446,10 +436,6 @@ export default function TeamActivity() {
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: SEG_COLORS.over }} />
           Over-allocated
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm border-2" style={{ backgroundColor: SEG_COLORS.plant, borderColor: CROSS_TEAM_BORDER }} />
-          Cross-team allocation
         </div>
       </div>
 
@@ -465,7 +451,7 @@ export default function TeamActivity() {
                 {drillCell.filterKey && (
                   <span className="ml-2 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded"
                     style={{ backgroundColor: SEG_COLORS[drillCell.filterKey] + '33', color: '#374151' }}>
-                    {SEGMENTS.find(s => s.key === drillCell.filterKey)?.label}
+                    {segments.find(s => s.key === drillCell.filterKey)?.label}
                     <button onClick={() => setDrillCell(c => c ? { ...c, filterKey: undefined } : null)} className="opacity-60 hover:opacity-100">
                       <X size={10} />
                     </button>
@@ -482,7 +468,7 @@ export default function TeamActivity() {
               ) : (
                 <div className="flex flex-col gap-2">
                   {drillItems.map((item, i) => {
-                    const seg = SEGMENTS.find(s => s.type === item.type)
+                    const seg = segments.find(s => s.typeId === item.type)
                     return (
                       <div key={i} className="flex items-center gap-3 p-2.5 rounded border border-border bg-gray-50">
                         {seg && <div className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: SEG_COLORS[seg.key] }} />}
