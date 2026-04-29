@@ -96,6 +96,8 @@ function ProjectPhaseEditor({
           extReqs={showRequirements ? extReqs : []}
           onExtReqsChange={showRequirements ? onExtReqsChange : () => undefined}
           showRequirements={showRequirements}
+          functionScopeId={null}           // Project Scoping: full Skill catalogue across all Functions
+          showFunctionTagPicker={showRequirements}  // Function tag picker on ext reqs in Scoping
         />
       </div>
     </div>
@@ -315,17 +317,83 @@ export default function ProjectEdit() {
               placeholder="What is this project about?"
               disabled={isReadOnly}
             />
-            {/* Functions involved (derived, read-only) */}
-            {functionsInvolved.length > 0 && (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-gray-400">Functions:</span>
-                {functionsInvolved.map(fn => fn && (
-                  <span key={fn.id} className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-medium">
-                    {fn.name}
-                  </span>
-                ))}
+            {/* Functions Required picker (Draft and Scoping only — frozen at Submit) */}
+            {(draft.status === 'Draft' || draft.status === 'Scoping') && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-gray-700">
+                  Functions Required
+                  <span className="ml-1 font-normal text-gray-400">(originator's plan — hint, not binding)</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {store.functions.filter(f => f.active).sort((a, b) => a.name.localeCompare(b.name)).map(fn => {
+                    const checked = draft.functions_required.includes(fn.id)
+                    return (
+                      <label key={fn.id} className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e => {
+                            const next = e.target.checked
+                              ? [...draft.functions_required, fn.id]
+                              : draft.functions_required.filter(id => id !== fn.id)
+                            update(d => ({ ...d, functions_required: next }))
+                          }}
+                          className="accent-brand"
+                        />
+                        {fn.name}
+                      </label>
+                    )
+                  })}
+                </div>
               </div>
             )}
+
+            {/* Functions Actually Involved chips (derived live; frozen at Submit as audit record) */}
+            <div className="flex flex-col gap-1">
+              {(draft.status === 'Draft' || draft.status === 'Scoping') ? (
+                <>
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">Functions Actually Involved (derived from requirements)</span>
+                  <div className="flex flex-wrap gap-1">
+                    {functionsInvolved.length === 0 ? (
+                      <span className="text-[10px] text-gray-400 italic">None yet — add requirements to phases in Scoping.</span>
+                    ) : (
+                      functionsInvolved.map(fn => fn && (
+                        <span
+                          key={fn.id}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                            draft.functions_required.includes(fn.id)
+                              ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-300'
+                          }`}
+                        >
+                          {fn.name}
+                          {!draft.functions_required.includes(fn.id) && (
+                            <span className="ml-1 italic">(added during Scoping)</span>
+                          )}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* Submitted+: show frozen Functions Actually Involved */
+                draft.functions_actually_involved.length > 0 && (
+                  <>
+                    <span className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">Functions Actually Involved</span>
+                    <div className="flex flex-wrap gap-1">
+                      {draft.functions_actually_involved.map(fnId => {
+                        const fn = store.functions.find(f => f.id === fnId)
+                        return fn ? (
+                          <span key={fnId} className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-medium">
+                            {fn.name}
+                          </span>
+                        ) : null
+                      })}
+                    </div>
+                  </>
+                )
+              )}
+            </div>
           </div>
 
           {/* Child Demands (Submitted+) */}

@@ -223,44 +223,59 @@ export default function DemandEdit() {
                 <Textarea label="Description" value={draft.description} onChange={e => update(d => ({ ...d, description: e.target.value }))} placeholder="Brief description" />
               </div>
 
-              {/* Phases (only for direct Demands — parent_project_id === null) */}
-              {draft.parent_project_id === null && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">Phases</span>
-                    <button onClick={addPhase} className="flex items-center gap-1 text-xs text-brand hover:text-brand-hover font-medium">
-                      + Add Phase
-                    </button>
-                  </div>
-                  {draft.phases.length > 0 && (
-                    <PhaseGantt
-                      phases={draft.phases}
-                      onClickPhase={phaseId => {
-                        document.getElementById(`phase-${phaseId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                      }}
-                    />
-                  )}
-                  <div className="flex flex-col gap-2">
-                    {draft.phases.length === 0 && (
-                      <p className="text-xs text-gray-400 italic">No phases yet. Add a phase to define resource requirements.</p>
+              {/* Phases — shown for all Mode A Demands */}
+              {/* Direct Demands: fully editable (add/delete/edit headers + requirements)   */}
+              {/* Spawned Demands in Submitted: phase headers read-only, requirements editable */}
+              {(() => {
+                const isSpawned = draft.parent_project_id !== null
+                const readOnlyHeader = isSpawned  // spawned = phase header frozen
+                const canEditPhases = !isSpawned  // only direct Demands can add/delete phases
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">Phases</span>
+                      {canEditPhases && (
+                        <button onClick={addPhase} className="flex items-center gap-1 text-xs text-brand hover:text-brand-hover font-medium">
+                          + Add Phase
+                        </button>
+                      )}
+                      {isSpawned && (
+                        <span className="text-[10px] text-gray-400 italic">Phase shape is frozen (owned by parent Project)</span>
+                      )}
+                    </div>
+                    {draft.phases.length > 0 && (
+                      <PhaseGantt
+                        phases={draft.phases}
+                        onClickPhase={phaseId => {
+                          document.getElementById(`phase-${phaseId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                        }}
+                        readOnly={readOnlyHeader}
+                      />
                     )}
-                    {draft.phases.map((phase, idx) => (
-                      <div key={phase.id} id={`phase-${phase.id}`}>
-                        <PhaseEditor
-                          phase={phase}
-                          index={idx}
-                          onChange={p => updatePhase(phase.id, p)}
-                          onDelete={() => deletePhase(phase.id)}
-                          extReqs={extReqsByPhase[phase.id] ?? []}
-                          onExtReqsChange={reqs => { setExtReqsByPhase(prev => ({ ...prev, [phase.id]: reqs })); setIsDirty(true) }}
-                          demandId={id}
-                          demandStatus={draft.status as DemandStatus}
-                        />
-                      </div>
-                    ))}
+                    <div className="flex flex-col gap-2">
+                      {draft.phases.length === 0 && (
+                        <p className="text-xs text-gray-400 italic">No phases yet. Add a phase to define resource requirements.</p>
+                      )}
+                      {draft.phases.map((phase, idx) => (
+                        <div key={phase.id} id={`phase-${phase.id}`}>
+                          <PhaseEditor
+                            phase={phase}
+                            index={idx}
+                            onChange={p => updatePhase(phase.id, p)}
+                            onDelete={() => deletePhase(phase.id)}
+                            extReqs={extReqsByPhase[phase.id] ?? []}
+                            onExtReqsChange={reqs => { setExtReqsByPhase(prev => ({ ...prev, [phase.id]: reqs })); setIsDirty(true) }}
+                            demandId={id}
+                            demandStatus={draft.status as DemandStatus}
+                            readOnlyPhaseHeader={readOnlyHeader}
+                            functionScopeId={draft.function_id || null}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
             </>
           )}
 

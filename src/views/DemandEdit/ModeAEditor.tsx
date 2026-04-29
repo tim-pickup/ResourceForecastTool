@@ -215,17 +215,14 @@ interface ReqRowProps {
   months: string[]
   onChange: (r: SkillRequirement) => void
   onDelete: () => void
+  scopedDomains: import('../../types').Domain[]
+  scopedSkills: import('../../types').Skill[]
 }
 
-function RequirementRow({ req, months, onChange, onDelete }: ReqRowProps) {
-  const { skills, domains, activeFunctionId } = useAppStore()
+function RequirementRow({ req, months, onChange, onDelete, scopedDomains, scopedSkills }: ReqRowProps) {
   const [fillVal, setFillVal] = useState(0)
 
   const totalHrs = months.reduce((s, m) => s + (req.hours_by_month[m] ?? 0), 0)
-
-  const scopedDomains = activeFunctionId ? domains.filter(d => d.functionId === activeFunctionId) : domains
-  const scopedDomainIds = new Set(scopedDomains.map(d => d.id))
-  const scopedSkills = skills.filter(s => scopedDomainIds.has(s.domain_id))
 
   const handleFillAll = () => {
     const hbm: Record<string, number> = {}
@@ -312,13 +309,13 @@ function RequirementRow({ req, months, onChange, onDelete }: ReqRowProps) {
 
 // ─── Requirement row (indefinite) ─────────────────────────────────────────────
 
-function IndefiniteRequirementRow({ req, onChange, onDelete }: { req: SkillRequirement; onChange: (r: SkillRequirement) => void; onDelete: () => void }) {
-  const { skills, domains, activeFunctionId } = useAppStore()
-
-  const scopedDomains = activeFunctionId ? domains.filter(d => d.functionId === activeFunctionId) : domains
-  const scopedDomainIds = new Set(scopedDomains.map(d => d.id))
-  const scopedSkills = skills.filter(s => scopedDomainIds.has(s.domain_id))
-
+function IndefiniteRequirementRow({ req, onChange, onDelete, scopedDomains, scopedSkills }: {
+  req: SkillRequirement
+  onChange: (r: SkillRequirement) => void
+  onDelete: () => void
+  scopedDomains: import('../../types').Domain[]
+  scopedSkills: import('../../types').Skill[]
+}) {
   return (
     <div className="border border-border rounded p-2.5 bg-gray-50/50 flex flex-col gap-2">
       <div className="flex items-center gap-2 flex-wrap">
@@ -384,10 +381,11 @@ interface ExtReqRowProps {
   months: string[]
   onChange: (e: ExternalResourceRequirement) => void
   onDelete: () => void
+  showFunctionTagPicker?: boolean  // true for Project Scoping only
 }
 
-function ExtRequirementRow({ ext, months, onChange, onDelete }: ExtReqRowProps) {
-  const { providers } = useAppStore()
+function ExtRequirementRow({ ext, months, onChange, onDelete, showFunctionTagPicker }: ExtReqRowProps) {
+  const { providers, functions } = useAppStore()
   const [fillVal, setFillVal] = useState(0)
   const totalHrs = months.reduce((s, m) => s + (ext.hours_by_month[m] ?? 0), 0)
 
@@ -425,6 +423,19 @@ function ExtRequirementRow({ ext, months, onChange, onDelete }: ExtReqRowProps) 
           placeholder="Notes (optional)"
           className="text-xs border border-border rounded px-1.5 py-1 bg-white w-32"
         />
+        {showFunctionTagPicker && (
+          <select
+            value={ext.function_tag ?? ''}
+            onChange={e => onChange({ ...ext, function_tag: e.target.value || null })}
+            className="text-xs border border-amber-300 rounded px-1.5 py-1 bg-white min-w-[110px]"
+            title="Function tag — determines which spawned Demand this external requirement routes to"
+          >
+            <option value="">— Function tag —</option>
+            {functions.filter(f => f.active).sort((a, b) => a.name.localeCompare(b.name)).map(f => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
+        )}
         <button onClick={onDelete} className="text-amber-400 hover:text-accent-red transition-colors shrink-0">
           <Trash2 size={13} />
         </button>
@@ -474,8 +485,13 @@ function ExtRequirementRow({ ext, months, onChange, onDelete }: ExtReqRowProps) 
 }
 
 // External requirement row — indefinite phase (steady-state)
-function IndefiniteExtRequirementRow({ ext, onChange, onDelete }: { ext: ExternalResourceRequirement; onChange: (e: ExternalResourceRequirement) => void; onDelete: () => void }) {
-  const { providers } = useAppStore()
+function IndefiniteExtRequirementRow({ ext, onChange, onDelete, showFunctionTagPicker }: {
+  ext: ExternalResourceRequirement
+  onChange: (e: ExternalResourceRequirement) => void
+  onDelete: () => void
+  showFunctionTagPicker?: boolean
+}) {
+  const { providers, functions } = useAppStore()
 
   return (
     <div className="border border-amber-200 rounded p-2.5 bg-amber-50/40 flex flex-col gap-2">
@@ -505,6 +521,19 @@ function IndefiniteExtRequirementRow({ ext, onChange, onDelete }: { ext: Externa
           placeholder="Notes (optional)"
           className="text-xs border border-border rounded px-1.5 py-1 bg-white w-32"
         />
+        {showFunctionTagPicker && (
+          <select
+            value={ext.function_tag ?? ''}
+            onChange={e => onChange({ ...ext, function_tag: e.target.value || null })}
+            className="text-xs border border-amber-300 rounded px-1.5 py-1 bg-white min-w-[110px]"
+            title="Function tag — determines which spawned Demand this external requirement routes to"
+          >
+            <option value="">— Function tag —</option>
+            {functions.filter(f => f.active).sort((a, b) => a.name.localeCompare(b.name)).map(f => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
+        )}
         <button onClick={onDelete} className="text-amber-400 hover:text-accent-red transition-colors shrink-0">
           <Trash2 size={13} />
         </button>
@@ -535,13 +564,27 @@ interface PhaseEditorProps {
   onExtReqsChange: (reqs: ExternalResourceRequirement[]) => void
   demandId?: string
   demandStatus?: DemandStatus
-  showRequirements?: boolean  // default true; false for Project Draft (§4.5.2)
+  showRequirements?: boolean      // default true; false for Project Draft (§4.5.2)
+  readOnlyPhaseHeader?: boolean   // true for Project-spawned Demand Submitted (§4.5.2)
+  functionScopeId?: string | null // null=full catalogue (Project Scoping); string=scoped to that Function
+  showFunctionTagPicker?: boolean // true for Project Scoping ext reqs (§4.5.2)
 }
 
-export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtReqsChange, showRequirements = true }: PhaseEditorProps) {
+export function PhaseEditor({
+  phase, index, onChange, onDelete, extReqs, onExtReqsChange,
+  showRequirements = true, readOnlyPhaseHeader = false,
+  functionScopeId, showFunctionTagPicker = false,
+}: PhaseEditorProps) {
   const [open, setOpen] = useState(true)
   const store = useAppStore()
 
+  // Compute skill catalogue scope: null = full catalogue (Project Scoping); string = one Function
+  const scopedDomains = useMemo(() => {
+    if (functionScopeId === null || functionScopeId === undefined) return store.domains
+    return store.domains.filter(d => d.functionId === functionScopeId)
+  }, [functionScopeId, store.domains])
+  const scopedDomainIds = useMemo(() => new Set(scopedDomains.map(d => d.id)), [scopedDomains])
+  const scopedSkills = useMemo(() => store.skills.filter(s => scopedDomainIds.has(s.domain_id)), [scopedDomainIds, store.skills])
 
   const isIndefinite = phase.end_month === null
   const months = useMemo(() => getMonths(phase.start_month, phase.end_month), [phase.start_month, phase.end_month])
@@ -607,39 +650,51 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
       </div>
       {open && (
         <div className="px-3 py-3 flex flex-col gap-3">
-          <div className="grid grid-cols-2 gap-2">
-            <Input label="Phase Name" value={phase.name} onChange={e => onChange({ ...phase, name: e.target.value })} placeholder="e.g. Design" />
-            <Select label="Funding Source" value={phase.funding_source} onChange={e => onChange({ ...phase, funding_source: e.target.value as FundingSource })}>
-              {FUNDING_SOURCES.map(f => <option key={f}>{f}</option>)}
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              label="Start Month (YYYY-MM)"
-              value={phase.start_month}
-              onChange={e => handleStartChange(e.target.value)}
-              placeholder="2026-05"
-            />
-            <div className="flex flex-col gap-1">
-              <Input
-                label="End Month (YYYY-MM)"
-                value={phase.end_month ?? ''}
-                onChange={e => handleEndChange(e.target.value)}
-                placeholder="2026-08"
-                disabled={isIndefinite}
-              />
-              <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={isIndefinite}
-                  onChange={e => handleIndefiniteToggle(e.target.checked)}
-                  className="accent-brand"
-                />
-                No end date (indefinite)
-              </label>
+          {readOnlyPhaseHeader ? (
+            /* Read-only phase header — Project-spawned Demand Submitted (§4.5.2) */
+            <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
+              <div><span className="font-medium text-gray-700">{phase.name || `Phase ${index + 1}`}</span></div>
+              <div className="text-gray-400 italic">{phase.funding_source}{phase.funding_notes ? ` · ${phase.funding_notes}` : ''}</div>
+              <div>{phase.start_month || '—'}</div>
+              <div>{phase.end_month ?? 'ongoing (indefinite)'}</div>
             </div>
-          </div>
-          <Input label="Funding Notes" value={phase.funding_notes} onChange={e => onChange({ ...phase, funding_notes: e.target.value })} placeholder="e.g. IS-2026-04" />
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <Input label="Phase Name" value={phase.name} onChange={e => onChange({ ...phase, name: e.target.value })} placeholder="e.g. Design" />
+                <Select label="Funding Source" value={phase.funding_source} onChange={e => onChange({ ...phase, funding_source: e.target.value as FundingSource })}>
+                  {FUNDING_SOURCES.map(f => <option key={f}>{f}</option>)}
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  label="Start Month (YYYY-MM)"
+                  value={phase.start_month}
+                  onChange={e => handleStartChange(e.target.value)}
+                  placeholder="2026-05"
+                />
+                <div className="flex flex-col gap-1">
+                  <Input
+                    label="End Month (YYYY-MM)"
+                    value={phase.end_month ?? ''}
+                    onChange={e => handleEndChange(e.target.value)}
+                    placeholder="2026-08"
+                    disabled={isIndefinite}
+                  />
+                  <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isIndefinite}
+                      onChange={e => handleIndefiniteToggle(e.target.checked)}
+                      className="accent-brand"
+                    />
+                    No end date (indefinite)
+                  </label>
+                </div>
+              </div>
+              <Input label="Funding Notes" value={phase.funding_notes} onChange={e => onChange({ ...phase, funding_notes: e.target.value })} placeholder="e.g. IS-2026-04" />
+            </>
+          )}
 
           {/* Internal requirements */}
           {showRequirements && (
@@ -661,6 +716,8 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
                       req={req}
                       onChange={r => updateReq(req.id, r)}
                       onDelete={() => deleteReq(req.id)}
+                      scopedDomains={scopedDomains}
+                      scopedSkills={scopedSkills}
                     />
                   ) : (
                     <RequirementRow
@@ -669,6 +726,8 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
                       months={months}
                       onChange={r => updateReq(req.id, r)}
                       onDelete={() => deleteReq(req.id)}
+                      scopedDomains={scopedDomains}
+                      scopedSkills={scopedSkills}
                     />
                   )
                 ))}
@@ -713,6 +772,7 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
                           if (totalHrs > 0 && !window.confirm(`Delete external requirement for ${store.providers.find(p => p.id === ext.provider_id)?.name ?? ext.provider_id} — ${ext.role}? This will remove ${totalHrs}h total.`)) return
                           onExtReqsChange(extReqs.filter(r => r.id !== ext.id))
                         }}
+                        showFunctionTagPicker={showFunctionTagPicker}
                       />
                     ) : (
                       <ExtRequirementRow
@@ -725,6 +785,7 @@ export function PhaseEditor({ phase, index, onChange, onDelete, extReqs, onExtRe
                           if (totalHrs > 0 && !window.confirm(`Delete external requirement for ${store.providers.find(p => p.id === ext.provider_id)?.name ?? ext.provider_id} — ${ext.role}? This will remove ${totalHrs}h total.`)) return
                           onExtReqsChange(extReqs.filter(r => r.id !== ext.id))
                         }}
+                        showFunctionTagPicker={showFunctionTagPicker}
                       />
                     )
                   )}
