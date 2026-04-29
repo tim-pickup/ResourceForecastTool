@@ -1,7 +1,7 @@
 {
   "_meta": {
     "version": "1.19",
-    "description": "v1.18 seed: 6 Projects (Draft/Scoping/Submitted/Approved/Allocated), 6 spawned Demands, 5 direct DM Demands (all 5 statuses). Cross-Function Project 4 (DM PartiallyAllocated + GroupIT Approved). DM function_capacity Aug-2026 = 1534h. GroupIT function_capacity Aug-2026 = 882h. Data & Integration domain_capacity: 152h Jul-2026, 304h Aug-2026.",
+    "description": "v1.19 seed: 6 Projects (Draft/Scoping/Submitted/Approved/Allocated), 6 spawned Demands, 5 direct DM Demands (all 5 statuses). Cross-Function Project 4 (DM PartiallyAllocated + GroupIT Approved) with frozen planning record on Project + spawn-drift example (DM Build MES 60h frozen vs 80h on Demand). DM function_capacity Aug-2026 = 1534h. GroupIT function_capacity Aug-2026 = 882h. Data & Integration domain_capacity: 152h Jul-2026, 304h Aug-2026.",
     "today": "2026-05-01"
   },
   "functions": [
@@ -826,7 +826,100 @@
       "active": true,
       "functions_required": ["func_001", "func_002"],
       "functions_actually_involved": ["func_001", "func_002"],
-      "phases": []
+      "phases": [
+        {
+          "id": "phs_prj4_spec",
+          "name": "Design & Specification",
+          "start_month": "2026-06",
+          "end_month": "2026-07",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant C capital budget",
+          "requirements": [
+            {
+              "id": "req_prj4_spec_mes",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Specialist",
+              "hours_by_month": { "2026-06": 60, "2026-07": 60 },
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_prj4_spec_int",
+              "shape": "skill",
+              "skill_id": "skl_miv_integration",
+              "level": "Advanced",
+              "hours_by_month": { "2026-06": 40, "2026-07": 40 },
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_prj4_spec_de",
+              "shape": "skill",
+              "skill_id": "skl_git_data_eng",
+              "level": "Advanced",
+              "hours_by_month": { "2026-06": 40, "2026-07": 40 },
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        },
+        {
+          "id": "phs_prj4_build",
+          "name": "Build & Integration",
+          "start_month": "2026-08",
+          "end_month": "2026-10",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant C capital budget",
+          "requirements": [
+            {
+              "id": "req_prj4_build_mes",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes",
+              "level": "Specialist",
+              "hours_by_month": { "2026-08": 60, "2026-09": 60, "2026-10": 60 },
+              "notes": "Spawn-time value 60h/mo — DM Demand drifted to 80h post-spawn",
+              "allocations": []
+            },
+            {
+              "id": "req_prj4_build_wf",
+              "shape": "skill",
+              "skill_id": "skl_mom_workflow",
+              "level": "Advanced",
+              "hours_by_month": { "2026-08": 40, "2026-09": 40, "2026-10": 40 },
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_prj4_build_int",
+              "shape": "skill",
+              "skill_id": "skl_miv_integration",
+              "level": "Advanced",
+              "hours_by_month": { "2026-08": 40, "2026-09": 40, "2026-10": 40 },
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_prj4_build_de",
+              "shape": "skill",
+              "skill_id": "skl_git_data_eng",
+              "level": "Specialist",
+              "hours_by_month": { "2026-08": 60, "2026-09": 60, "2026-10": 60 },
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_prj4_build_arch",
+              "shape": "skill",
+              "skill_id": "skl_git_data_int_arch",
+              "level": "Advanced",
+              "hours_by_month": { "2026-08": 40, "2026-09": 40, "2026-10": 40 },
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "prj_005",
@@ -1518,6 +1611,34 @@
     }
   ],
   "external_resource_requirements": [
+    {
+      "id": "ext_prj4_oem",
+      "phase_id": "phs_prj4_build",
+      "provider_id": "prv_003",
+      "role": "MES Platform Vendor Support",
+      "notes": "OEM provides specialist platform configuration support during build. (Frozen planning record on Project.)",
+      "function_tag": "func_001",
+      "hours_by_month": {
+        "2026-08": 40,
+        "2026-09": 40,
+        "2026-10": 40
+      },
+      "steady_state_hours": null
+    },
+    {
+      "id": "ext_prj4_ms",
+      "phase_id": "phs_prj4_build",
+      "provider_id": "prv_001",
+      "role": "SCADA Engineer",
+      "notes": "Managed Services SCADA resource for integration work. (Frozen planning record on Project.)",
+      "function_tag": "func_001",
+      "hours_by_month": {
+        "2026-08": 120,
+        "2026-09": 120,
+        "2026-10": 120
+      },
+      "steady_state_hours": null
+    },
     {
       "id": "ext_p4_oem",
       "phase_id": "phs_p4dm_build",

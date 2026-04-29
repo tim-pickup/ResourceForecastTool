@@ -425,4 +425,76 @@ export function runSeedAssertions(): void {
   if (lensOk) {
     console.info('[SeedAssertions] §6 Demand view Function-lens assertions passed ✓')
   }
+
+  // ── §11.20 v1.19 Spawn renderability invariants ───────────────────────────
+  // Verify Project 4 carries its frozen planning record, child Demands carry
+  // their materialised phases, and the spawn-drift example is demonstrable.
+
+  // 1. prj_004 must have non-empty frozen phases (planning record at Submit).
+  const prj4 = state.projects.find(p => p.id === 'prj_004')
+  let spawnInvariantsOk = true
+
+  if (!prj4 || prj4.phases.length === 0) {
+    console.error('[SeedAssertion FAIL] §11.20: prj_004 has no frozen phases — Project planning record missing')
+    spawnInvariantsOk = false
+  }
+
+  // 2. Each child Demand of prj_004 must have non-zero phases.
+  for (const d of state.demandItems.filter(d => d.parent_project_id === 'prj_004')) {
+    if (d.phases.length === 0) {
+      console.error(
+        `[SeedAssertion FAIL] §11.20: ${d.id} (${d.name}) has zero phases — materialisation incomplete`
+      )
+      spawnInvariantsOk = false
+    }
+  }
+
+  // 3. Every external requirement on a child Demand's phase must have a
+  //    function_tag matching the Demand's function_id.
+  const demandPhaseToFn = new Map<string, string>() // phase_id → demand.function_id
+  for (const d of state.demandItems) {
+    for (const ph of d.phases) demandPhaseToFn.set(ph.id, d.function_id)
+  }
+  for (const ext of state.externalResourceRequirements) {
+    const fnId = demandPhaseToFn.get(ext.phase_id)
+    if (fnId === undefined) continue // Project frozen phase — not checked here
+    if (ext.function_tag !== fnId) {
+      console.error(
+        `[SeedAssertion FAIL] §11.20: External req ${ext.id} on Demand phase ${ext.phase_id} ` +
+        `has function_tag "${ext.function_tag}" but Demand function_id is "${fnId}"`
+      )
+      spawnInvariantsOk = false
+    }
+  }
+
+  // 4. Spawn drift demonstration: prj_004 frozen Build-phase MES Specialist
+  //    requirement = 60h/mo (spawn-time value); dmd_p4_dm Build-phase MES req = 80h/mo (post-drift).
+  const dmdP4Dm = state.demandItems.find(d => d.id === 'dmd_p4_dm')
+  const prj4BuildPhase = prj4?.phases.find(ph => ph.name === 'Build & Integration')
+  const prj4MesReq = prj4BuildPhase?.requirements.find(r => r.skill_id === 'skl_mom_mes')
+  const dmdBuildPhase = dmdP4Dm?.phases.find(ph => ph.name === 'Build & Integration')
+  const dmdMesReq = dmdBuildPhase?.requirements.find(r => r.skill_id === 'skl_mom_mes')
+
+  const frozenMesHours = prj4MesReq?.hours_by_month?.['2026-08'] ?? -1
+  const driftedMesHours = dmdMesReq?.hours_by_month?.['2026-08'] ?? -1
+
+  if (frozenMesHours !== 60) {
+    console.error(
+      `[SeedAssertion FAIL] §11.20 drift: prj_004 frozen Build MES hours at 2026-08 = ${frozenMesHours}, expected 60 (spawn-time value)`
+    )
+    spawnInvariantsOk = false
+  }
+  if (driftedMesHours !== 80) {
+    console.error(
+      `[SeedAssertion FAIL] §11.20 drift: dmd_p4_dm Build MES hours at 2026-08 = ${driftedMesHours}, expected 80 (post-spawn drift value)`
+    )
+    spawnInvariantsOk = false
+  }
+
+  if (spawnInvariantsOk) {
+    console.info(
+      '[SeedAssertions] §11.20 spawn invariants passed ✓ ' +
+      `(frozen=60h/mo, dmd_p4_dm drifted=80h/mo)`
+    )
+  }
 }

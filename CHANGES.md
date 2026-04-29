@@ -19,7 +19,7 @@ REQUIREMENTS.md is the single source of implementation detail. This file is the 
 
 ### 2. Spawn / materialisation logic
 
-- [ ] **Scope:** Implement the v1.19 spawn algorithm: deep-copy Function-scoped phases, internal requirements, and external requirements (Function-tag-routed) onto each spawned Demand atomically with Project status flip. Project's data is frozen post-spawn. Implement `resolveFunctionTag` helper for null-tagged externals (defaults to Project owner's primary Function, falling back to alphabetically-first Function in spawn set, with dev-mode warning). Wire the v1.19 spawn renderability invariants. Add Project 4 DM Demand spawn drift example to seed.
+- [x] **Scope:** Implement the v1.19 spawn algorithm: deep-copy Function-scoped phases, internal requirements, and external requirements (Function-tag-routed) onto each spawned Demand atomically with Project status flip. Project's data is frozen post-spawn. Implement `resolveFunctionTag` helper for null-tagged externals (defaults to Project owner's primary Function, falling back to alphabetically-first Function in spawn set, with dev-mode warning). Wire the v1.19 spawn renderability invariants. Add Project 4 DM Demand spawn drift example to seed.
 - **Dependencies:** Change 1 (data model must be in place).
 - **Read in REQUIREMENTS.md:** Section 2.2.4 (spawn rule — full materialisation specification), section 11.20 (spawn algorithm pseudocode and renderability invariants), section 9 build order step 2.
 

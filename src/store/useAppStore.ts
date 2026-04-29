@@ -15,6 +15,26 @@ function migrateDemandStatus(s: string): DemandStatus {
   return s as DemandStatus
 }
 
+// §11.20 resolveFunctionTag — returns the Function that should own an external requirement.
+// If the requirement already has a function_tag, that tag is authoritative.
+// For null-tagged externals (legacy or user-omitted), fall back to the
+// alphabetically-first Function in the spawn set, with a dev-mode warning.
+function resolveFunctionTag(
+  ext: Pick<ExternalResourceRequirement, 'function_tag'>,
+  functionsInvolved: ReadonlySet<string>,
+  fnNames: ReadonlyMap<string, string>
+): string {
+  if (ext.function_tag) return ext.function_tag
+  const sorted = [...functionsInvolved].sort((a, b) =>
+    (fnNames.get(a) ?? a).localeCompare(fnNames.get(b) ?? b)
+  )
+  console.warn(
+    '[spawn] External requirement has no function_tag — defaulting to alphabetically-first Function:',
+    fnNames.get(sorted[0] ?? '') ?? sorted[0]
+  )
+  return sorted[0] ?? ''
+}
+
 function computeProjectAutoStatusFromDemands(childDemands: DemandItem[]): ProjectStatus {
   if (childDemands.length === 0) return 'Submitted'
   if (childDemands.every(d => d.status === 'Allocated')) return 'Allocated'
@@ -301,12 +321,8 @@ export const useAppStore = create<Store>()(
           const projectPhaseIds = new Set(project.phases.map(ph => ph.id))
           const projectExternals = s.externalResourceRequirements.filter(e => projectPhaseIds.has(e.phase_id))
 
-          // Alphabetically-first Function in spawn set (fallback for untagged externals)
-          const alphabeticalFirstFn = [...functionsInvolved].sort((a, b) => {
-            const fa = s.functions.find(f => f.id === a)?.name ?? a
-            const fb = s.functions.find(f => f.id === b)?.name ?? b
-            return fa.localeCompare(fb)
-          })[0] ?? ''
+          // Build a name map for resolveFunctionTag alphabetical fallback
+          const fnNameMap = new Map(s.functions.map(f => [f.id, f.name]))
 
           const newDemands: DemandItem[] = []
           const newExternals: ExternalResourceRequirement[] = []
@@ -317,10 +333,9 @@ export const useAppStore = create<Store>()(
             // Collect project phases relevant to this Function (has ≥1 internal OR external for this Function)
             const relevantOrigPhases = project.phases.filter(ph =>
               ph.requirements.some(r => sklFn.get(r.skill_id) === fnId) ||
-              projectExternals.some(e => {
-                if (e.phase_id !== ph.id) return false
-                return e.function_tag === fnId || (e.function_tag === null && fnId === alphabeticalFirstFn)
-              })
+              projectExternals.some(e =>
+                e.phase_id === ph.id && resolveFunctionTag(e, functionsInvolved, fnNameMap) === fnId
+              )
             )
 
             if (relevantOrigPhases.length === 0) continue
@@ -351,12 +366,12 @@ export const useAppStore = create<Store>()(
               phases: fnPhases,
             })
 
-            // Route external requirements using the phase ID map
+            // Route external requirements onto cloned Demand phases via resolveFunctionTag
             for (const [origPhId, clonedPh] of origToClone.entries()) {
-              const phExternals = projectExternals.filter(e => {
-                if (e.phase_id !== origPhId) return false
-                return e.function_tag === fnId || (e.function_tag === null && fnId === alphabeticalFirstFn)
-              })
+              const phExternals = projectExternals.filter(e =>
+                e.phase_id === origPhId &&
+                resolveFunctionTag(e, functionsInvolved, fnNameMap) === fnId
+              )
               for (const ext of phExternals) {
                 newExternals.push({ ...ext, id: generateId('ext'), phase_id: clonedPh.id, function_tag: fnId })
               }
