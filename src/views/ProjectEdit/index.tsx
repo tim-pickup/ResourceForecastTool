@@ -15,6 +15,7 @@ import { Button } from '../../components/ui/Button'
 import { Input, Select, Textarea } from '../../components/ui/FormFields'
 import { ProjectStatusBadge } from '../../components/ui/Badge'
 import { PhaseEditor, blankPhase, PhaseGantt } from '../DemandEdit/ModeAEditor'
+import { SubmitProjectDialog } from '../../components/SubmitProjectDialog'
 
 
 function blankProject(): Omit<Project, 'id'> {
@@ -116,6 +117,7 @@ export default function ProjectEdit() {
   )
   const [isDirty, setIsDirty] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false)
 
   // External requirements state keyed by phase_id
   const [extReqsByPhase, setExtReqsByPhase] = useState<Record<string, ExternalResourceRequirement[]>>(() => {
@@ -177,11 +179,17 @@ export default function ProjectEdit() {
     setSubmitError(null)
   }
 
-  // Submit Project (Scoping → Submitted + spawn)
+  // Submit Project (Scoping → Submitted + spawn) — always opens §11.18 dialog
   const handleSubmitProject = () => {
     if (!id) return
     store.updateProject(id, draft)
+    setShowSubmitDialog(true)
+  }
+
+  const handleConfirmSubmit = () => {
+    if (!id) return
     const err = store.submitProject(id)
+    setShowSubmitDialog(false)
     if (err) { setSubmitError(err); return }
     setDraft(d => ({ ...d, status: 'Submitted' }))
     setIsDirty(false)
@@ -209,9 +217,10 @@ export default function ProjectEdit() {
 
   const childDemands = id ? store.demandItems.filter(d => d.parent_project_id === id) : []
 
-  // Gate hints
+  // Gate hints — Submit for Scoping requires ≥1 phase AND ≥1 Function in functions_required
   const submitHint = id && draft.status === 'Draft' ? (() => {
     if (draft.phases.length === 0) return 'Add at least one phase.'
+    if (draft.functions_required.length === 0) return 'Add at least one Function to Functions Required.'
     return null
   })() : null
 
@@ -408,6 +417,15 @@ export default function ProjectEdit() {
           )}
         </div>
       </div>
+
+      {/* §11.18 Submit Project confirmation dialog */}
+      {showSubmitDialog && id && (
+        <SubmitProjectDialog
+          projectId={id}
+          onConfirm={handleConfirmSubmit}
+          onCancel={() => setShowSubmitDialog(false)}
+        />
+      )}
     </div>
   )
 }

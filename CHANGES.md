@@ -25,7 +25,7 @@ REQUIREMENTS.md is the single source of implementation detail. This file is the 
 
 ### 3. State machine adjustments
 
-- [ ] **Scope:** Update Project Submit-for-Scoping gate to require ≥1 phase AND ≥1 entry in `functions_required` (replaces the previous "every phase has at least one team assigned" gate). Allow editing Demand definition in Submitted (lock point moves from Submit to Approve). Direct Demand Submitted permits phase edits; Project-spawned Demand Submitted does not (phases are frozen on the Project). Update section 11.18 confirmation dialog content to surface spawn outcome (Demands and materialised hour totals) instead of team-confirmation status.
+- [x] **Scope:** Update Project Submit-for-Scoping gate to require ≥1 phase AND ≥1 entry in `functions_required` (replaces the previous "every phase has at least one team assigned" gate). Allow editing Demand definition in Submitted (lock point moves from Submit to Approve). Direct Demand Submitted permits phase edits; Project-spawned Demand Submitted does not (phases are frozen on the Project). Update section 11.18 confirmation dialog content to surface spawn outcome (Demands and materialised hour totals) instead of team-confirmation status.
 - **Dependencies:** Change 1.
 - **Read in REQUIREMENTS.md:** Section 3 (Project state machine, Project transition reference, Project workflow narrative; Demand state machine, Demand transition reference, Demand workflow narrative; Allocation editing — v1.19 lock-at-Approve rule), section 11.18 (rewritten confirmation dialog), section 9 build order step 3.
 

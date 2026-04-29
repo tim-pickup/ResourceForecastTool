@@ -15,6 +15,7 @@ import { ProjectDrawer } from '../../components/ProjectDrawer/ProjectDrawer'
 import { DemandDrawer } from '../../components/DemandEditor/DemandEditor'
 import { ProjectStatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
+import { SubmitProjectDialog } from '../../components/SubmitProjectDialog'
 import type { Project, ProjectStatus } from '../../types'
 import { clsx } from 'clsx'
 import { getCurrentMonth, generateMonths } from '../../utils/capacity'
@@ -52,76 +53,6 @@ function useProjectFunctions(project: Project) {
     }
     return [...fnIds].map(id => store.functions.find(f => f.id === id)).filter(Boolean)
   }, [project, store.domains, store.skills, store.demandItems, store.functions])
-}
-
-// ─── Submit Project confirmation dialog (§11.18) ──────────────────────────────
-
-function SubmitProjectDialog({
-  projectId,
-  onConfirm,
-  onCancel,
-}: {
-  projectId: string
-  onConfirm: () => void
-  onCancel: () => void
-}) {
-  const store = useAppStore()
-  const project = store.projects.find(p => p.id === projectId)!
-  if (!project) return null
-
-  // Compute functions involved and spawned Demands
-  const domFn = new Map(store.domains.map(d => [d.id, d.functionId]))
-  const sklFn = new Map(store.skills.map(s => [s.id, domFn.get(s.domain_id)]))
-  const fnIds = new Set<string>()
-  for (const phase of project.phases) {
-    for (const req of phase.requirements) {
-      const fnId = sklFn.get(req.skill_id)
-      if (fnId) fnIds.add(fnId)
-    }
-  }
-  const functionsToSpawn = [...fnIds].map(id => store.functions.find(f => f.id === id)).filter(Boolean)
-
-  // Zero-requirements — blocking error path
-  if (functionsToSpawn.length === 0) {
-    return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/30" onClick={onCancel} />
-        <div className="relative bg-white rounded-lg shadow-xl p-6 w-[480px] max-w-full mx-4">
-          <h2 className="text-sm font-semibold text-near-black mb-3">Cannot Submit Project</h2>
-          <p className="text-xs text-gray-600 mb-4">
-            This Project has no requirements. Add at least one internal requirement to a phase before submitting —
-            the Submit step spawns one Demand per Function involved, and a Project with no requirements has no Demands to spawn.
-          </p>
-          <div className="flex justify-end">
-            <Button size="sm" variant="primary" onClick={onCancel}>Back to Editing</Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/30" onClick={onCancel} />
-      <div className="relative bg-white rounded-lg shadow-xl p-6 w-[480px] max-w-full mx-4">
-        <h2 className="text-sm font-semibold text-near-black mb-1">
-          Submit "{project.name}"?
-        </h2>
-
-        {/* Spawned Demands summary */}
-        <p className="text-xs text-gray-600 mb-3">
-          {functionsToSpawn.length} Demand{functionsToSpawn.length !== 1 ? 's' : ''} will be spawned:{' '}
-          {functionsToSpawn.map(f => f?.name).join(', ')}.
-          {' '}The Project's phases and requirements will be frozen as a planning record.
-        </p>
-
-        <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-border">
-          <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
-          <Button size="sm" variant="primary" onClick={onConfirm}>Submit</Button>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 // ─── Project card ─────────────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ import { parseISO, differenceInMonths } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
 import { Button } from '../ui/Button'
 import { StatusBadge, ProjectStatusBadge, Badge } from '../ui/Badge'
+import { SubmitProjectDialog } from '../SubmitProjectDialog'
 import type { ProjectStatus } from '../../types'
 
 interface Props {
@@ -118,6 +119,7 @@ export function ProjectDrawer({ projectId, onClose, onOpenDemand }: Props) {
   const store = useAppStore()
   const navigate = useNavigate()
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false)
 
   const project = projectId ? store.projects.find(p => p.id === projectId) : null
   if (!project) return null
@@ -168,9 +170,15 @@ export function ProjectDrawer({ projectId, onClose, onOpenDemand }: Props) {
       const err = store.submitProjectForScoping(projectId!)
       if (err) setSubmitError(err)
     } else if (action === 'submit-project') {
-      const err = store.submitProject(projectId!)
-      if (err) setSubmitError(err)
+      // §11.18: always opens confirmation dialog before spawning Demands
+      setShowSubmitDialog(true)
     }
+  }
+
+  function handleConfirmSubmit() {
+    setShowSubmitDialog(false)
+    const err = store.submitProject(projectId!)
+    if (err) setSubmitError(err)
   }
 
   return (
@@ -309,6 +317,15 @@ export function ProjectDrawer({ projectId, onClose, onOpenDemand }: Props) {
           </div>
         )}
       </div>
+
+      {/* §11.18 Submit Project confirmation dialog */}
+      {showSubmitDialog && projectId && (
+        <SubmitProjectDialog
+          projectId={projectId}
+          onConfirm={handleConfirmSubmit}
+          onCancel={() => setShowSubmitDialog(false)}
+        />
+      )}
     </div>
   )
 }

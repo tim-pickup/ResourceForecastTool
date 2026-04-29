@@ -286,7 +286,7 @@ export const useAppStore = create<Store>()(
         }
       }),
       // §3 Project state machine — Submit for Scoping (Draft → Scoping)
-      // v1.19: gate requires ≥1 phase (team assignment gate removed; functions_required gate added in Change 3)
+      // v1.19: gate requires ≥1 phase AND ≥1 entry in functions_required
       submitProjectForScoping: (projectId) => {
         let error: string | null = null
         set(s => {
@@ -294,6 +294,7 @@ export const useAppStore = create<Store>()(
           if (!project) { error = 'Project not found.'; return {} }
           if (project.status !== 'Draft') { error = 'Project must be in Draft status.'; return {} }
           if (project.phases.length === 0) { error = 'Add at least one phase before submitting for scoping.'; return {} }
+          if (project.functions_required.length === 0) { error = 'Add at least one Function to Functions Required before submitting for scoping.'; return {} }
           return { projects: s.projects.map(p => p.id === projectId ? { ...p, status: 'Scoping' as ProjectStatus } : p) }
         })
         return error
