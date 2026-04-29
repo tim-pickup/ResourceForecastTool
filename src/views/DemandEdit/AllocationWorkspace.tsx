@@ -643,10 +643,13 @@ export function AllocationWorkspace({ draft, demandItemId, onChange }: Props) {
         />
       )}
 
-      {/* Lock banner */}
-      <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded p-2.5 text-xs text-amber-700">
-        <Lock size={12} className="shrink-0" />
-        <span>Definition is locked. To change phases or requirements, delete this item and recreate it.</span>
+      {/* "Definition is Locked" banner — §4.5.2 Mode B v1.19 copy */}
+      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded p-2.5 text-xs text-amber-700">
+        <Lock size={12} className="shrink-0 mt-0.5" />
+        <span>
+          Requirements are locked from Approve onwards. To change them, Delete-and-recreate is the only path.
+          For Project-spawned Demands, that means Deleting the parent Project; for direct Demands, Deleting this Demand.
+        </span>
       </div>
 
       {/* Phase cards */}
@@ -707,7 +710,7 @@ export function AllocationWorkspace({ draft, demandItemId, onChange }: Props) {
                         </div>
                       )
                     })}
-                    <p className="text-[10px] text-amber-500 italic mt-1">External requirements are locked. Delete and recreate the demand to change them.</p>
+                    <p className="text-[10px] text-amber-500 italic mt-1">External requirements are locked from Approve onwards (see banner above).</p>
                   </div>
                 )
               })()}

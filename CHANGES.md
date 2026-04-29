@@ -37,7 +37,7 @@ REQUIREMENTS.md is the single source of implementation detail. This file is the 
 
 ### 5. UI — Mode B touchups
 
-- [ ] **Scope:** Update read-only Gantt scope language to "the Demand's own phases" (no more parent-Project-scoping filter). Update "Definition is Locked" banner copy to v1.19 language: locked from Approve onwards; Delete-and-recreate is the only path (parent Project for spawned Demands, this Demand for direct Demands).
+- [x] **Scope:** Update read-only Gantt scope language to "the Demand's own phases" (no more parent-Project-scoping filter). Update "Definition is Locked" banner copy to v1.19 language: locked from Approve onwards; Delete-and-recreate is the only path (parent Project for spawned Demands, this Demand for direct Demands).
 - **Dependencies:** Changes 1, 2 (Demand owns its data now).
 - **Read in REQUIREMENTS.md:** Section 4.5.2 (Mode B — Allocation Workspace; Phase timeline read-only; "Definition is Locked" banner), section 9 build order step 5.
 
