@@ -7,7 +7,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, LayoutGrid, List, GripVertical, ChevronUp, ChevronDown, X } from 'lucide-react'
+import { Plus, Search, LayoutGrid, List, GripVertical, ChevronUp, ChevronDown, X, Download, Upload } from 'lucide-react'
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { useDroppable, useDraggable } from '@dnd-kit/core'
 import { useAppStore } from '../../store/useAppStore'
@@ -16,10 +16,13 @@ import { DemandDrawer } from '../../components/DemandEditor/DemandEditor'
 import { ProjectStatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { SubmitProjectDialog } from '../../components/SubmitProjectDialog'
-import type { Project, ProjectStatus } from '../../types'
+import { ImportPreview } from './ImportPreview'
+import type { Project, ProjectStatus, Phase, ExternalResourceRequirement } from '../../types'
+import type { ParseResult, ParsedImportProject } from '../../lib/excelImport'
 import { clsx } from 'clsx'
 import { getCurrentMonth, generateMonths } from '../../utils/capacity'
 import { project_internal_hours, project_external_hours } from '../../lib/capacity'
+import { generateId } from '../../utils/ids'
 
 const PROJECT_STATUSES: ProjectStatus[] = ['Draft', 'Scoping', 'Submitted', 'Approved', 'Allocated']
 
@@ -193,6 +196,12 @@ export default function ManageProjects() {
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
+  // ─── Import state ──────────────────────────────────────────────────────────
+  const [importResult, setImportResult] = useState<ParseResult | null>(null)
+  const [importError, setImportError] = useState<string | null>(null)
+  const [importSuccess, setImportSuccess] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const activeFunctionId = store.activeFunctionId
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
@@ -332,6 +341,180 @@ export default function ManageProjects() {
     setSubmitDialogProjectId(null)
   }
 
+  // ─── Import handlers ───────────────────────────────────────────────────────
+
+  async function handleDownloadTemplate() {
+    try {
+      const { downloadImportTemplate } = await import('../../lib/excelExport')
+      await downloadImportTemplate(store)
+    } catch (e) {
+      setImportError('Failed to generate template. Please try again.')
+      setTimeout(() => setImportError(null), 5000)
+    }
+  }
+
+  function handleImportClick() {
+    fileInputRef.current?.click()
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Reset so same file can be re-selected
+    e.target.value = ''
+    try {
+      const { parseImportWorkbook } = await import('../../lib/excelImport')
+      const result = await parseImportWorkbook(file, store)
+      setImportResult(result)
+    } catch (err) {
+      setImportError('Failed to parse workbook. Ensure the file is a valid .xlsx ImportTemplate.')
+      setTimeout(() => setImportError(null), 6000)
+    }
+  }
+
+  function handleImportCommit(projects: ParsedImportProject[]) {
+    const domFn = new Map(store.domains.map(d => [d.id, d.functionId]))
+    const sklFn = new Map(store.skills.map(sk => [sk.id, domFn.get(sk.domain_id) ?? '']))
+    const fnNameMap = new Map(store.functions.map(f => [f.id, f.name]))
+
+    // Helper: resolve function tag — same logic as store.resolveFunctionTag
+    function resolveFnTag(fnTag: string, fnSet: Set<string>): string {
+      if (fnTag) return fnTag
+      const sorted = [...fnSet].sort((a, b) =>
+        (fnNameMap.get(a) ?? a).localeCompare(fnNameMap.get(b) ?? b)
+      )
+      return sorted[0] ?? ''
+    }
+
+    const newProjects: import('../../types').Project[] = []
+    const newDemands: import('../../types').DemandItem[] = []
+    const newExternals: ExternalResourceRequirement[] = []
+
+    for (const parsed of projects) {
+      const projectId = generateId('prj')
+
+      // Build Phase[] with generated IDs and inline requirements (hours_by_month: use steady-state placeholder)
+      const projectPhases: Phase[] = parsed.phases.map(ph => {
+        const phaseId = generateId('phs')
+        const reqs = parsed.internalReqs
+          .filter(r => r.phaseName === ph.name)
+          .map(r => ({
+            id: generateId('req'),
+            shape: 'skill' as const,
+            skill_id: r.skillId,
+            level: r.level as import('../../types').Level,
+            hours_by_month: {},
+            steady_state_hours: r.hoursPerMonth,
+            notes: r.notes || null,
+            allocations: [],
+          }))
+        return {
+          id: phaseId,
+          name: ph.name,
+          start_month: ph.startMonth,
+          end_month: ph.endMonth,
+          funding_source: (ph.fundingSource as import('../../types').FundingSource) || 'Investment Scheme',
+          funding_notes: ph.fundingNotes,
+          requirements: reqs,
+        }
+      })
+
+      // Compute functions actually involved from internalReqs
+      const functionsInvolved = new Set<string>()
+      for (const ir of parsed.internalReqs) {
+        const fnId = sklFn.get(ir.skillId)
+        if (fnId) functionsInvolved.add(fnId)
+      }
+
+      // Build project record
+      const project: import('../../types').Project = {
+        id: projectId,
+        name: parsed.projectName,
+        owner: parsed.owner,
+        type: parsed.typeId,
+        programme_id: parsed.programmeId,
+        description: parsed.description,
+        status: 'Submitted',
+        phases: projectPhases,
+        active: true,
+        functions_required: [...functionsInvolved],
+        functions_actually_involved: [...functionsInvolved],
+      }
+      newProjects.push(project)
+
+      // Spawn Demands — one per function involved
+      for (const fnId of functionsInvolved) {
+        const fn = store.functions.find(f => f.id === fnId)
+
+        // Filter project phases relevant to this function
+        const relevantPhases = projectPhases.filter(ph =>
+          ph.requirements.some(r => sklFn.get(r.skill_id) === fnId) ||
+          parsed.externalReqs.some(er => er.phaseName === ph.name && resolveFnTag(er.functionTag, functionsInvolved) === fnId)
+        )
+        if (relevantPhases.length === 0) continue
+
+        // Clone phases for this demand (filter reqs to this function only)
+        const cloneMap = new Map<string, string>() // origPhase.id → cloned phase.id
+        const demandPhases: Phase[] = relevantPhases.map(origPh => {
+          const clonedId = generateId('phs')
+          cloneMap.set(origPh.id, clonedId)
+          return {
+            ...origPh,
+            id: clonedId,
+            requirements: origPh.requirements
+              .filter(r => sklFn.get(r.skill_id) === fnId)
+              .map(r => ({ ...r, id: generateId('req'), allocations: [] })),
+          }
+        })
+
+        newDemands.push({
+          id: generateId('dmd'),
+          function_id: fnId,
+          parent_project_id: projectId,
+          name: `${parsed.projectName} — ${fn?.name ?? fnId}`,
+          type: parsed.typeId,
+          owner: parsed.owner,
+          description: parsed.description,
+          status: 'Submitted',
+          phases: demandPhases,
+        })
+
+        // Route external requirements to cloned demand phases
+        for (const [origPhId, clonedPhId] of cloneMap.entries()) {
+          const origPh = projectPhases.find(ph => ph.id === origPhId)
+          if (!origPh) continue
+          const phExtReqs = parsed.externalReqs.filter(er =>
+            er.phaseName === origPh.name &&
+            resolveFnTag(er.functionTag, functionsInvolved) === fnId
+          )
+          for (const er of phExtReqs) {
+            newExternals.push({
+              id: generateId('ext'),
+              phase_id: clonedPhId,
+              provider_id: er.providerId,
+              role: er.role,
+              notes: er.notes || null,
+              hours_by_month: {},
+              steady_state_hours: er.hoursPerMonth,
+              function_tag: fnId,
+            })
+          }
+        }
+      }
+    }
+
+    // Atomic state update
+    useAppStore.setState(s => ({
+      projects: [...s.projects, ...newProjects],
+      demandItems: [...s.demandItems, ...newDemands],
+      externalResourceRequirements: [...s.externalResourceRequirements, ...newExternals],
+    }))
+
+    setImportResult(null)
+    setImportSuccess(`Imported ${newProjects.length} project${newProjects.length !== 1 ? 's' : ''} and spawned ${newDemands.length} demand${newDemands.length !== 1 ? 's' : ''}.`)
+    setTimeout(() => setImportSuccess(null), 6000)
+  }
+
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortKey(key); setSortDir('asc') }
@@ -407,6 +590,22 @@ export default function ManageProjects() {
         )}
 
         <div className="flex-1" />
+
+        {/* Import / Export actions */}
+        <Button size="sm" variant="secondary" onClick={handleDownloadTemplate} title="Download Import Template (.xlsx)">
+          <Download size={12} /> Template
+        </Button>
+        <Button size="sm" variant="secondary" onClick={handleImportClick} title="Import Projects from .xlsx">
+          <Upload size={12} /> Import
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+
         <Button size="sm" variant="primary" onClick={() => navigate('/manage-projects/new')}>
           <Plus size={12} /> New Project
         </Button>
@@ -417,6 +616,22 @@ export default function ManageProjects() {
         <div className="flex items-center gap-2 px-5 py-2 bg-red-50 border-b border-red-200 text-xs text-red-700">
           <span className="flex-1">{dragError}</span>
           <button onClick={() => setDragError(null)}><X size={12} /></button>
+        </div>
+      )}
+
+      {/* Import error banner */}
+      {importError && (
+        <div className="flex items-center gap-2 px-5 py-2 bg-red-50 border-b border-red-200 text-xs text-red-700">
+          <span className="flex-1">{importError}</span>
+          <button onClick={() => setImportError(null)}><X size={12} /></button>
+        </div>
+      )}
+
+      {/* Import success banner */}
+      {importSuccess && (
+        <div className="flex items-center gap-2 px-5 py-2 bg-green-50 border-b border-green-200 text-xs text-green-700">
+          <span className="flex-1">{importSuccess}</span>
+          <button onClick={() => setImportSuccess(null)}><X size={12} /></button>
         </div>
       )}
 
@@ -531,6 +746,16 @@ export default function ManageProjects() {
           projectId={submitDialogProjectId}
           onConfirm={handleConfirmSubmit}
           onCancel={() => setSubmitDialogProjectId(null)}
+        />
+      )}
+
+      {/* Import Preview modal */}
+      {importResult && (
+        <ImportPreview
+          result={importResult}
+          state={store}
+          onConfirm={handleImportCommit}
+          onCancel={() => setImportResult(null)}
         />
       )}
 
