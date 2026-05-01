@@ -54,11 +54,11 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-near-black truncate">{item.name}</div>
           <div className="text-xs text-gray-500 mt-0.5">{item.type}</div>
-          {/* §4.6 v1.18: parent-Project link or Direct badge */}
+          {/* §4.6 v1.19: parent-Project name only — no Programme › prefix */}
           {item.parent_project_id ? (
             <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5">
               <GitMerge size={10} />
-              {programme ? `${programme.name} › ` : ''}{project?.name ?? '—'}
+              {project?.name ?? '—'}
             </div>
           ) : (
             <span className="inline-block mt-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">Direct</span>
@@ -597,9 +597,10 @@ export default function DemandDiscovery() {
                       <tr key={`grp-${projId}`} className="bg-blue-50/50 border-b border-border">
                         <td colSpan={9} className="px-4 py-1.5">
                           <div className="flex items-center gap-3">
-                            <span className="text-xs font-semibold text-near-black">
-                              {prog?.name && <span className="text-gray-400">{prog.name} › </span>}{proj?.name ?? projId}
-                            </span>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-semibold text-near-black">{proj?.name ?? projId}</span>
+                              {prog?.name && <span className="text-[10px] text-gray-400">{prog.name}</span>}
+                            </div>
                             <span className="text-[10px] text-gray-500">{items.length} demands</span>
                             {intHrs > 0 && <span className="text-[10px] text-gray-500">{Math.round(intHrs)}h internal (12mo)</span>}
                             {extHrs > 0 && <span className="text-[10px] text-amber-600">{Math.round(extHrs)}h external (12mo)</span>}

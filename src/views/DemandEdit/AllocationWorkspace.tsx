@@ -599,14 +599,21 @@ export function AllocationWorkspace({ draft, demandItemId, onChange }: Props) {
           </>}
           {draft.owner && <><span className="text-gray-400">·</span><span className="text-gray-500">{draft.owner}</span></>}
         </div>
-        {/* Parent Project (read-only in Mode B) */}
+        {/* §4.5.2 Mode B v1.19: "Part of: Project" + "Programme:" as separate lines */}
         {project && (
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-gray-400">Project:</span>
-            <span className="text-gray-500">
-              {programme ? `${programme.name} › ` : ''}{project.name}
-            </span>
-          </div>
+          <>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-gray-400">Part of:</span>
+              <span className="text-gray-600 font-medium">{project.name}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400">Programme:</span>
+              {programme
+                ? <span className="text-gray-500">{programme.name}</span>
+                : <span className="text-gray-400 italic">No Programme</span>
+              }
+            </div>
+          </>
         )}
         <div className="text-gray-400 text-[10px]">
           {draft.phases.length} phase{draft.phases.length !== 1 ? 's' : ''} · {draft.phases.map((p, i) => {

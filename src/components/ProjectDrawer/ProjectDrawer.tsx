@@ -10,7 +10,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, MoreHorizontal, Trash2, Edit2 } from 'lucide-react'
+import { X, MoreHorizontal, Trash2, Edit2, Eye } from 'lucide-react'
 import { parseISO, differenceInMonths } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
 import { Button } from '../ui/Button'
@@ -40,6 +40,7 @@ function ProjectOverflowMenu({ project, onDelete }: {
     for (const ph of d.phases) for (const req of ph.requirements) s += req.allocations.length
     return s
   }, 0)
+  const phaseCount = childDemands.reduce((s, d) => s + d.phases.length, 0)
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -53,6 +54,7 @@ function ProjectOverflowMenu({ project, onDelete }: {
 
   const demandText = childDemands.length === 1 ? '1 child Demand' : `${childDemands.length} child Demands`
   const allocText = allocCount === 1 ? '1 named allocation' : `${allocCount} named allocations`
+  const phaseText = phaseCount === 1 ? '1 phase' : `${phaseCount} phases`
 
   return (
     <div className="relative" ref={ref}>
@@ -78,7 +80,7 @@ function ProjectOverflowMenu({ project, onDelete }: {
               <p className="text-xs text-accent-red font-semibold mb-1">Delete "{project.name}"?</p>
               {childDemands.length > 0 && (
                 <p className="text-xs text-gray-500 mb-2">
-                  Cascades to {demandText} and {allocText}. This cannot be undone.
+                  This Project has {demandText} with {allocText} across {phaseText}. Deleting will permanently remove all of them.
                 </p>
               )}
               <div className="flex gap-2">
@@ -193,14 +195,15 @@ export function ProjectDrawer({ projectId, onClose, onOpenDemand }: Props) {
               <h2 className="text-sm font-semibold text-near-black leading-snug">{project.name || 'Unnamed Project'}</h2>
               <div className="mt-1.5 flex flex-col gap-1 text-xs">
                 <div><Badge>{project.type}</Badge></div>
-                <div className="text-gray-400">
-                  {programme ? programme.name : <span className="italic">No Programme</span>}
-                </div>
                 {project.owner && <div className="text-gray-500">{project.owner}</div>}
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <Button size="sm" variant="primary" onClick={handleEdit}><Edit2 size={12} /> Edit</Button>
+              {(project.status === 'Submitted' || project.status === 'Approved' || project.status === 'Allocated') ? (
+                <Button size="sm" variant="secondary" onClick={handleEdit}><Eye size={12} /> View</Button>
+              ) : (
+                <Button size="sm" variant="primary" onClick={handleEdit}><Edit2 size={12} /> Edit</Button>
+              )}
               <ProjectOverflowMenu project={project} onDelete={handleDelete} />
               <button onClick={onClose} className="text-gray-400 hover:text-near-black transition-colors p-1 rounded">
                 <X size={15} />
@@ -229,15 +232,57 @@ export function ProjectDrawer({ projectId, onClose, onOpenDemand }: Props) {
             <div className="px-3 py-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">{submitError}</div>
           )}
 
-          {/* Functions involved */}
-          {functionsInvolved.length > 0 && (
-            <div>
-              <span className="text-xs text-gray-400 mr-1.5">Functions:</span>
-              {functionsInvolved.map(fn => fn && (
-                <span key={fn.id} className="inline-block mr-1 mb-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">{fn.name}</span>
-              ))}
-            </div>
-          )}
+          {/* §4.5.1 v1.19: Programme in body zone */}
+          <div className="text-xs">
+            <span className="text-gray-400">Programme: </span>
+            {programme
+              ? <span className="text-gray-600">{programme.name}</span>
+              : <span className="text-gray-400 italic">No Programme</span>
+            }
+          </div>
+
+          {/* §4.5.1 v1.19: Functions Required + Actually Involved (two chip rows) */}
+          {(() => {
+            const requiredIds = new Set(project.functions_required ?? [])
+            const requiredFns = [...requiredIds]
+              .map(id => store.functions.find(f => f.id === id))
+              .filter((f): f is NonNullable<typeof f> => !!f)
+            const fullyMatch = functionsInvolved.length > 0 &&
+              requiredFns.length === functionsInvolved.length &&
+              functionsInvolved.every(f => f && requiredIds.has(f.id))
+            return (
+              <div className="flex flex-col gap-1.5">
+                <div className="text-xs flex items-start gap-1.5 flex-wrap">
+                  <span className="text-gray-400 shrink-0">Required (originator's plan):</span>
+                  <div className="flex flex-wrap gap-1">
+                    {requiredFns.length > 0
+                      ? requiredFns.map(fn => (
+                        <span key={fn.id} className="inline-block px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">{fn.name}</span>
+                      ))
+                      : <span className="text-gray-400 italic">not declared</span>
+                    }
+                  </div>
+                </div>
+                <div className="text-xs flex items-start gap-1.5 flex-wrap">
+                  <span className="text-gray-400 shrink-0">Actually involved:</span>
+                  <div className="flex flex-wrap gap-1 items-center">
+                    {functionsInvolved.length > 0
+                      ? functionsInvolved.map(fn => fn && (
+                        <span key={fn.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
+                          {fn.name}
+                          {!requiredIds.has(fn.id) && (
+                            <span className="px-1 rounded bg-amber-100 text-amber-700 text-[9px] font-medium">added during Scoping</span>
+                          )}
+                        </span>
+                      ))
+                      : <span className="text-gray-400 italic">—</span>
+                    }
+                    {fullyMatch && <span className="text-gray-400 text-[10px] italic ml-0.5">· matches plan</span>}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Description */}
           {project.description && (

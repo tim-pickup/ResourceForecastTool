@@ -224,25 +224,6 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
                     </span>
                   )}
                 </div>
-                <div>
-                  {programme && project ? (
-                    <button
-                      onClick={() => setProjectDrawerId(project.id)}
-                      className="text-gray-400 hover:text-brand transition-colors text-left"
-                    >
-                      Part of {programme.name} › {project.name}
-                    </button>
-                  ) : project ? (
-                    <button
-                      onClick={() => setProjectDrawerId(project.id)}
-                      className="text-gray-400 hover:text-brand transition-colors text-left"
-                    >
-                      Part of {project.name}
-                    </button>
-                  ) : (
-                    <span className="text-gray-400 italic">Direct Demand</span>
-                  )}
-                </div>
                 {item.owner && <div className="text-gray-500">{item.owner}</div>}
               </div>
             </div>
@@ -273,6 +254,34 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
 
         {/* ── Zone 3: Body ───────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+
+          {/* §4.5.1 v1.19: Programme and "Part of: Project" lines in body zone */}
+          <div className="flex flex-col gap-1 text-xs">
+            <div>
+              <span className="text-gray-400">Programme: </span>
+              {isProjectSpawned
+                ? programme
+                  ? <span className="text-gray-600">{programme.name}</span>
+                  : <span className="text-gray-400 italic">No Programme</span>
+                : <span className="text-gray-400 italic">Direct Demand (no Programme)</span>
+              }
+            </div>
+            <div>
+              {isProjectSpawned && project ? (
+                <>
+                  <span className="text-gray-400">Part of: </span>
+                  <button
+                    onClick={() => setProjectDrawerId(project.id)}
+                    className="text-brand hover:underline font-medium"
+                  >
+                    {project.name}
+                  </button>
+                </>
+              ) : (
+                <span className="text-gray-400 italic">Direct Demand</span>
+              )}
+            </div>
+          </div>
 
           {/* §4.5.1 Origin badge + Sibling Demands */}
           <div className="flex flex-col gap-2">
