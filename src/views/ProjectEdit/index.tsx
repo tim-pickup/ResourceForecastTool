@@ -35,7 +35,7 @@ function blankProject(): Omit<Project, 'id'> {
 
 // ─── Programme picker ─────────────────────────────────────────────────────────
 
-function ProgrammePicker({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+function ProgrammePicker({ value, onChange, disabled }: { value: string | null; onChange: (v: string | null) => void; disabled?: boolean }) {
   const store = useAppStore()
   const programmes = store.programmes.filter(p => p.active)
 
@@ -45,7 +45,8 @@ function ProgrammePicker({ value, onChange }: { value: string | null; onChange: 
       <select
         value={value ?? ''}
         onChange={e => onChange(e.target.value || null)}
-        className="text-xs border border-border rounded px-2 py-1.5 bg-white"
+        className="text-xs border border-border rounded px-2 py-1.5 bg-white disabled:bg-gray-50 disabled:text-gray-500"
+        disabled={disabled}
       >
         <option value="">— Unaligned (no Programme) —</option>
         {programmes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -308,6 +309,7 @@ export default function ProjectEdit() {
               <ProgrammePicker
                 value={draft.programme_id}
                 onChange={v => update(d => ({ ...d, programme_id: v }))}
+                disabled={isReadOnly}
               />
             </div>
             <Textarea
@@ -415,7 +417,33 @@ export default function ProjectEdit() {
             </div>
           )}
 
-          {/* Phases */}
+          {/* Phases — editable in Draft/Scoping, read-only summary in Submitted+ (§4.6.A v1.19) */}
+          {isReadOnly && draft.phases.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Phases (frozen planning record)</h3>
+              <div className="flex flex-col gap-1.5">
+                {draft.phases.map((ph, i) => {
+                  const extCount = (extReqsByPhase[ph.id] ?? []).length
+                  return (
+                    <div key={ph.id} className="border border-border rounded-md px-3 py-2 text-xs bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Phase {i + 1}{ph.name ? ` · ${ph.name}` : ''}</span>
+                        <span className="text-gray-400">
+                          {ph.end_month === null ? `${ph.start_month} → ongoing` : `${ph.start_month} – ${ph.end_month}`}
+                        </span>
+                      </div>
+                      <div className="text-gray-500 mt-0.5">{ph.funding_source}{ph.funding_notes ? ` — ${ph.funding_notes}` : ''}</div>
+                      <div className="flex gap-3 mt-0.5 text-gray-400">
+                        {ph.requirements.length > 0 && <span>{ph.requirements.length} internal req{ph.requirements.length !== 1 ? 's' : ''}</span>}
+                        {extCount > 0 && <span className="text-amber-500">{extCount} external req{extCount !== 1 ? 's' : ''}</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {!isReadOnly && (
             <div>
               <div className="flex items-center justify-between mb-3">

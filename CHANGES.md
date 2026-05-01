@@ -55,7 +55,7 @@ REQUIREMENTS.md is the single source of implementation detail. This file is the 
 
 ### 8. UI — Manage Projects view-only post-Submit
 
-- [ ] **Scope:** Submitted, Approved, and Allocated Projects: drawer's "Edit" button replaced with "View" (opens the same edit page in fully read-only mode — no field editing, no "+ Add" affordances). Card content tweak: Functions Actually Involved chip row is the primary card content; "Required: …" footnote shown on Draft/Scoping cards only. Filter rename: "Functions involved" → "Functions Actually Involved" with clarifying tooltip.
+- [x] **Scope:** Submitted, Approved, and Allocated Projects: drawer's "Edit" button replaced with "View" (opens the same edit page in fully read-only mode — no field editing, no "+ Add" affordances). Card content tweak: Functions Actually Involved chip row is the primary card content; "Required: …" footnote shown on Draft/Scoping cards only. Filter rename: "Functions involved" → "Functions Actually Involved" with clarifying tooltip.
 - **Dependencies:** Changes 1, 4 (Mode A read-only behaviour must be wired).
 - **Read in REQUIREMENTS.md:** Section 4.6.A (Manage Projects — Editability rule, Board mode card content, filter table), section 9 build order step 7.
 

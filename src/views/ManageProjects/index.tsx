@@ -85,7 +85,7 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
           <div className="text-[10px] text-gray-400 mt-0.5">
             {programme ? programme.name : <span className="italic">No Programme</span>}
           </div>
-          {/* Functions involved chips */}
+          {/* §4.6.A v1.19: Functions Actually Involved chips */}
           {fns.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {fns.map(fn => fn && (
@@ -93,6 +93,12 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
                   {fn.name}
                 </span>
               ))}
+            </div>
+          )}
+          {/* "Required: …" footnote — Draft/Scoping only */}
+          {(project.status === 'Draft' || project.status === 'Scoping') && project.functions_required.length > 0 && (
+            <div className="text-[9px] text-gray-400 mt-0.5">
+              Required: {project.functions_required.map(fid => store.functions.find(f => f.id === fid)?.name ?? fid).join(', ')}
             </div>
           )}
           {childCount > 0 && (
@@ -370,13 +376,14 @@ export default function ManageProjects() {
               <option value="">All Programmes</option>
               {store.programmes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
-            {/* Functions involved filter */}
+            {/* §4.6.A v1.19: Functions Actually Involved filter (Functions Required is not separately filterable) */}
             <select
               value={filterFunctions[0] ?? ''}
               onChange={e => setFilterFunctions(e.target.value ? [e.target.value] : [])}
               className="text-xs border border-border rounded px-2 py-1 bg-white"
+              title="Functions Actually Involved — filters by which Functions a Project's requirements touch. Functions Required is planning metadata and is not a separate filter."
             >
-              <option value="">All Functions</option>
+              <option value="">Functions Actually Involved</option>
               {store.functions.filter(f => f.active).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
             <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
@@ -461,7 +468,7 @@ export default function ManageProjects() {
                     <span className="flex items-center gap-1 capitalize">{k} <SortIcon k={k} /></span>
                   </th>
                 ))}
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Functions</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Functions Actually Involved</th>
                 <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Phases</th>
                 <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Int. hrs</th>
                 <th className="px-4 py-2.5 text-right text-xs font-semibold text-amber-600 uppercase tracking-wide">Ext. hrs</th>
