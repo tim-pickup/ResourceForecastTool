@@ -40,10 +40,11 @@ function getAllocHoursForMonth(alloc: NamedAllocation, month: string, phase: Pha
   return alloc.hours_by_month[month] ?? 0
 }
 
-export function getPersonBauHoursFromDemand(personId: string, month: string, demandItems: DemandItem[]): number {
+export function getPersonBauHoursFromDemand(personId: string, month: string, state: AppState): number {
   let total = 0
-  for (const item of demandItems) {
-    if (item.type !== 'BAU') continue
+  for (const item of state.demandItems) {
+    const pt = state.projectTypes.find(p => p.id === item.type)
+    if (!pt?.is_bau) continue
     if (item.status !== 'Approved' && item.status !== 'PartiallyAllocated' && item.status !== 'Allocated') continue
     for (const phase of item.phases) {
       if (!monthInRange(month, phase.start_month, phase.end_month)) continue
@@ -93,7 +94,7 @@ export function getPersonLoad(
   if (!monthInRange(month, person.available_from, person.available_to)) {
     return { bau: 0, project: 0, contracted: 0, total: 0, available: 0, overAllocated: false }
   }
-  const bau = getPersonBauHoursFromDemand(person.id, month, state.demandItems)
+  const bau = getPersonBauHoursFromDemand(person.id, month, state)
   const allNamed = getPersonNamedProjectHours(person.id, month, state.demandItems, includeSubmitted)
   const project = allNamed - bau
   const contracted = person.contracted_hours_per_month
@@ -270,7 +271,7 @@ export function getDomainCapacity(domainId: string, month: string, state: AppSta
   const inDomain = personIdsWithDomainSkills(domainId, state)
   return activePeopleInMonth(month, state)
     .filter(p => inDomain.has(p.id))
-    .reduce((s, p) => s + Math.max(0, p.contracted_hours_per_month - getPersonBauHoursFromDemand(p.id, month, state.demandItems)), 0)
+    .reduce((s, p) => s + Math.max(0, p.contracted_hours_per_month - getPersonBauHoursFromDemand(p.id, month, state)), 0)
 }
 
 export function getDomainDemand(
@@ -288,7 +289,7 @@ export function getSkillCapacity(skillId: string, month: string, state: AppState
   const withSkill = personIdsWithSkill(skillId, state, minLevel)
   return activePeopleInMonth(month, state)
     .filter(p => withSkill.has(p.id))
-    .reduce((s, p) => s + Math.max(0, p.contracted_hours_per_month - getPersonBauHoursFromDemand(p.id, month, state.demandItems)), 0)
+    .reduce((s, p) => s + Math.max(0, p.contracted_hours_per_month - getPersonBauHoursFromDemand(p.id, month, state)), 0)
 }
 
 export function getSkillDemand(

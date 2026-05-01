@@ -431,7 +431,7 @@ export const useAppStore = create<Store>()(
           }))
           const projects = (s.projects || []).map((p: any): Project => ({
             id: p.id, name: p.name, owner: p.owner ?? '',
-            type: p.type ?? 'Group Strategy Project',
+            type: p.type ?? 'pt_group_strat',
             programme_id: p.programme_id ?? null, description: p.description ?? '',
             status: (p.status ?? 'Draft') as ProjectStatus,
             phases: p.phases ?? [], active: p.active ?? true,

@@ -748,7 +748,7 @@ function ProgrammesPanel() {
 
 // ─── Projects (global, v1.18 — list view with cascade delete, no soft-delete) ──
 // §5: list all Projects across all Functions; edit via deep-link to Manage Projects.
-// §11.20: delete cascades to child Demands + allocations + ProjectTeamAssignments.
+// §3: delete cascades to child Demands, their materialised phases/requirements, and allocations.
 
 const PROJECT_STATUS_COLORS: Record<string, string> = {
   Draft: 'bg-gray-100 text-gray-600',

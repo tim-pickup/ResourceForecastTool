@@ -5,7 +5,7 @@ import { parseISO, differenceInMonths, addMonths, format } from 'date-fns'
 import { clsx } from 'clsx'
 import { useAppStore } from '../../store/useAppStore'
 import {
-  generateMonths, getCurrentMonth, formatMonthLabel, monthInRange,
+  generateMonths, getCurrentMonth, formatMonthLabel, monthInRange, typeToBreakdownKey,
 } from '../../utils/capacity'
 import {
   real_committed_hours, skill_capacity, demand_hours_for, computeProjection, projection_shortfalls,
@@ -73,16 +73,17 @@ function HeatCell({
     let bau = 0, plant = 0, npd = 0, strategy = 0
     for (const item of store.demandItems) {
       if (!COMMITTED_STATUSES.has(item.status)) continue
+      const bucketKey = typeToBreakdownKey(item.type, store.projectTypes)
       for (const phase of item.phases) {
         if (!monthInRange(month, phase.start_month, phase.end_month)) continue
         for (const req of phase.requirements) {
           for (const alloc of req.allocations) {
             if (alloc.person_id !== personId) continue
             const h = phase.end_month === null ? (alloc.steady_state_hours ?? 0) : (alloc.hours_by_month[month] ?? 0)
-            if (item.type === 'BAU') bau += h
-            else if (item.type === 'Plant Project') plant += h
-            else if (item.type === 'NPD Demand') npd += h
-            else if (item.type === 'Group Strategy Project') strategy += h
+            if (bucketKey === 'bau') bau += h
+            else if (bucketKey === 'plant') plant += h
+            else if (bucketKey === 'npd') npd += h
+            else if (bucketKey === 'strategy') strategy += h
           }
         }
       }

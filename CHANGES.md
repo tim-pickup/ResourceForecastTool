@@ -79,7 +79,7 @@ REQUIREMENTS.md is the single source of implementation detail. This file is the 
 
 ### 12. Cleanup
 
-- [ ] **Scope:** Remove all references to `ProjectTeamAssignment`, `DemandTeamAssignment`, `owning_team_id`, "Teams Assigned", and "per-team confirmation" in code, route paths, test fixtures, and store types. Remove the v1.18 "Function-scoped slice of the parent Project" computed-view code path on spawned Demands. Remove every hardcoded list of Project Type enum values from the codebase — every runtime use must read from active ProjectType records sorted by `display_order`. Audit DESIGNSYSTEM.md for any team-related visual tokens that are no longer used.
+- [x] **Scope:** Remove all references to `ProjectTeamAssignment`, `DemandTeamAssignment`, `owning_team_id`, "Teams Assigned", and "per-team confirmation" in code, route paths, test fixtures, and store types. Remove the v1.18 "Function-scoped slice of the parent Project" computed-view code path on spawned Demands. Remove every hardcoded list of Project Type enum values from the codebase — every runtime use must read from active ProjectType records sorted by `display_order`. Audit DESIGNSYSTEM.md for any team-related visual tokens that are no longer used.
 - **Dependencies:** Changes 1–11.
 - **Read in REQUIREMENTS.md:** Section 9 build order step 12.
 
