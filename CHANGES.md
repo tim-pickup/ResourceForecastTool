@@ -67,7 +67,7 @@ REQUIREMENTS.md is the single source of implementation detail. This file is the 
 
 ### 10. Seed rebuild for v1.19
 
-- [ ] **Scope:** Regenerate seed module to embody the new model: Functions Required entries on every Project (Project 2 set to `[DM]` only with GroupIT requirements added during Scoping to demonstrate the hint-not-binding flow); Function tags on every external requirement (DM-tagged and GroupIT-tagged on Project 3 to exercise both routes; auto-tagged on direct Demand externals); spawn drift example on Project 4 DM Demand (60 → 80); zero `ProjectTeamAssignment` records anywhere; ProjectType FK references on every Project and Demand. Update seed reconciliation table where totals shift due to materialisation drift.
+- [x] **Scope:** Regenerate seed module to embody the new model: Functions Required entries on every Project (Project 2 set to `[DM]` only with GroupIT requirements added during Scoping to demonstrate the hint-not-binding flow); Function tags on every external requirement (DM-tagged and GroupIT-tagged on Project 3 to exercise both routes; auto-tagged on direct Demand externals); spawn drift example on Project 4 DM Demand (60 → 80); zero `ProjectTeamAssignment` records anywhere; ProjectType FK references on every Project and Demand. Update seed reconciliation table where totals shift due to materialisation drift.
 - **Dependencies:** Changes 1, 2.
 - **Read in REQUIREMENTS.md:** Section 6 (Projects table updated for v1.19, Project-spawned Demands, capacity reconciliation), section 9 build order step 10.
 

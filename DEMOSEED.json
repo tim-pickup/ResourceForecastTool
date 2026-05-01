@@ -46,7 +46,7 @@
     {
       "id": "team_004",
       "name": "Infrastructure Team",
-      "description": "Group IT infrastructure and platform services — cloud, network, and platform engineering.",
+      "description": "Group IT infrastructure and platform services \u00e2\u20ac\u201d cloud, network, and platform engineering.",
       "functionId": "func_002",
       "type": "Central",
       "active": true
@@ -54,7 +54,7 @@
     {
       "id": "team_005",
       "name": "Applications Team",
-      "description": "Group IT enterprise applications and data integration — ERP, CRM, data engineering.",
+      "description": "Group IT enterprise applications and data integration \u00e2\u20ac\u201d ERP, CRM, data engineering.",
       "functionId": "func_002",
       "type": "Central",
       "active": true
@@ -64,19 +64,19 @@
     {
       "id": "thm_mom",
       "name": "MOM",
-      "description": "Manufacturing Operations Management — MES, order execution, production tracking, OEE.",
+      "description": "Manufacturing Operations Management \u00e2\u20ac\u201d MES, order execution, production tracking, OEE.",
       "functionId": "func_001"
     },
     {
       "id": "thm_miv",
       "name": "MI&V",
-      "description": "Manufacturing Intelligence & Visualisation — historians, analytics, dashboards, reporting.",
+      "description": "Manufacturing Intelligence & Visualisation \u00e2\u20ac\u201d historians, analytics, dashboards, reporting.",
       "functionId": "func_001"
     },
     {
       "id": "thm_mbm",
       "name": "MBM",
-      "description": "Model-Based Manufacturing — simulation, digital twins, process modelling.",
+      "description": "Model-Based Manufacturing \u00e2\u20ac\u201d simulation, digital twins, process modelling.",
       "functionId": "func_001"
     },
     {
@@ -602,7 +602,7 @@
     },
     {
       "id": "per_018",
-      "name": "Henrik Sørensen",
+      "name": "Henrik S\u00c3\u00b8rensen",
       "primary_domain_id": "thm_git_data",
       "contracted_hours_per_month": 152,
       "available_from": "2026-08",
@@ -642,10 +642,38 @@
     }
   ],
   "project_types": [
-    { "id": "pt_bau",          "name": "BAU",                    "display_order": 0, "colour_token": "colour-bau",            "is_bau": true,  "active": true },
-    { "id": "pt_npd",          "name": "NPD Demand",              "display_order": 1, "colour_token": "colour-npd",            "is_bau": false, "active": true },
-    { "id": "pt_plant",        "name": "Plant Project",           "display_order": 2, "colour_token": "colour-plant-project",  "is_bau": false, "active": true },
-    { "id": "pt_group_strat",  "name": "Group Strategy Project",  "display_order": 3, "colour_token": "colour-group-strategy", "is_bau": false, "active": true }
+    {
+      "id": "pt_bau",
+      "name": "BAU",
+      "display_order": 0,
+      "colour_token": "colour-bau",
+      "is_bau": true,
+      "active": true
+    },
+    {
+      "id": "pt_npd",
+      "name": "NPD Demand",
+      "display_order": 1,
+      "colour_token": "colour-npd",
+      "is_bau": false,
+      "active": true
+    },
+    {
+      "id": "pt_plant",
+      "name": "Plant Project",
+      "display_order": 2,
+      "colour_token": "colour-plant-project",
+      "is_bau": false,
+      "active": true
+    },
+    {
+      "id": "pt_group_strat",
+      "name": "Group Strategy Project",
+      "display_order": 3,
+      "colour_token": "colour-group-strategy",
+      "is_bau": false,
+      "active": true
+    }
   ],
   "projects": [
     {
@@ -654,10 +682,13 @@
       "owner": "Sarah Chen",
       "type": "pt_plant",
       "programme_id": "prg_001",
-      "description": "Feasibility study for Plant D MES infrastructure upgrade. Draft — requirements not yet defined.",
+      "description": "Feasibility study for Plant D MES infrastructure upgrade. Draft \u00e2\u20ac\u201d requirements not yet defined.",
       "status": "Draft",
       "active": true,
-      "functions_required": ["func_001", "func_002"],
+      "functions_required": [
+        "func_001",
+        "func_002"
+      ],
       "functions_actually_involved": [],
       "phases": [
         {
@@ -689,8 +720,13 @@
       "description": "MES refresh at Plant E. DM MOM/MI&V + GroupIT Data & Integration. Functions Required = [DM]; GroupIT requirements added during Scoping (demonstrates hint-not-binding).",
       "status": "Scoping",
       "active": true,
-      "functions_required": ["func_001"],
-      "functions_actually_involved": ["func_001", "func_002"],
+      "functions_required": [
+        "func_001"
+      ],
+      "functions_actually_involved": [
+        "func_001",
+        "func_002"
+      ],
       "phases": [
         {
           "id": "phs_prj002_spec",
@@ -808,12 +844,74 @@
       "owner": "Anya Petrov",
       "type": "pt_group_strat",
       "programme_id": null,
-      "description": "Enterprise data lake build. Cross-Function: DM MI&V + GroupIT Data & Integration. No Programme — demonstrates Unaligned Projects card.",
+      "description": "Enterprise data lake build. Cross-Function: DM MI&V + GroupIT Data & Integration. No Programme \u00e2\u20ac\u201d demonstrates Unaligned Projects card.",
       "status": "Submitted",
       "active": true,
-      "functions_required": ["func_001", "func_002"],
-      "functions_actually_involved": ["func_001", "func_002"],
-      "phases": []
+      "functions_required": [
+        "func_001",
+        "func_002"
+      ],
+      "functions_actually_involved": [
+        "func_001",
+        "func_002"
+      ],
+      "phases": [
+        {
+          "id": "phs_prj3_main",
+          "name": "Build & Deploy",
+          "start_month": "2026-07",
+          "end_month": "2026-10",
+          "funding_source": "Investment Scheme",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_prj3_miv",
+              "shape": "skill",
+              "skill_id": "skl_miv_integration",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-07": 40,
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_prj3_de",
+              "shape": "skill",
+              "skill_id": "skl_git_data_eng",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-07": 80,
+                "2026-08": 80,
+                "2026-09": 80,
+                "2026-10": 80
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_prj3_arch",
+              "shape": "skill",
+              "skill_id": "skl_git_data_int_arch",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-07": 40,
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "prj_004",
@@ -824,8 +922,14 @@
       "description": "Full MES platform migration at Plant C. Headline cross-Function flagship. DM (MOM+MI&V) PartiallyAllocated; GroupIT (Data & Integration) Approved.",
       "status": "Approved",
       "active": true,
-      "functions_required": ["func_001", "func_002"],
-      "functions_actually_involved": ["func_001", "func_002"],
+      "functions_required": [
+        "func_001",
+        "func_002"
+      ],
+      "functions_actually_involved": [
+        "func_001",
+        "func_002"
+      ],
       "phases": [
         {
           "id": "phs_prj4_spec",
@@ -840,7 +944,10 @@
               "shape": "skill",
               "skill_id": "skl_mom_mes",
               "level": "Specialist",
-              "hours_by_month": { "2026-06": 60, "2026-07": 60 },
+              "hours_by_month": {
+                "2026-06": 60,
+                "2026-07": 60
+              },
               "notes": null,
               "allocations": []
             },
@@ -849,7 +956,10 @@
               "shape": "skill",
               "skill_id": "skl_miv_integration",
               "level": "Advanced",
-              "hours_by_month": { "2026-06": 40, "2026-07": 40 },
+              "hours_by_month": {
+                "2026-06": 40,
+                "2026-07": 40
+              },
               "notes": null,
               "allocations": []
             },
@@ -858,7 +968,10 @@
               "shape": "skill",
               "skill_id": "skl_git_data_eng",
               "level": "Advanced",
-              "hours_by_month": { "2026-06": 40, "2026-07": 40 },
+              "hours_by_month": {
+                "2026-06": 40,
+                "2026-07": 40
+              },
               "notes": null,
               "allocations": []
             }
@@ -877,8 +990,12 @@
               "shape": "skill",
               "skill_id": "skl_mom_mes",
               "level": "Specialist",
-              "hours_by_month": { "2026-08": 60, "2026-09": 60, "2026-10": 60 },
-              "notes": "Spawn-time value 60h/mo — DM Demand drifted to 80h post-spawn",
+              "hours_by_month": {
+                "2026-08": 60,
+                "2026-09": 60,
+                "2026-10": 60
+              },
+              "notes": "Spawn-time value 60h/mo \u00e2\u20ac\u201d DM Demand drifted to 80h post-spawn",
               "allocations": []
             },
             {
@@ -886,7 +1003,11 @@
               "shape": "skill",
               "skill_id": "skl_mom_workflow",
               "level": "Advanced",
-              "hours_by_month": { "2026-08": 40, "2026-09": 40, "2026-10": 40 },
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
               "notes": null,
               "allocations": []
             },
@@ -895,7 +1016,11 @@
               "shape": "skill",
               "skill_id": "skl_miv_integration",
               "level": "Advanced",
-              "hours_by_month": { "2026-08": 40, "2026-09": 40, "2026-10": 40 },
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
               "notes": null,
               "allocations": []
             },
@@ -904,7 +1029,11 @@
               "shape": "skill",
               "skill_id": "skl_git_data_eng",
               "level": "Specialist",
-              "hours_by_month": { "2026-08": 60, "2026-09": 60, "2026-10": 60 },
+              "hours_by_month": {
+                "2026-08": 60,
+                "2026-09": 60,
+                "2026-10": 60
+              },
               "notes": null,
               "allocations": []
             },
@@ -913,7 +1042,11 @@
               "shape": "skill",
               "skill_id": "skl_git_data_int_arch",
               "level": "Advanced",
-              "hours_by_month": { "2026-08": 40, "2026-09": 40, "2026-10": 40 },
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
               "notes": null,
               "allocations": []
             }
@@ -930,8 +1063,12 @@
       "description": "Digital twin foundation library for process simulation. Single-Function DM (MBM). Fully allocated.",
       "status": "Allocated",
       "active": true,
-      "functions_required": ["func_001"],
-      "functions_actually_involved": ["func_001"],
+      "functions_required": [
+        "func_001"
+      ],
+      "functions_actually_involved": [
+        "func_001"
+      ],
       "phases": []
     },
     {
@@ -943,15 +1080,19 @@
       "description": "MES platform refresh at Plant B. Single-Function DM (MOM). Fully allocated.",
       "status": "Allocated",
       "active": true,
-      "functions_required": ["func_001"],
-      "functions_actually_involved": ["func_001"],
+      "functions_required": [
+        "func_001"
+      ],
+      "functions_actually_involved": [
+        "func_001"
+      ],
       "phases": []
     }
   ],
   "demand_items": [
     {
       "id": "dmd_p3_dm",
-      "name": "Corporate Data Lake — Digital Manufacturing",
+      "name": "Corporate Data Lake \u00e2\u20ac\u201d Digital Manufacturing",
       "type": "pt_group_strat",
       "status": "Submitted",
       "owner": "James Whitfield",
@@ -987,7 +1128,7 @@
     },
     {
       "id": "dmd_p3_git",
-      "name": "Corporate Data Lake — Group IT Enterprise Solutions",
+      "name": "Corporate Data Lake \u00e2\u20ac\u201d Group IT Enterprise Solutions",
       "type": "pt_group_strat",
       "status": "Submitted",
       "owner": "Anya Petrov",
@@ -1037,7 +1178,7 @@
     },
     {
       "id": "dmd_p4_dm",
-      "name": "Plant C MES Platform Migration — Digital Manufacturing",
+      "name": "Plant C MES Platform Migration \u00e2\u20ac\u201d Digital Manufacturing",
       "type": "pt_plant",
       "status": "PartiallyAllocated",
       "owner": "David Lin",
@@ -1117,7 +1258,7 @@
                 "2026-09": 80,
                 "2026-10": 80
               },
-              "notes": "Platform build lead — 20 hrs/mo gap remains",
+              "notes": "Platform build lead \u00e2\u20ac\u201d 20 hrs/mo gap remains",
               "allocations": [
                 {
                   "id": "alc_p4dm_build_mes",
@@ -1127,7 +1268,7 @@
                     "2026-09": 60,
                     "2026-10": 60
                   },
-                  "notes": "Partial — 20 hrs/mo unplanned"
+                  "notes": "Partial \u00e2\u20ac\u201d 20 hrs/mo unplanned"
                 }
               ]
             },
@@ -1174,7 +1315,7 @@
     },
     {
       "id": "dmd_p4_git",
-      "name": "Plant C MES Platform Migration — Group IT Enterprise Solutions",
+      "name": "Plant C MES Platform Migration \u00e2\u20ac\u201d Group IT Enterprise Solutions",
       "type": "pt_plant",
       "status": "Approved",
       "owner": "Anya Petrov",
@@ -1244,7 +1385,7 @@
     },
     {
       "id": "dmd_p5_dm",
-      "name": "MBM Foundation Library — Digital Manufacturing",
+      "name": "MBM Foundation Library \u00e2\u20ac\u201d Digital Manufacturing",
       "type": "pt_group_strat",
       "status": "Allocated",
       "owner": "Marcus Vogel",
@@ -1318,7 +1459,7 @@
     },
     {
       "id": "dmd_p6_dm",
-      "name": "Plant B MES Refresh — Digital Manufacturing",
+      "name": "Plant B MES Refresh \u00e2\u20ac\u201d Digital Manufacturing",
       "type": "pt_plant",
       "status": "Allocated",
       "owner": "Priya Kumar",
@@ -1426,7 +1567,7 @@
       "type": "pt_plant",
       "status": "Submitted",
       "owner": "Priya Kumar",
-      "description": "Assist with SCADA migration at Plant A. Submitted — Approve is the next-step CTA.",
+      "description": "Assist with SCADA migration at Plant A. Submitted \u00e2\u20ac\u201d Approve is the next-step CTA.",
       "function_id": "func_001",
       "parent_project_id": null,
       "phases": [
@@ -1457,7 +1598,7 @@
     },
     {
       "id": "dmd_d3",
-      "name": "MES Super User support — Plant B",
+      "name": "MES Super User support \u00e2\u20ac\u201d Plant B",
       "type": "pt_bau",
       "status": "PartiallyAllocated",
       "owner": "Alex Morgan",
@@ -1670,15 +1811,15 @@
     {
       "id": "ext_p3_contractor",
       "phase_id": "phs_p3git_main",
-      "provider_id": "prv_002",
-      "role": "Data Engineer",
+      "provider_id": "prv_003",
+      "role": "Data Platform Vendor",
       "notes": "Contract data engineer for pipeline build and integration testing.",
       "function_tag": "func_002",
       "hours_by_month": {
-        "2026-07": 80,
-        "2026-08": 80,
-        "2026-09": 80,
-        "2026-10": 80
+        "2026-07": 40,
+        "2026-08": 40,
+        "2026-09": 40,
+        "2026-10": 40
       },
       "steady_state_hours": null
     },
@@ -1691,6 +1832,51 @@
       "function_tag": "func_001",
       "hours_by_month": {},
       "steady_state_hours": 10
+    },
+    {
+      "id": "ext_p3dm_contractor",
+      "phase_id": "phs_p3dm_main",
+      "provider_id": "prv_002",
+      "role": "Data Engineer",
+      "notes": null,
+      "hours_by_month": {
+        "2026-07": 80,
+        "2026-08": 80,
+        "2026-09": 80,
+        "2026-10": 80
+      },
+      "steady_state_hours": null,
+      "function_tag": "func_001"
+    },
+    {
+      "id": "ext_prj3_contractor",
+      "phase_id": "phs_prj3_main",
+      "provider_id": "prv_002",
+      "role": "Data Engineer",
+      "notes": null,
+      "hours_by_month": {
+        "2026-07": 80,
+        "2026-08": 80,
+        "2026-09": 80,
+        "2026-10": 80
+      },
+      "steady_state_hours": null,
+      "function_tag": "func_001"
+    },
+    {
+      "id": "ext_prj3_oem",
+      "phase_id": "phs_prj3_main",
+      "provider_id": "prv_003",
+      "role": "Data Platform Vendor",
+      "notes": null,
+      "hours_by_month": {
+        "2026-07": 40,
+        "2026-08": 40,
+        "2026-09": 40,
+        "2026-10": 40
+      },
+      "steady_state_hours": null,
+      "function_tag": "func_002"
     }
   ],
   "project_team_assignments": []
