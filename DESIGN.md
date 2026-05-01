@@ -94,7 +94,24 @@ Webflow's website is a visually rich, tool-forward platform that communicates "d
 - Border: `#d8d8d8`
 - Secondary: Purple `#7a3dff`, Pink `#ed52cb`, Green `#00d722`
 
-## 10. Funding Source Palette
+## 10. Project Type Colour Palette (v1.19)
+
+Named colour tokens used by the Project Type admin surface and demand-stack charts. Admin selects from this fixed palette via a swatch picker — arbitrary hex codes are not accepted. Token names are the canonical identifiers stored in `ProjectType.colour_token`; hex values are the rendered fill colours.
+
+| Token | Label | Hex |
+|---|---|---|
+| `colour-bau` | Slate | `#94a3b8` |
+| `colour-plant-project` | Blue | `#60a5fa` |
+| `colour-npd` | Emerald | `#34d399` |
+| `colour-group-strategy` | Violet | `#a78bfa` |
+| `colour-amber` | Amber | `#fbbf24` |
+| `colour-rose` | Rose | `#fb7185` |
+| `colour-teal` | Teal | `#2dd4bf` |
+| `colour-orange` | Orange | `#fb923c` |
+
+The four seed Project Types map to the first four tokens. New types added via admin may use any token from this list.
+
+## 11. Funding Source Palette
 
 Used on the Phase Gantt in Mode A (demand edit page) to colour phase bars by funding source. Chosen to be distinct from the universal demand-type palette (BAU slate, Plant blue, NPD emerald, Group Strategy violet).
 

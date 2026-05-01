@@ -1,8 +1,12 @@
 import { useState, useMemo } from 'react'
-import { Plus, Trash2, Edit2, Check, X, AlertTriangle, RefreshCw, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Plus, Trash2, Edit2, Check, X, AlertTriangle, RefreshCw, ToggleLeft, ToggleRight, GripVertical } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useAppStore } from '../../store/useAppStore'
-import type { AppFunction, Domain, Skill, Person, Level, PersonSkill, Team } from '../../types'
+import type { AppFunction, Domain, Skill, Person, Level, PersonSkill, Team, ProjectType } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { Input, Select } from '../../components/ui/FormFields'
 import { DomainSkillSelector } from '../../components/DomainSkillSelector'
@@ -12,7 +16,7 @@ import { clsx } from 'clsx'
 
 const LEVELS: Level[] = ['Basic', 'Advanced', 'Specialist']
 const TEAM_TYPES: Team['type'][] = ['Plant', 'Central', 'Specialist', 'Other']
-const TABS = ['Functions', 'Teams', 'Domains & Skills', 'People', 'Programmes', 'Projects', 'Providers', 'Reset'] as const
+const TABS = ['Functions', 'Teams', 'Domains & Skills', 'People', 'Programmes', 'Projects', 'Providers', 'Project Types', 'Reset'] as const
 type Tab = typeof TABS[number]
 
 function derivedPersonDomain(personSkills: PersonSkill[], skills: Skill[], domains: Domain[]): Domain | null {
@@ -1004,6 +1008,223 @@ function ProvidersPanel() {
   )
 }
 
+// ─── Project Types (global, new in v1.19) ─────────────────────────────────────
+
+const PROJECT_TYPE_PALETTE: { token: string; label: string; hex: string }[] = [
+  { token: 'colour-bau',            label: 'Slate',   hex: '#94a3b8' },
+  { token: 'colour-plant-project',  label: 'Blue',    hex: '#60a5fa' },
+  { token: 'colour-npd',            label: 'Emerald', hex: '#34d399' },
+  { token: 'colour-group-strategy', label: 'Violet',  hex: '#a78bfa' },
+  { token: 'colour-amber',          label: 'Amber',   hex: '#fbbf24' },
+  { token: 'colour-rose',           label: 'Rose',    hex: '#fb7185' },
+  { token: 'colour-teal',           label: 'Teal',    hex: '#2dd4bf' },
+  { token: 'colour-orange',         label: 'Orange',  hex: '#fb923c' },
+]
+
+function hexForToken(token: string): string {
+  return PROJECT_TYPE_PALETTE.find(p => p.token === token)?.hex ?? '#94a3b8'
+}
+
+function SwatchPicker({ value, onChange }: { value: string; onChange: (t: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {PROJECT_TYPE_PALETTE.map(p => (
+        <button key={p.token} type="button" title={p.label} onClick={() => onChange(p.token)}
+          className={clsx('w-6 h-6 rounded border-2 transition-all',
+            value === p.token ? 'border-near-black ring-1 ring-near-black' : 'border-transparent hover:border-gray-400')}
+          style={{ backgroundColor: p.hex }}
+        />
+      ))}
+    </div>
+  )
+}
+
+interface STypeRowProps {
+  pt: ProjectType
+  count: number
+  isEditing: boolean; editName: string; editToken: string
+  isReassigning: boolean; reassignTo: string
+  otherTypes: ProjectType[]
+  onStartEdit: () => void; onSaveEdit: () => void; onCancelEdit: () => void
+  onEditName: (v: string) => void; onEditToken: (v: string) => void
+  onToggleActive: () => void; onDelete: () => void
+  onStartReassign: () => void; onReassignTo: (v: string) => void
+  onDoReassign: () => void; onCancelReassign: () => void
+}
+
+function STypeRow(props: STypeRowProps) {
+  const { pt, count, isEditing, editName, editToken, isReassigning, reassignTo, otherTypes } = props
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: pt.id })
+  const style = { transform: CSS.Transform.toString(transform), transition }
+  return (
+    <div ref={setNodeRef} style={style} className={clsx('border border-border rounded-md px-3 py-2.5 bg-white', isDragging && 'opacity-50 shadow-card')}>
+      {isEditing ? (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <input autoFocus value={editName} onChange={e => props.onEditName(e.target.value)}
+              placeholder="Name" className="flex-1 text-sm border border-brand rounded px-2 py-0.5"
+              onKeyDown={e => { if (e.key === 'Enter') props.onSaveEdit(); if (e.key === 'Escape') props.onCancelEdit() }}
+            />
+          </div>
+          <div><p className="text-xs text-gray-500 mb-1">Colour</p><SwatchPicker value={editToken} onChange={props.onEditToken} /></div>
+          <div className="flex gap-2">
+            <button onClick={props.onSaveEdit} className="text-brand p-1"><Check size={13} /></button>
+            <button onClick={props.onCancelEdit} className="text-gray-400 p-1"><X size={13} /></button>
+          </div>
+        </div>
+      ) : isReassigning ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-gray-600">Reassign all {count} item(s) from <strong>{pt.name}</strong> to:</p>
+          <Select label="" value={reassignTo} onChange={e => props.onReassignTo(e.target.value)}>
+            <option value="">— select type —</option>
+            {otherTypes.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </Select>
+          <div className="flex gap-2">
+            <Button size="sm" variant="primary" onClick={props.onDoReassign}>Reassign all</Button>
+            <Button size="sm" variant="ghost" onClick={props.onCancelReassign}>Cancel</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          <div {...listeners} {...attributes} className="text-gray-300 hover:text-gray-400 cursor-grab shrink-0">
+            <GripVertical size={15} />
+          </div>
+          <div className="w-4 h-4 rounded border border-border shrink-0" style={{ backgroundColor: hexForToken(pt.colour_token) }} title={pt.colour_token} />
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium">{pt.name}</span>
+            {pt.is_bau && <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">BAU</span>}
+            {!pt.active && <span className="ml-2 text-[10px] text-gray-400 italic">inactive</span>}
+          </div>
+          <span className="text-xs text-gray-400 shrink-0">{count} in use</span>
+          <div className="flex items-center gap-1.5">
+            {count > 0 && (
+              <button onClick={props.onStartReassign} className="text-xs text-brand hover:text-brand-hover px-2 py-0.5 border border-brand rounded">
+                Reassign all
+              </button>
+            )}
+            <button onClick={props.onToggleActive} title={pt.active ? 'Deactivate' : 'Activate'} className="p-0.5">
+              {pt.active ? <ToggleRight size={18} className="text-brand" /> : <ToggleLeft size={18} className="text-gray-400" />}
+            </button>
+            <button onClick={props.onStartEdit} className="text-gray-400 hover:text-near-black p-1"><Edit2 size={13} /></button>
+            <button onClick={props.onDelete} className="text-gray-300 hover:text-accent-red p-1"><Trash2 size={13} /></button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ProjectTypesPanel() {
+  const store = useAppStore()
+  const [showNew, setShowNew] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newToken, setNewToken] = useState(PROJECT_TYPE_PALETTE[0].token)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editToken, setEditToken] = useState('')
+  const [reassignFrom, setReassignFrom] = useState<string | null>(null)
+  const [reassignTo, setReassignTo] = useState('')
+
+  const sorted = useMemo(
+    () => [...store.projectTypes].sort((a, b) => a.display_order - b.display_order),
+    [store.projectTypes]
+  )
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+
+  function inUseCount(ptId: string) {
+    return store.projects.filter(p => p.type === ptId).length + store.demandItems.filter(d => d.type === ptId).length
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIdx = sorted.findIndex(p => p.id === active.id)
+    const newIdx = sorted.findIndex(p => p.id === over.id)
+    arrayMove(sorted, oldIdx, newIdx).forEach((pt, idx) => {
+      if (pt.display_order !== idx) store.updateProjectType(pt.id, { display_order: idx })
+    })
+  }
+
+  function handleDelete(ptId: string) {
+    const pt = store.projectTypes.find(p => p.id === ptId)
+    if (!pt) return
+    if (pt.is_bau) { alert('The BAU Project Type cannot be deleted — the system requires exactly one BAU record at all times.'); return }
+    const count = inUseCount(ptId)
+    if (count > 0) { alert(`Cannot delete: ${count} Project(s)/Demand(s) reference this type. Reassign them first or deactivate the type.`); return }
+    store.deleteProjectType(ptId)
+  }
+
+  function handleReassign(fromId: string, toId: string) {
+    if (!toId || toId === fromId) return
+    store.projects.filter(p => p.type === fromId).forEach(p => store.updateProject(p.id, { type: toId }))
+    store.demandItems.filter(d => d.type === fromId).forEach(d => store.updateDemandItem(d.id, { type: toId }))
+    setReassignFrom(null); setReassignTo('')
+  }
+
+  function saveNew() {
+    if (!newName.trim()) return
+    const dupe = store.projectTypes.some(p => p.active && p.name.toLowerCase() === newName.trim().toLowerCase())
+    if (dupe) { alert('An active Project Type with that name already exists.'); return }
+    const nextOrder = sorted.length > 0 ? sorted[sorted.length - 1].display_order + 1 : 0
+    store.addProjectType({ name: newName.trim(), display_order: nextOrder, colour_token: newToken, is_bau: false, active: true })
+    setNewName(''); setNewToken(PROJECT_TYPE_PALETTE[0].token); setShowNew(false)
+  }
+
+  function saveEdit(ptId: string) {
+    if (!editName.trim()) return
+    const dupe = store.projectTypes.some(p => p.id !== ptId && p.active && p.name.toLowerCase() === editName.trim().toLowerCase())
+    if (dupe) { alert('An active Project Type with that name already exists.'); return }
+    store.updateProjectType(ptId, { name: editName.trim(), colour_token: editToken })
+    setEditId(null)
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-near-black">Project Types ({store.projectTypes.length})</h3>
+        <Button size="sm" variant="secondary" onClick={() => setShowNew(true)}><Plus size={12} /> Add Project Type</Button>
+      </div>
+      <p className="text-xs text-gray-500 mb-4">Drag to reorder — order drives capacity-stack bottom-to-top on all charts. Inactive types remain on existing records but disappear from pickers.</p>
+
+      {showNew && (
+        <div className="border border-brand rounded-md p-3 mb-3 bg-blue-50/30 flex flex-col gap-3">
+          <Input label="Name" value={newName} onChange={e => setNewName(e.target.value)} />
+          <div><p className="text-xs text-gray-500 mb-1.5">Colour</p><SwatchPicker value={newToken} onChange={setNewToken} /></div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="primary" onClick={saveNew}>Save</Button>
+            <Button size="sm" variant="ghost" onClick={() => { setNewName(''); setShowNew(false) }}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={sorted.map(p => p.id)} strategy={verticalListSortingStrategy}>
+          <div className="flex flex-col gap-2">
+            {sorted.map(pt => (
+              <STypeRow key={pt.id} pt={pt} count={inUseCount(pt.id)}
+                isEditing={editId === pt.id} editName={editName} editToken={editToken}
+                isReassigning={reassignFrom === pt.id} reassignTo={reassignTo}
+                otherTypes={sorted.filter(p => p.id !== pt.id)}
+                onStartEdit={() => { setEditId(pt.id); setEditName(pt.name); setEditToken(pt.colour_token) }}
+                onSaveEdit={() => saveEdit(pt.id)}
+                onCancelEdit={() => setEditId(null)}
+                onEditName={setEditName}
+                onEditToken={setEditToken}
+                onToggleActive={() => store.updateProjectType(pt.id, { active: !pt.active })}
+                onDelete={() => handleDelete(pt.id)}
+                onStartReassign={() => { setReassignFrom(pt.id); setReassignTo('') }}
+                onReassignTo={setReassignTo}
+                onDoReassign={() => handleReassign(pt.id, reassignTo)}
+                onCancelReassign={() => setReassignFrom(null)}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </div>
+  )
+}
+
 // ─── Admin shell ──────────────────────────────────────────────────────────────
 
 export default function Admin() {
@@ -1033,6 +1254,7 @@ export default function Admin() {
         {tab === 'Programmes'       && <ProgrammesPanel />}
         {tab === 'Projects'         && <ProjectsPanel />}
         {tab === 'Providers'        && <ProvidersPanel />}
+        {tab === 'Project Types'    && <ProjectTypesPanel />}
         {tab === 'Reset'            && <ResetPanel />}
       </div>
     </div>
