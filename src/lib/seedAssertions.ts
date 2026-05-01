@@ -497,4 +497,138 @@ export function runSeedAssertions(): void {
       `(frozen=60h/mo, dmd_p4_dm drifted=80h/mo)`
     )
   }
+
+  // ── §6 v1.19-specific seed assertions ────────────────────────────────────
+  // These verify that the v1.19 data model is correctly embodied in the seed.
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawSeed = seedRaw as Record<string, any>
+  let v119Ok = true
+
+  // 1. Zero ProjectTeamAssignment records (§2 — Teams Assigned removed in v1.19)
+  const ptaCount = (rawSeed.project_team_assignments as unknown[])?.length ?? 0
+  if (ptaCount !== 0) {
+    console.error(`[SeedAssertion FAIL] §6 v1.19: seed contains ${ptaCount} ProjectTeamAssignment records, expected 0`)
+    v119Ok = false
+  }
+
+  // 2. Project 1 (Plant D MES Concept Study, Draft) — functions_required = [DM, GroupIT]
+  const prj1 = state.projects.find(p => p.id === 'prj_001')
+  if (!prj1) {
+    console.error('[SeedAssertion FAIL] §6 v1.19: prj_001 not found in seed')
+    v119Ok = false
+  } else {
+    const p1fr = new Set(prj1.functions_required)
+    if (!p1fr.has('func_001') || !p1fr.has('func_002')) {
+      console.error(
+        `[SeedAssertion FAIL] §6 v1.19: prj_001 functions_required=${JSON.stringify(prj1.functions_required)}, ` +
+        'expected [func_001, func_002] — Submit-for-Scoping gate test requires both Functions declared'
+      )
+      v119Ok = false
+    }
+  }
+
+  // 3. Project 2 (Plant E MES Refresh, Scoping) — functions_required = [DM] only
+  const prj2 = state.projects.find(p => p.id === 'prj_002')
+  if (!prj2) {
+    console.error('[SeedAssertion FAIL] §6 v1.19: prj_002 not found in seed')
+    v119Ok = false
+  } else {
+    if (!prj2.functions_required.includes('func_001') || prj2.functions_required.includes('func_002')) {
+      console.error(
+        `[SeedAssertion FAIL] §6 v1.19: prj_002 functions_required=${JSON.stringify(prj2.functions_required)}, ` +
+        'expected [func_001] only — demonstrates hint-not-binding behaviour'
+      )
+      v119Ok = false
+    }
+    // 4. Project 2 functions_actually_involved must include GroupIT (added during Scoping)
+    const p2fai = new Set(prj2.functions_actually_involved)
+    if (!p2fai.has('func_001') || !p2fai.has('func_002')) {
+      console.error(
+        `[SeedAssertion FAIL] §6 v1.19: prj_002 functions_actually_involved=${JSON.stringify(prj2.functions_actually_involved)}, ` +
+        'expected both func_001 and func_002 — GroupIT added during Scoping badge test'
+      )
+      v119Ok = false
+    }
+  }
+
+  // 5. Project 3 (Corporate Data Lake, Submitted) — frozen phases must be non-empty after Change 10
+  const prj3 = state.projects.find(p => p.id === 'prj_003')
+  if (!prj3 || prj3.phases.length === 0) {
+    console.error('[SeedAssertion FAIL] §6 v1.19: prj_003 has no frozen phases — Change 10 seed rebuild incomplete')
+    v119Ok = false
+  }
+
+  // 6. Project 4 (Plant C MES Platform Migration, Approved) — functions_required non-empty (frozen at Submit)
+  if (prj4 && prj4.functions_required.length === 0) {
+    console.error('[SeedAssertion FAIL] §6 v1.19: prj_004 functions_required is empty — should be frozen at Submit with DM + GroupIT')
+    v119Ok = false
+  }
+
+  // 7. Project 3 external Function-tag routing — DM Demand carries DM-tagged ext, GroupIT carries GroupIT-tagged ext
+  const p3dmDemand = state.demandItems.find(d => d.id === 'dmd_p3_dm')
+  const p3gitDemand = state.demandItems.find(d => d.id === 'dmd_p3_git')
+  if (!p3dmDemand || !p3gitDemand) {
+    console.error('[SeedAssertion FAIL] §6 v1.19: dmd_p3_dm or dmd_p3_git not found in seed')
+    v119Ok = false
+  } else {
+    const p3dmPhaseIds = new Set(p3dmDemand.phases.map(ph => ph.id))
+    const p3gitPhaseIds = new Set(p3gitDemand.phases.map(ph => ph.id))
+    const p3dmExts = state.externalResourceRequirements.filter(e => p3dmPhaseIds.has(e.phase_id))
+    const p3gitExts = state.externalResourceRequirements.filter(e => p3gitPhaseIds.has(e.phase_id))
+    if (!p3dmExts.some(e => e.function_tag === 'func_001')) {
+      console.error('[SeedAssertion FAIL] §6 v1.19: dmd_p3_dm has no external req with function_tag=func_001 (DM-tagged Contractor expected)')
+      v119Ok = false
+    }
+    if (!p3gitExts.some(e => e.function_tag === 'func_002')) {
+      console.error('[SeedAssertion FAIL] §6 v1.19: dmd_p3_git has no external req with function_tag=func_002 (GroupIT-tagged OEM expected)')
+      v119Ok = false
+    }
+  }
+
+  // 8. Direct Demand D3 external function_tag auto-set to demand's function_id
+  const d3 = state.demandItems.find(d => d.id === 'dmd_d3')
+  if (d3) {
+    const d3PhaseIds = new Set(d3.phases.map(ph => ph.id))
+    const d3Exts = state.externalResourceRequirements.filter(e => d3PhaseIds.has(e.phase_id))
+    for (const ext of d3Exts) {
+      if (ext.function_tag !== d3.function_id) {
+        console.error(
+          `[SeedAssertion FAIL] §6 v1.19: D3 external ${ext.id} has function_tag="${ext.function_tag}" ` +
+          `but demand function_id="${d3.function_id}" — direct Demand externals must be auto-tagged`
+        )
+        v119Ok = false
+      }
+    }
+  }
+
+  // 9. Project 4 DM and GroupIT Demands each have their own independent phases
+  const p4dm = state.demandItems.find(d => d.parent_project_id === 'prj_004' && d.function_id === 'func_001')
+  const p4git = state.demandItems.find(d => d.parent_project_id === 'prj_004' && d.function_id === 'func_002')
+  if (!p4dm || !p4git) {
+    console.error('[SeedAssertion FAIL] §6 v1.19: Project 4 DM or GroupIT Demand not found')
+    v119Ok = false
+  } else {
+    if (p4dm.phases.length === 0) {
+      console.error('[SeedAssertion FAIL] §6 v1.19: prj_004 DM Demand has zero phases — materialisation incomplete')
+      v119Ok = false
+    }
+    if (p4git.phases.length === 0) {
+      console.error('[SeedAssertion FAIL] §6 v1.19: prj_004 GroupIT Demand has zero phases — materialisation incomplete')
+      v119Ok = false
+    }
+    // Verify sibling count: each sibling sees the other
+    const p4Siblings = state.demandItems.filter(d => d.parent_project_id === 'prj_004')
+    if (p4Siblings.length !== 2) {
+      console.error(`[SeedAssertion FAIL] §6 v1.19: prj_004 has ${p4Siblings.length} child Demands, expected exactly 2 (DM + GroupIT)`)
+      v119Ok = false
+    }
+  }
+
+  if (v119Ok) {
+    console.info(
+      '[SeedAssertions] §6 v1.19-specific invariants passed ✓ ' +
+      '(zero PTAs, functions_required/involved, frozen phases, ext routing, drift)'
+    )
+  }
 }
