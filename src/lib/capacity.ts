@@ -6,7 +6,7 @@
  * Section reference: REQUIREMENTS.md §2.4
  */
 
-import type { AppState, DemandItem, DemandStatus, FundingSource, Level, Phase, Requirement, SkillRequirement } from '../types'
+import type { AppState, DemandItem, DemandStatus, FundingSource, Level, Activity, Requirement, SkillRequirement } from '../types'
 import { monthInRange, typeToBreakdownKey, DemandBreakdown } from '../utils/capacity'
 export type { DemandBreakdown }
 
@@ -21,17 +21,17 @@ function meetsLevel(held: Level, required: Level): boolean {
   return LEVEL_ORDER[held] >= LEVEL_ORDER[required]
 }
 
-function reqHoursForMonth(req: SkillRequirement, phase: Phase, month: string): number {
-  if (phase.end_month === null) return req.steady_state_hours ?? 0
+function reqHoursForMonth(req: SkillRequirement, activity: Activity, month: string): number {
+  if (activity.end_month === null) return req.steady_state_hours ?? 0
   return req.hours_by_month[month] ?? 0
 }
 
 function allocHoursForMonth(
   alloc: { hours_by_month: Record<string, number>; steady_state_hours?: number | null },
-  phase: Phase,
+  activity: Activity,
   month: string
 ): number {
-  if (phase.end_month === null) return alloc.steady_state_hours ?? 0
+  if (activity.end_month === null) return alloc.steady_state_hours ?? 0
   return alloc.hours_by_month[month] ?? 0
 }
 
@@ -43,12 +43,12 @@ export function real_committed_hours(personId: string, month: string, state: App
   let total = 0
   for (const item of state.demandItems) {
     if (!REAL_STATUSES.has(item.status)) continue
-    for (const phase of item.phases) {
-      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-      for (const req of phase.requirements) {
+    for (const activity of item.activities) {
+      if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+      for (const req of activity.requirements) {
         for (const alloc of req.allocations) {
           if (alloc.person_id === personId) {
-            total += allocHoursForMonth(alloc, phase, month)
+            total += allocHoursForMonth(alloc, activity, month)
           }
         }
       }
@@ -88,13 +88,13 @@ export function domain_capacity(domainId: string, month: string, state: AppState
     let otherCommitted = 0
     for (const item of state.demandItems) {
       if (!REAL_STATUSES.has(item.status)) continue
-      for (const phase of item.phases) {
-        if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-        for (const req of phase.requirements) {
+      for (const activity of item.activities) {
+        if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+        for (const req of activity.requirements) {
           if (domainSkillIds.has(req.skill_id)) continue  // skip this domain's skills
           for (const alloc of req.allocations) {
             if (alloc.person_id === person.id) {
-              otherCommitted += allocHoursForMonth(alloc, phase, month)
+              otherCommitted += allocHoursForMonth(alloc, activity, month)
             }
           }
         }
@@ -121,13 +121,13 @@ export function skill_capacity(skillId: string, month: string, state: AppState, 
     let otherCommitted = 0
     for (const item of state.demandItems) {
       if (!REAL_STATUSES.has(item.status)) continue
-      for (const phase of item.phases) {
-        if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-        for (const req of phase.requirements) {
+      for (const activity of item.activities) {
+        if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+        for (const req of activity.requirements) {
           if (req.skill_id === skillId) continue  // skip this skill
           for (const alloc of req.allocations) {
             if (alloc.person_id === person.id) {
-              otherCommitted += allocHoursForMonth(alloc, phase, month)
+              otherCommitted += allocHoursForMonth(alloc, activity, month)
             }
           }
         }
@@ -170,12 +170,12 @@ export function demand_hours_for(
     const key = typeToBreakdownKey(item.type, state.projectTypes)
     if (!key) continue
 
-    for (const phase of item.phases) {
-      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-      for (const req of phase.requirements) {
+    for (const activity of item.activities) {
+      if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+      for (const req of activity.requirements) {
         if (target.type === 'domain' && domainSkillIds && !domainSkillIds.has(req.skill_id)) continue
         if (target.type === 'skill' && req.skill_id !== target.id) continue
-        out[key] += reqHoursForMonth(req, phase, month)
+        out[key] += reqHoursForMonth(req, activity, month)
       }
     }
   }
@@ -263,18 +263,18 @@ export function computeProjection(
       if (isOverlay && item.status !== 'Submitted') continue
       if (!isOverlay && item.status !== 'Approved' && item.status !== 'PartiallyAllocated') continue
 
-      for (const phase of item.phases) {
-        if (!monthInRange(month, phase.start_month, phase.end_month)) continue
+      for (const activity of item.activities) {
+        if (!monthInRange(month, activity.start_month, activity.end_month)) continue
 
-        for (const req of phase.requirements) {
-          const targetH = reqHoursForMonth(req, phase, month)
+        for (const req of activity.requirements) {
+          const targetH = reqHoursForMonth(req, activity, month)
           if (targetH <= 0) continue
 
           // Unallocated hours for this requirement-month
           let allocH = 0
           if (!isOverlay) {
             for (const alloc of req.allocations) {
-              allocH += allocHoursForMonth(alloc, phase, month)
+              allocH += allocHoursForMonth(alloc, activity, month)
             }
           }
           const unallocH = Math.max(0, targetH - allocH)
@@ -434,7 +434,7 @@ export function function_capacity(functionId: string, month: string, state: AppS
 
 // ─── §2.4.9 Programme / Project roll-up aggregation ─────────────────────────
 //
-// Consistency rule: no view iterates over Demands/Phases/Requirements to
+// Consistency rule: no view iterates over Demands/Activities/Requirements to
 // compute roll-ups. Every roll-up must call one of these functions.
 // External requirements are never included in internal-hour totals.
 
@@ -444,20 +444,20 @@ const ACTIVE_FOR_EXTERNAL_STATUSES = new Set<DemandStatus>([
 
 function extHoursForMonth(
   ext: import('../types').ExternalResourceRequirement,
-  parentPhase: { end_month: string | null },
+  parentActivity: { end_month: string | null },
   month: string
 ): number {
-  if (parentPhase.end_month === null) return ext.steady_state_hours ?? 0
+  if (parentActivity.end_month === null) return ext.steady_state_hours ?? 0
   return ext.hours_by_month[month] ?? 0
 }
 
-function phaseContainsMonth(phase: Phase, month: string): boolean {
-  return monthInRange(month, phase.start_month, phase.end_month)
+function activityContainsMonth(activity: Activity, month: string): boolean {
+  return monthInRange(month, activity.start_month, activity.end_month)
 }
 
 // 1. project_internal_hours — sum of internal skill-shaped requirement target hours
-//    on this Project's phases, scoped to Functions whose child Demands are in REAL_STATUSES.
-//    Falls back to DemandItem phases when Project.phases is empty (pre-seed-rebuild).
+//    on this Project's activities, scoped to Functions whose child Demands are in REAL_STATUSES.
+//    Falls back to DemandItem activities when Project.activities is empty (pre-seed-rebuild).
 export function project_internal_hours(
   project_id: string,
   month: string,
@@ -466,8 +466,8 @@ export function project_internal_hours(
   const project = state.projects.find(p => p.id === project_id)
   if (!project) return 0
 
-  if (project.phases.length > 0) {
-    // v1.18: phases live on Project; filter by Function's child-Demand status
+  if (project.activities.length > 0) {
+    // v1.18: activities live on Project; filter by Function's child-Demand status
     const fnStatus = new Map<string, DemandStatus>()
     for (const d of state.demandItems) {
       if (d.parent_project_id === project_id) fnStatus.set(d.function_id, d.status)
@@ -475,37 +475,37 @@ export function project_internal_hours(
     const domFn = new Map(state.domains.map(d => [d.id, d.functionId]))
     const sklFn = new Map(state.skills.map(s => [s.id, domFn.get(s.domain_id) ?? '']))
     let total = 0
-    for (const phase of project.phases) {
-      if (!phaseContainsMonth(phase, month)) continue
-      for (const req of phase.requirements) {
+    for (const activity of project.activities) {
+      if (!activityContainsMonth(activity, month)) continue
+      for (const req of activity.requirements) {
         const fnId = sklFn.get(req.skill_id)
         if (!fnId) continue
         const ds = fnStatus.get(fnId)
         if (!ds || !REAL_STATUSES.has(ds)) continue
-        total += reqHoursForMonth(req, phase, month)
+        total += reqHoursForMonth(req, activity, month)
       }
     }
     return total
   }
 
-  // Legacy fallback: phases still on DemandItems (pre-seed-rebuild)
+  // Legacy fallback: activities still on DemandItems (pre-seed-rebuild)
   let total = 0
   for (const item of state.demandItems) {
     if (item.parent_project_id !== project_id) continue
     if (!REAL_STATUSES.has(item.status)) continue
-    for (const phase of item.phases) {
-      if (!phaseContainsMonth(phase, month)) continue
-      for (const req of phase.requirements) {
-        total += reqHoursForMonth(req, phase, month)
+    for (const activity of item.activities) {
+      if (!activityContainsMonth(activity, month)) continue
+      for (const req of activity.requirements) {
+        total += reqHoursForMonth(req, activity, month)
       }
     }
   }
   return total
 }
 
-// 2. project_external_hours — sum of external requirement hours on this Project's phases.
+// 2. project_external_hours — sum of external requirement hours on this Project's activities.
 //    External hours are independent of Demand status; any non-deleted Project contributes.
-//    Falls back to DemandItem phases when Project.phases is empty (pre-seed-rebuild).
+//    Falls back to DemandItem activities when Project.activities is empty (pre-seed-rebuild).
 export function project_external_hours(
   project_id: string,
   month: string,
@@ -514,34 +514,34 @@ export function project_external_hours(
   const project = state.projects.find(p => p.id === project_id)
   if (!project) return 0
 
-  if (project.phases.length > 0) {
-    // v1.18: external reqs linked to Project phases
-    const phaseById = new Map(project.phases.map(ph => [ph.id, ph]))
+  if (project.activities.length > 0) {
+    // v1.18: external reqs linked to Project activities
+    const activityById = new Map(project.activities.map(ac => [ac.id, ac]))
     let total = 0
     for (const ext of state.externalResourceRequirements) {
-      const phase = phaseById.get(ext.phase_id)
-      if (!phase || !phaseContainsMonth(phase, month)) continue
-      total += extHoursForMonth(ext, phase, month)
+      const activity = activityById.get(ext.activity_id)
+      if (!activity || !activityContainsMonth(activity, month)) continue
+      total += extHoursForMonth(ext, activity, month)
     }
     return total
   }
 
-  // Legacy fallback: external reqs linked to DemandItem phases
-  const phaseToItem = new Map<string, DemandItem>()
+  // Legacy fallback: external reqs linked to DemandItem activities
+  const activityToItem = new Map<string, DemandItem>()
   for (const item of state.demandItems) {
-    for (const phase of item.phases) {
-      phaseToItem.set(phase.id, item)
+    for (const activity of item.activities) {
+      activityToItem.set(activity.id, item)
     }
   }
   let total = 0
   for (const ext of state.externalResourceRequirements) {
-    const item = phaseToItem.get(ext.phase_id)
+    const item = activityToItem.get(ext.activity_id)
     if (!item) continue
     if (item.parent_project_id !== project_id) continue
     if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
-    const phase = item.phases.find(p => p.id === ext.phase_id)
-    if (!phase || !phaseContainsMonth(phase, month)) continue
-    total += extHoursForMonth(ext, phase, month)
+    const activity = item.activities.find(ac => ac.id === ext.activity_id)
+    if (!activity || !activityContainsMonth(activity, month)) continue
+    total += extHoursForMonth(ext, activity, month)
   }
   return total
 }
@@ -558,33 +558,33 @@ export function project_external_hours_by_provider(
 
   const result: Record<string, number> = {}
 
-  if (project.phases.length > 0) {
-    // v1.18: external reqs linked to Project phases
-    const phaseById = new Map(project.phases.map(ph => [ph.id, ph]))
+  if (project.activities.length > 0) {
+    // v1.18: external reqs linked to Project activities
+    const activityById = new Map(project.activities.map(ac => [ac.id, ac]))
     for (const ext of state.externalResourceRequirements) {
-      const phase = phaseById.get(ext.phase_id)
-      if (!phase || !phaseContainsMonth(phase, month)) continue
-      const h = extHoursForMonth(ext, phase, month)
+      const activity = activityById.get(ext.activity_id)
+      if (!activity || !activityContainsMonth(activity, month)) continue
+      const h = extHoursForMonth(ext, activity, month)
       result[ext.provider_id] = (result[ext.provider_id] ?? 0) + h
     }
     return result
   }
 
-  // Legacy fallback: external reqs linked to DemandItem phases
-  const phaseToItem = new Map<string, DemandItem>()
+  // Legacy fallback: external reqs linked to DemandItem activities
+  const activityToItem = new Map<string, DemandItem>()
   for (const item of state.demandItems) {
-    for (const phase of item.phases) {
-      phaseToItem.set(phase.id, item)
+    for (const activity of item.activities) {
+      activityToItem.set(activity.id, item)
     }
   }
   for (const ext of state.externalResourceRequirements) {
-    const item = phaseToItem.get(ext.phase_id)
+    const item = activityToItem.get(ext.activity_id)
     if (!item) continue
     if (item.parent_project_id !== project_id) continue
     if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
-    const phase = item.phases.find(p => p.id === ext.phase_id)
-    if (!phase || !phaseContainsMonth(phase, month)) continue
-    const h = extHoursForMonth(ext, phase, month)
+    const activity = item.activities.find(ac => ac.id === ext.activity_id)
+    if (!activity || !activityContainsMonth(activity, month)) continue
+    const h = extHoursForMonth(ext, activity, month)
     result[ext.provider_id] = (result[ext.provider_id] ?? 0) + h
   }
   return result
@@ -663,10 +663,10 @@ export function unaligned_demand_hours(
     for (const item of state.demandItems) {
       if (item.parent_project_id !== null) continue
       if (!REAL_STATUSES.has(item.status)) continue
-      for (const phase of item.phases) {
-        if (!phaseContainsMonth(phase, month)) continue
-        for (const req of phase.requirements) {
-          total += reqHoursForMonth(req, phase, month)
+      for (const activity of item.activities) {
+        if (!activityContainsMonth(activity, month)) continue
+        for (const req of activity.requirements) {
+          total += reqHoursForMonth(req, activity, month)
         }
       }
     }
@@ -674,22 +674,22 @@ export function unaligned_demand_hours(
   }
 
   // external kind
-  const phaseToItem = new Map<string, DemandItem>()
+  const activityToItem = new Map<string, DemandItem>()
   for (const item of state.demandItems) {
-    for (const phase of item.phases) {
-      phaseToItem.set(phase.id, item)
+    for (const activity of item.activities) {
+      activityToItem.set(activity.id, item)
     }
   }
 
   let total = 0
   for (const ext of state.externalResourceRequirements) {
-    const item = phaseToItem.get(ext.phase_id)
+    const item = activityToItem.get(ext.activity_id)
     if (!item) continue
     if (item.parent_project_id !== null) continue
     if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
-    const phase = item.phases.find(p => p.id === ext.phase_id)
-    if (!phase || !phaseContainsMonth(phase, month)) continue
-    total += extHoursForMonth(ext, phase, month)
+    const activity = item.activities.find(ac => ac.id === ext.activity_id)
+    if (!activity || !activityContainsMonth(activity, month)) continue
+    total += extHoursForMonth(ext, activity, month)
   }
   return total
 }
@@ -708,10 +708,10 @@ export function direct_demand_internal_hours(
     if (d.parent_project_id !== null) continue
     if (!REAL_STATUSES.has(d.status)) continue
     if (opts.function_id && d.function_id !== opts.function_id) continue
-    for (const phase of d.phases) {
-      if (!phaseContainsMonth(phase, month)) continue
-      for (const req of phase.requirements) {
-        total += reqHoursForMonth(req, phase, month)
+    for (const activity of d.activities) {
+      if (!activityContainsMonth(activity, month)) continue
+      for (const req of activity.requirements) {
+        total += reqHoursForMonth(req, activity, month)
       }
     }
   }
@@ -725,20 +725,20 @@ export function direct_demand_external_hours(
   opts: { function_id?: string },
   state: AppState
 ): number {
-  const phaseToItem = new Map<string, DemandItem>()
+  const activityToItem = new Map<string, DemandItem>()
   for (const d of state.demandItems) {
     if (d.parent_project_id !== null) continue
     if (opts.function_id && d.function_id !== opts.function_id) continue
-    for (const phase of d.phases) phaseToItem.set(phase.id, d)
+    for (const activity of d.activities) activityToItem.set(activity.id, d)
   }
   let total = 0
   for (const ext of state.externalResourceRequirements) {
-    const item = phaseToItem.get(ext.phase_id)
+    const item = activityToItem.get(ext.activity_id)
     if (!item) continue
     if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
-    const phase = item.phases.find(p => p.id === ext.phase_id)
-    if (!phase || !phaseContainsMonth(phase, month)) continue
-    total += extHoursForMonth(ext, phase, month)
+    const activity = item.activities.find(ac => ac.id === ext.activity_id)
+    if (!activity || !activityContainsMonth(activity, month)) continue
+    total += extHoursForMonth(ext, activity, month)
   }
   return total
 }
@@ -762,27 +762,27 @@ export function direct_demand_by_funding(
     if (d.parent_project_id !== null) continue
     if (!opts.status_set.has(d.status)) continue
     if (opts.function_id && d.function_id !== opts.function_id) continue
-    for (const phase of d.phases) {
-      if (!phaseContainsMonth(phase, month)) continue
-      for (const req of phase.requirements) {
-        result[phase.funding_source] += reqHoursForMonth(req, phase, month)
+    for (const activity of d.activities) {
+      if (!activityContainsMonth(activity, month)) continue
+      for (const req of activity.requirements) {
+        result[activity.funding_source] += reqHoursForMonth(req, activity, month)
       }
     }
   }
 
   if (opts.include_external) {
-    const phaseToItem = new Map<string, { item: DemandItem; phase: Phase }>()
+    const activityToItem = new Map<string, { item: DemandItem; activity: Activity }>()
     for (const d of state.demandItems) {
       if (d.parent_project_id !== null) continue
       if (opts.function_id && d.function_id !== opts.function_id) continue
-      for (const phase of d.phases) phaseToItem.set(phase.id, { item: d, phase })
+      for (const activity of d.activities) activityToItem.set(activity.id, { item: d, activity })
     }
     for (const ext of state.externalResourceRequirements) {
-      const entry = phaseToItem.get(ext.phase_id)
+      const entry = activityToItem.get(ext.activity_id)
       if (!entry) continue
       if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(entry.item.status)) continue
-      if (!phaseContainsMonth(entry.phase, month)) continue
-      result[entry.phase.funding_source] += extHoursForMonth(ext, entry.phase, month)
+      if (!activityContainsMonth(entry.activity, month)) continue
+      result[entry.activity.funding_source] += extHoursForMonth(ext, entry.activity, month)
     }
   }
 
@@ -809,7 +809,7 @@ export function unaligned_project_hours(
 // sibling Demand is in status_set.
 //
 // Falls back to v1.17 behavior (Demands touching active Function via skill requirements)
-// when Project.phases is empty (pre-seed-rebuild).
+// when Project.activities is empty (pre-seed-rebuild).
 //
 // Direct Demands are excluded — they are not on shared Projects by definition.
 //
@@ -846,16 +846,16 @@ export function crossFunctionDemandHours(
     if (!projectsWithActive.has(project.id)) continue
     const fnStatus = projectFnStatus.get(project.id)!
 
-    if (project.phases.length > 0) {
-      // Walk Project phases (frozen planning record for Submitted+ Projects)
-      for (const phase of project.phases) {
-        if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-        for (const req of phase.requirements) {
+    if (project.activities.length > 0) {
+      // Walk Project activities (frozen planning record for Submitted+ Projects)
+      for (const activity of project.activities) {
+        if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+        for (const req of activity.requirements) {
           const reqFnId = sklFn.get(req.skill_id)
           if (!reqFnId || reqFnId === activeFunctionId) continue
           const ds = fnStatus.get(reqFnId)
           if (!ds || !statusSet.has(ds)) continue
-          const hours = reqHoursForMonth(req, phase, month)
+          const hours = reqHoursForMonth(req, activity, month)
           if (hours <= 0) continue
           result[reqFnId] = (result[reqFnId] ?? 0) + hours
         }
@@ -865,12 +865,12 @@ export function crossFunctionDemandHours(
       for (const d of state.demandItems) {
         if (d.parent_project_id !== project.id) continue
         if (!statusSet.has(d.status)) continue
-        for (const phase of d.phases) {
-          if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-          for (const req of phase.requirements) {
+        for (const activity of d.activities) {
+          if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+          for (const req of activity.requirements) {
             const reqFnId = sklFn.get(req.skill_id)
             if (!reqFnId || reqFnId === activeFunctionId) continue
-            const hours = reqHoursForMonth(req, phase, month)
+            const hours = reqHoursForMonth(req, activity, month)
             if (hours <= 0) continue
             result[reqFnId] = (result[reqFnId] ?? 0) + hours
           }
@@ -913,8 +913,8 @@ export function project_demand_by_funding(
   const project = state.projects.find(p => p.id === project_id)
   if (!project) return result
 
-  if (project.phases.length > 0) {
-    // v1.18: phases on Project; filter by Function's child-Demand status
+  if (project.activities.length > 0) {
+    // v1.18: activities on Project; filter by Function's child-Demand status
     const fnStatus = new Map<string, DemandStatus>()
     for (const d of state.demandItems) {
       if (d.parent_project_id === project_id) fnStatus.set(d.function_id, d.status)
@@ -922,9 +922,9 @@ export function project_demand_by_funding(
     const domFn = new Map(state.domains.map(d => [d.id, d.functionId]))
     const sklFn = new Map(state.skills.map(s => [s.id, domFn.get(s.domain_id) ?? '']))
 
-    for (const phase of project.phases) {
-      if (!phaseContainsMonth(phase, month)) continue
-      for (const req of phase.requirements) {
+    for (const activity of project.activities) {
+      if (!activityContainsMonth(activity, month)) continue
+      for (const req of activity.requirements) {
         const reqFnId = sklFn.get(req.skill_id)
         if (!reqFnId) continue
         const ds = fnStatus.get(reqFnId)
@@ -932,46 +932,46 @@ export function project_demand_by_funding(
         const isActive = !opts.function_id || reqFnId === opts.function_id
         const isOther = opts.function_id && reqFnId !== opts.function_id
         if (isActive || (isOther && opts.include_other_functions)) {
-          result[phase.funding_source] += reqHoursForMonth(req, phase, month)
+          result[activity.funding_source] += reqHoursForMonth(req, activity, month)
         }
       }
       if (opts.include_external) {
         for (const ext of state.externalResourceRequirements) {
-          if (ext.phase_id !== phase.id) continue
-          result[phase.funding_source] += extHoursForMonth(ext, phase, month)
+          if (ext.activity_id !== activity.id) continue
+          result[activity.funding_source] += extHoursForMonth(ext, activity, month)
         }
       }
     }
     return result
   }
 
-  // Legacy fallback: phases on DemandItems
+  // Legacy fallback: activities on DemandItems
   for (const item of state.demandItems) {
     if (item.parent_project_id !== project_id) continue
     if (!opts.status_set.has(item.status)) continue
     if (opts.function_id && item.function_id !== opts.function_id) continue
-    for (const phase of item.phases) {
-      if (!phaseContainsMonth(phase, month)) continue
-      for (const req of phase.requirements) {
-        result[phase.funding_source] += reqHoursForMonth(req, phase, month)
+    for (const activity of item.activities) {
+      if (!activityContainsMonth(activity, month)) continue
+      for (const req of activity.requirements) {
+        result[activity.funding_source] += reqHoursForMonth(req, activity, month)
       }
     }
   }
   // Legacy: include externals when function_id not specified (preserves v1.17 chart behavior)
   //         or when include_external is explicitly true
   if (opts.include_external || !opts.function_id) {
-    const phaseMap = new Map<string, { phase: Phase; item: DemandItem }>()
+    const activityMap = new Map<string, { activity: Activity; item: DemandItem }>()
     for (const item of state.demandItems) {
       if (item.parent_project_id !== project_id) continue
-      for (const phase of item.phases) phaseMap.set(phase.id, { phase, item })
+      for (const activity of item.activities) activityMap.set(activity.id, { activity, item })
     }
     for (const ext of state.externalResourceRequirements) {
-      const entry = phaseMap.get(ext.phase_id)
+      const entry = activityMap.get(ext.activity_id)
       if (!entry) continue
-      const { phase, item } = entry
+      const { activity, item } = entry
       if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
-      if (!phaseContainsMonth(phase, month)) continue
-      result[phase.funding_source] += extHoursForMonth(ext, phase, month)
+      if (!activityContainsMonth(activity, month)) continue
+      result[activity.funding_source] += extHoursForMonth(ext, activity, month)
     }
   }
   return result
@@ -1043,7 +1043,7 @@ export function checkInvariants(
         ...state,
         demandItems: state.demandItems.map(d =>
           d.id === overlayItemId
-            ? { ...d, status: 'Approved' as DemandStatus, phases: d.phases.map(ph => ({ ...ph, requirements: ph.requirements.map(r => ({ ...r, allocations: [] })) })) }
+            ? { ...d, status: 'Approved' as DemandStatus, activities: d.activities.map(ac => ({ ...ac, requirements: ac.requirements.map(r => ({ ...r, allocations: [] })) })) }
             : d
         ),
       }

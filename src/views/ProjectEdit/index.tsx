@@ -10,11 +10,11 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
-import type { Project, ProjectStatus, ExternalResourceRequirement, Phase } from '../../types'
+import type { Project, ProjectStatus, ExternalResourceRequirement, Activity } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { Input, Select, Textarea } from '../../components/ui/FormFields'
 import { ProjectStatusBadge } from '../../components/ui/Badge'
-import { PhaseEditor, blankPhase, PhaseGantt } from '../DemandEdit/ModeAEditor'
+import { ActivityEditor, blankActivity, ActivityGantt } from '../DemandEdit/ModeAEditor'
 import { SubmitProjectDialog } from '../../components/SubmitProjectDialog'
 
 
@@ -26,7 +26,7 @@ function blankProject(): Omit<Project, 'id'> {
     description: '',
     programme_id: null,
     status: 'Draft',
-    phases: [],
+    activities: [],
     active: true,
     functions_required: [],
     functions_actually_involved: [],
@@ -55,10 +55,10 @@ function ProgrammePicker({ value, onChange, disabled }: { value: string | null; 
   )
 }
 
-// ─── Project phase wrapper ────────────────────────────────────────────────────
+// ─── Project activity wrapper ─────────────────────────────────────────────────
 
-function ProjectPhaseEditor({
-  phase,
+function ProjectActivityEditor({
+  activity,
   index,
   projectStatus,
   onChange,
@@ -66,10 +66,10 @@ function ProjectPhaseEditor({
   extReqs,
   onExtReqsChange,
 }: {
-  phase: Phase
+  activity: Activity
   index: number
   projectStatus: ProjectStatus
-  onChange: (p: Phase) => void
+  onChange: (p: Activity) => void
   onDelete: () => void
   extReqs: ExternalResourceRequirement[]
   onExtReqsChange: (r: ExternalResourceRequirement[]) => void
@@ -80,24 +80,24 @@ function ProjectPhaseEditor({
     <div className="border-2 border-border rounded-lg overflow-hidden">
       <div className="px-4 py-3 bg-gray-100 border-b border-border">
         <h3 className="text-sm font-semibold text-near-black">
-          Phase {index + 1}{phase.name ? ` · ${phase.name}` : ''}{' '}
+          Activity {index + 1}{activity.name ? ` · ${activity.name}` : ''}{' '}
           <span className="font-normal text-gray-500">
-            {phase.end_month === null
-              ? `${phase.start_month || '?'} → ongoing`
-              : `${phase.start_month || '?'} – ${phase.end_month || '?'}`}
+            {activity.end_month === null
+              ? `${activity.start_month || '?'} → ongoing`
+              : `${activity.start_month || '?'} – ${activity.end_month || '?'}`}
           </span>
         </h3>
       </div>
       <div className="px-4 py-3 flex flex-col gap-3">
-        <PhaseEditor
-          phase={phase}
+        <ActivityEditor
+          activity={activity}
           index={index}
           onChange={onChange}
           onDelete={onDelete}
           extReqs={showRequirements ? extReqs : []}
           onExtReqsChange={showRequirements ? onExtReqsChange : () => undefined}
           showRequirements={showRequirements}
-          functionScopeId={null}           // Project Scoping: full Skill catalogue across all Functions
+          functionScopeId={null}             // Project Scoping: full Skill catalogue across all Functions
           showFunctionTagPicker={showRequirements}  // Function tag picker on ext reqs in Scoping
         />
       </div>
@@ -122,12 +122,12 @@ export default function ProjectEdit() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
 
-  // External requirements state keyed by phase_id
-  const [extReqsByPhase, setExtReqsByPhase] = useState<Record<string, ExternalResourceRequirement[]>>(() => {
+  // External requirements state keyed by activity_id
+  const [extReqsByActivity, setExtReqsByActivity] = useState<Record<string, ExternalResourceRequirement[]>>(() => {
     if (!existing) return {}
     const result: Record<string, ExternalResourceRequirement[]> = {}
-    for (const phase of existing.phases) {
-      result[phase.id] = store.externalResourceRequirements.filter(r => r.phase_id === phase.id)
+    for (const activity of existing.activities) {
+      result[activity.id] = store.externalResourceRequirements.filter(r => r.activity_id === activity.id)
     }
     return result
   })
@@ -150,14 +150,14 @@ export default function ProjectEdit() {
       store.addProject(draft)
     } else if (id) {
       store.updateProject(id, draft)
-      // Sync external requirements for project phases
-      const phaseIds = new Set(draft.phases.map(p => p.id))
+      // Sync external requirements for project activities
+      const activityIds = new Set(draft.activities.map(ac => ac.id))
       for (const ext of store.externalResourceRequirements) {
-        if (phaseIds.has(ext.phase_id)) store.deleteExternalRequirement(ext.id)
+        if (activityIds.has(ext.activity_id)) store.deleteExternalRequirement(ext.id)
       }
-      for (const [, reqs] of Object.entries(extReqsByPhase)) {
+      for (const [, reqs] of Object.entries(extReqsByActivity)) {
         for (const req of reqs) {
-          if (phaseIds.has(req.phase_id)) store.addExternalRequirement({ ...req })
+          if (activityIds.has(req.activity_id)) store.addExternalRequirement({ ...req })
         }
       }
     }
@@ -199,19 +199,19 @@ export default function ProjectEdit() {
     setSubmitError(null)
   }
 
-  const updatePhase = (phaseId: string, p: Phase) =>
-    update(d => ({ ...d, phases: d.phases.map(x => x.id === phaseId ? p : x) }))
-  const deletePhase = (phaseId: string) =>
-    update(d => ({ ...d, phases: d.phases.filter(x => x.id !== phaseId) }))
-  const addPhase = () =>
-    update(d => ({ ...d, phases: [...d.phases, blankPhase()] }))
+  const updateActivity = (activityId: string, p: Activity) =>
+    update(d => ({ ...d, activities: d.activities.map(x => x.id === activityId ? p : x) }))
+  const deleteActivity = (activityId: string) =>
+    update(d => ({ ...d, activities: d.activities.filter(x => x.id !== activityId) }))
+  const addActivity = () =>
+    update(d => ({ ...d, activities: [...d.activities, blankActivity()] }))
 
   // Derived: Functions involved from requirements
   const domFn = new Map(store.domains.map(d => [d.id, d.functionId]))
   const sklFn = new Map(store.skills.map(s => [s.id, domFn.get(s.domain_id)]))
   const fnIds = new Set<string>()
-  for (const phase of draft.phases) {
-    for (const req of phase.requirements) {
+  for (const activity of draft.activities) {
+    for (const req of activity.requirements) {
       const fnId = sklFn.get(req.skill_id)
       if (fnId) fnIds.add(fnId)
     }
@@ -220,9 +220,9 @@ export default function ProjectEdit() {
 
   const childDemands = id ? store.demandItems.filter(d => d.parent_project_id === id) : []
 
-  // Gate hints — Submit for Scoping requires ≥1 phase AND ≥1 Function in functions_required
+  // Gate hints — Submit for Scoping requires ≥1 activity AND ≥1 Function in functions_required
   const submitHint = id && draft.status === 'Draft' ? (() => {
-    if (draft.phases.length === 0) return 'Add at least one phase.'
+    if (draft.activities.length === 0) return 'Add at least one activity.'
     if (draft.functions_required.length === 0) return 'Add at least one Function to Functions Required.'
     return null
   })() : null
@@ -417,24 +417,24 @@ export default function ProjectEdit() {
             </div>
           )}
 
-          {/* Phases — editable in Draft/Scoping, read-only summary in Submitted+ (§4.6.A v1.19) */}
-          {isReadOnly && draft.phases.length > 0 && (
+          {/* Activities — editable in Draft/Scoping, read-only summary in Submitted+ (§4.6.A v1.19) */}
+          {isReadOnly && draft.activities.length > 0 && (
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Phases (frozen planning record)</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Activities (frozen planning record)</h3>
               <div className="flex flex-col gap-1.5">
-                {draft.phases.map((ph, i) => {
-                  const extCount = (extReqsByPhase[ph.id] ?? []).length
+                {draft.activities.map((ac, i) => {
+                  const extCount = (extReqsByActivity[ac.id] ?? []).length
                   return (
-                    <div key={ph.id} className="border border-border rounded-md px-3 py-2 text-xs bg-gray-50">
+                    <div key={ac.id} className="border border-border rounded-md px-3 py-2 text-xs bg-gray-50">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">Phase {i + 1}{ph.name ? ` · ${ph.name}` : ''}</span>
+                        <span className="font-medium">Activity {i + 1}{ac.name ? ` · ${ac.name}` : ''}</span>
                         <span className="text-gray-400">
-                          {ph.end_month === null ? `${ph.start_month} → ongoing` : `${ph.start_month} – ${ph.end_month}`}
+                          {ac.end_month === null ? `${ac.start_month} → ongoing` : `${ac.start_month} – ${ac.end_month}`}
                         </span>
                       </div>
-                      <div className="text-gray-500 mt-0.5">{ph.funding_source}{ph.funding_notes ? ` — ${ph.funding_notes}` : ''}</div>
+                      <div className="text-gray-500 mt-0.5">{ac.funding_source}{ac.funding_notes ? ` — ${ac.funding_notes}` : ''}</div>
                       <div className="flex gap-3 mt-0.5 text-gray-400">
-                        {ph.requirements.length > 0 && <span>{ph.requirements.length} internal req{ph.requirements.length !== 1 ? 's' : ''}</span>}
+                        {ac.requirements.length > 0 && <span>{ac.requirements.length} internal req{ac.requirements.length !== 1 ? 's' : ''}</span>}
                         {extCount > 0 && <span className="text-amber-500">{extCount} external req{extCount !== 1 ? 's' : ''}</span>}
                       </div>
                     </div>
@@ -447,50 +447,50 @@ export default function ProjectEdit() {
           {!isReadOnly && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Phases</h3>
-                <Button size="sm" variant="ghost" onClick={addPhase}><Plus size={12} /> Add Phase</Button>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Activities</h3>
+                <Button size="sm" variant="ghost" onClick={addActivity}><Plus size={12} /> Add Activity</Button>
               </div>
 
-              {draft.phases.length > 0 && (
-                <PhaseGantt
-                  phases={draft.phases}
-                  onClickPhase={phaseId => {
-                    document.getElementById(`prj-phase-${phaseId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              {draft.activities.length > 0 && (
+                <ActivityGantt
+                  activities={draft.activities}
+                  onClickActivity={activityId => {
+                    document.getElementById(`prj-activity-${activityId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                   }}
                 />
               )}
 
-              {draft.phases.length === 0 && (
-                <p className="text-xs text-gray-400 italic">No phases yet. Add at least one phase.</p>
+              {draft.activities.length === 0 && (
+                <p className="text-xs text-gray-400 italic">No activities yet. Add at least one activity.</p>
               )}
 
               <div className="flex flex-col gap-4 mt-3">
-                {draft.phases.map((phase, idx) => (
-                  <div key={phase.id} id={`prj-phase-${phase.id}`}>
+                {draft.activities.map((activity, idx) => (
+                  <div key={activity.id} id={`prj-activity-${activity.id}`}>
                     {id ? (
-                      <ProjectPhaseEditor
-                        phase={phase}
+                      <ProjectActivityEditor
+                        activity={activity}
                         index={idx}
                         projectStatus={draft.status as ProjectStatus}
-                        onChange={p => updatePhase(phase.id, p)}
-                        onDelete={() => deletePhase(phase.id)}
-                        extReqs={extReqsByPhase[phase.id] ?? []}
-                        onExtReqsChange={reqs => { setExtReqsByPhase(prev => ({ ...prev, [phase.id]: reqs })); setIsDirty(true) }}
+                        onChange={p => updateActivity(activity.id, p)}
+                        onDelete={() => deleteActivity(activity.id)}
+                        extReqs={extReqsByActivity[activity.id] ?? []}
+                        onExtReqsChange={reqs => { setExtReqsByActivity(prev => ({ ...prev, [activity.id]: reqs })); setIsDirty(true) }}
                       />
                     ) : (
-                      // For new projects (no id yet), use simple PhaseEditor without teams
+                      // For new projects (no id yet), use simple ActivityEditor without teams
                       <div className="border-2 border-border rounded-lg overflow-hidden">
                         <div className="px-4 py-3 bg-gray-100 border-b border-border">
                           <h3 className="text-sm font-semibold text-near-black">
-                            Phase {idx + 1}{phase.name ? ` · ${phase.name}` : ''}
+                            Activity {idx + 1}{activity.name ? ` · ${activity.name}` : ''}
                           </h3>
                         </div>
                         <div className="px-4 py-3">
-                          <PhaseEditor
-                            phase={phase}
+                          <ActivityEditor
+                            activity={activity}
                             index={idx}
-                            onChange={p => updatePhase(phase.id, p)}
-                            onDelete={() => deletePhase(phase.id)}
+                            onChange={p => updateActivity(activity.id, p)}
+                            onDelete={() => deleteActivity(activity.id)}
                             extReqs={[]}
                             onExtReqsChange={() => undefined}
                             demandStatus="Draft"

@@ -243,9 +243,9 @@ function SidePanel({
       }
       return false
     }).filter(item =>
-      item.phases.some(ph => {
+      item.activities.some(ac => {
         const m = panelState.month
-        return m >= ph.start_month && (ph.end_month === null || m <= ph.end_month)
+        return m >= ac.start_month && (ac.end_month === null || m <= ac.end_month)
       })
     )
   }, [panelState, statusSet, activeFunctionId, store.demandItems, store.projects])

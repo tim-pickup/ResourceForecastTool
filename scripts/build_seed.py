@@ -26,7 +26,7 @@ projects = [
     'description': 'Feasibility study for Plant D MES infrastructure upgrade. Draft — requirements not yet defined. PTAs in place for DM and GroupIT teams.',
     'status': 'Draft',
     'active': True,
-    'phases': [
+    'activities': [
       {
         'id': 'phs_prj001_concept',
         'name': 'Concept & Feasibility',
@@ -56,7 +56,7 @@ projects = [
     'description': 'MES refresh at Plant E. DM MOM/MI&V + GroupIT Data & Integration. Teams assigned; DM confirmed, GroupIT pending.',
     'status': 'Scoping',
     'active': True,
-    'phases': [
+    'activities': [
       {
         'id': 'phs_prj002_spec',
         'name': 'Design & Specification',
@@ -102,7 +102,7 @@ projects = [
     'description': 'Enterprise data lake build. Cross-Function: DM MI&V + GroupIT Data & Integration. No Programme — demonstrates Unaligned Projects card.',
     'status': 'Submitted',
     'active': True,
-    'phases': []
+    'activities': []
   },
   {
     'id': 'prj_004',
@@ -113,7 +113,7 @@ projects = [
     'description': 'Full MES platform migration at Plant C. Headline cross-Function flagship. DM (MOM+MI&V) PartiallyAllocated; GroupIT (Data & Integration) Approved.',
     'status': 'Approved',
     'active': True,
-    'phases': []
+    'activities': []
   },
   {
     'id': 'prj_005',
@@ -124,7 +124,7 @@ projects = [
     'description': 'Digital twin foundation library for process simulation. Single-Function DM (MBM). Fully allocated.',
     'status': 'Allocated',
     'active': True,
-    'phases': []
+    'activities': []
   },
   {
     'id': 'prj_006',
@@ -135,7 +135,7 @@ projects = [
     'description': 'MES platform refresh at Plant B. Single-Function DM (MOM). Fully allocated.',
     'status': 'Allocated',
     'active': True,
-    'phases': []
+    'activities': []
   }
 ]
 
@@ -150,7 +150,7 @@ demand_items = [
     'description': 'DM MI&V integration slice for the Corporate Data Lake.',
     'function_id': 'func_001',
     'parent_project_id': 'prj_003',
-    'phases': [
+    'activities': [
       {
         'id': 'phs_p3dm_main',
         'name': 'Build & Deploy',
@@ -175,7 +175,7 @@ demand_items = [
     'description': 'GroupIT Data & Integration platform build for the Corporate Data Lake.',
     'function_id': 'func_002',
     'parent_project_id': 'prj_003',
-    'phases': [
+    'activities': [
       {
         'id': 'phs_p3git_main',
         'name': 'Build & Deploy',
@@ -204,7 +204,7 @@ demand_items = [
     'description': 'DM MOM and MI&V work for Plant C MES Platform Migration. Phase 1 fully allocated; Phase 2 partially in progress.',
     'function_id': 'func_001',
     'parent_project_id': 'prj_004',
-    'phases': [
+    'activities': [
       {
         'id': 'phs_p4dm_spec',
         'name': 'Design & Specification',
@@ -260,7 +260,7 @@ demand_items = [
     'description': 'GroupIT Data & Integration work for Plant C MES Platform Migration. Approved, pending resource planning.',
     'function_id': 'func_002',
     'parent_project_id': 'prj_004',
-    'phases': [
+    'activities': [
       {
         'id': 'phs_p4git_spec',
         'name': 'Design & Specification',
@@ -302,7 +302,7 @@ demand_items = [
     'description': 'DM MBM work for the MBM Foundation Library. Fully allocated.',
     'function_id': 'func_001',
     'parent_project_id': 'prj_005',
-    'phases': [
+    'activities': [
       {
         'id': 'phs_p5dm_build',
         'name': 'Foundation Build',
@@ -337,7 +337,7 @@ demand_items = [
     'description': 'DM MOM work for Plant B MES Refresh. Fully allocated.',
     'function_id': 'func_001',
     'parent_project_id': 'prj_006',
-    'phases': [
+    'activities': [
       {
         'id': 'phs_p6dm_rollout',
         'name': 'Rollout',
@@ -370,7 +370,7 @@ demand_items = [
     'description': 'Ad-hoc review of MES shift patterns at Plant A. 1 phase, 1 MOM Basic requirement. No external.',
     'function_id': 'func_001',
     'parent_project_id': None,
-    'phases': [
+    'activities': [
       {
         'id': 'phs_d1_review',
         'name': 'Review',
@@ -394,7 +394,7 @@ demand_items = [
     'description': 'Assist with SCADA migration at Plant A. Submitted — Approve is the next-step CTA.',
     'function_id': 'func_001',
     'parent_project_id': None,
-    'phases': [
+    'activities': [
       {
         'id': 'phs_d2_support',
         'name': 'Migration Support',
@@ -418,7 +418,7 @@ demand_items = [
     'description': 'Ongoing BAU MES super user support at Plant B. Indefinite phase; partial allocation in place. Has Other Internal Team external requirement.',
     'function_id': 'func_001',
     'parent_project_id': None,
-    'phases': [
+    'activities': [
       {
         'id': 'phs_d3_ongoing',
         'name': 'Ongoing support',
@@ -444,7 +444,7 @@ demand_items = [
     'description': 'Configuration handover for historian upgrade at Plant B. Fully allocated.',
     'function_id': 'func_001',
     'parent_project_id': None,
-    'phases': [
+    'activities': [
       {
         'id': 'phs_d4_handover',
         'name': 'Handover',
@@ -470,7 +470,7 @@ demand_items = [
     'description': 'OEE metric enhancement at Plant A. Approved, ready for resource planning.',
     'function_id': 'func_001',
     'parent_project_id': None,
-    'phases': [
+    'activities': [
       {
         'id': 'phs_d5_impl',
         'name': 'Implementation',
@@ -493,7 +493,7 @@ external_resource_requirements = [
   # Project 4 Plant C — OEM + Managed Services on DM Demand Build phase
   {
     'id': 'ext_p4_oem',
-    'phase_id': 'phs_p4dm_build',
+    'activity_id':'phs_p4dm_build',
     'provider_id': 'prv_003',
     'role': 'MES Platform Vendor Support',
     'notes': 'OEM provides specialist platform configuration support during build.',
@@ -502,7 +502,7 @@ external_resource_requirements = [
   },
   {
     'id': 'ext_p4_ms',
-    'phase_id': 'phs_p4dm_build',
+    'activity_id':'phs_p4dm_build',
     'provider_id': 'prv_001',
     'role': 'SCADA Engineer',
     'notes': 'Managed Services SCADA resource for integration work.',
@@ -512,7 +512,7 @@ external_resource_requirements = [
   # Project 3 Corporate Data Lake — Contractor on GroupIT Demand phase
   {
     'id': 'ext_p3_contractor',
-    'phase_id': 'phs_p3git_main',
+    'activity_id':'phs_p3git_main',
     'provider_id': 'prv_002',
     'role': 'Data Engineer',
     'notes': 'Contract data engineer for pipeline build and integration testing.',
@@ -522,7 +522,7 @@ external_resource_requirements = [
   # Direct Demand D3 — Other Internal Team indefinite
   {
     'id': 'ext_d3_oit',
-    'phase_id': 'phs_d3_ongoing',
+    'activity_id':'phs_d3_ongoing',
     'provider_id': 'prv_005',
     'role': 'Plant Electrician Support',
     'notes': 'Plant B electricians provide hardware first-line support for MES-connected equipment.',

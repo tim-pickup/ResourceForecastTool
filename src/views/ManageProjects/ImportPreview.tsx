@@ -35,7 +35,7 @@ function useSpawnOutcome(project: ParsedImportProject, state: AppState) {
       intByFn.set(fnId, (intByFn.get(fnId) ?? 0) + 1)
     }
 
-    // Count external reqs by function_tag
+    // Count external reqs by function_tag (activityName → functionTag)
     const extByFn = new Map<string, number>()
     for (const er of project.externalReqs) {
       extByFn.set(er.functionTag, (extByFn.get(er.functionTag) ?? 0) + 1)
@@ -66,7 +66,7 @@ function ProjectPreviewCard({ project, state }: { project: ParsedImportProject; 
     ? (state.projectTypes.find(pt => pt.id === project.typeId)?.name ?? project.typeId)
     : '—'
 
-  const totalPhases = project.phases.length
+  const totalActivities = project.activities.length
   const totalInt = project.internalReqs.length
   const totalExt = project.externalReqs.length
 
@@ -90,7 +90,7 @@ function ProjectPreviewCard({ project, state }: { project: ParsedImportProject; 
             </div>
           </div>
           <div className="flex gap-3 text-xs text-gray-400 shrink-0">
-            <span>{totalPhases} phase{totalPhases !== 1 ? 's' : ''}</span>
+            <span>{totalActivities} activit{totalActivities !== 1 ? 'ies' : 'y'}</span>
             <span>{totalInt} int</span>
             <span>{totalExt} ext</span>
           </div>
@@ -100,21 +100,21 @@ function ProjectPreviewCard({ project, state }: { project: ParsedImportProject; 
         )}
       </div>
 
-      {/* Phases */}
+      {/* Activities */}
       <div className="px-4 py-3">
         <div className="grid grid-cols-1 gap-1.5">
-          {project.phases.map((ph, i) => {
-            const intCount = project.internalReqs.filter(r => r.phaseName === ph.name).length
-            const extCount = project.externalReqs.filter(r => r.phaseName === ph.name).length
+          {project.activities.map((ac, i) => {
+            const intCount = project.internalReqs.filter(r => r.activityName === ac.name).length
+            const extCount = project.externalReqs.filter(r => r.activityName === ac.name).length
             return (
               <div key={i} className="flex items-center gap-2 text-xs">
-                <span className="font-medium text-gray-700 min-w-0 truncate flex-1">{ph.name}</span>
+                <span className="font-medium text-gray-700 min-w-0 truncate flex-1">{ac.name}</span>
                 <span className="text-gray-400 shrink-0">
-                  {ph.startMonth}{ph.endMonth ? ` – ${ph.endMonth}` : ' (ongoing)'}
+                  {ac.startMonth}{ac.endMonth ? ` – ${ac.endMonth}` : ' (ongoing)'}
                 </span>
-                {ph.fundingSource && (
+                {ac.fundingSource && (
                   <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100 text-[10px] shrink-0">
-                    {ph.fundingSource}
+                    {ac.fundingSource}
                   </span>
                 )}
                 <span className="text-gray-400 shrink-0">{intCount}i {extCount}e</span>
@@ -150,7 +150,7 @@ export function ImportPreview({ result, state, onConfirm, onCancel }: Props) {
   const { errors, warnings, projects } = result
   const hasErrors = errors.length > 0
 
-  const totalPhases = projects.reduce((s, p) => s + p.phases.length, 0)
+  const totalActivities = projects.reduce((s, p) => s + p.activities.length, 0)
   const totalInt    = projects.reduce((s, p) => s + p.internalReqs.length, 0)
   const totalExt    = projects.reduce((s, p) => s + p.externalReqs.length, 0)
 
@@ -168,7 +168,7 @@ export function ImportPreview({ result, state, onConfirm, onCancel }: Props) {
             <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 flex-wrap">
               <span>{projects.length} projects</span>
               <span className="text-gray-300">·</span>
-              <span>{totalPhases} phases</span>
+              <span>{totalActivities} activities</span>
               <span className="text-gray-300">·</span>
               <span>{totalInt} internal reqs</span>
               <span className="text-gray-300">·</span>

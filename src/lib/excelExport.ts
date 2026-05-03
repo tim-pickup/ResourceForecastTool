@@ -58,25 +58,25 @@ export async function downloadImportTemplate(state: AppState): Promise<void> {
     showErrorMessage: true, errorTitle: 'Invalid Project Type', error: 'Select from the Reference - Project Types list.',
   })
 
-  // ─── Tab 2: Phases ────────────────────────────────────────────────────────
+  // ─── Tab 2: Activities ────────────────────────────────────────────────────
 
-  const wsPhases = wb.addWorksheet('Phases')
-  wsPhases.columns = [
-    { header: 'project_name',   key: 'project_name',   width: 40 },
-    { header: 'phase_name',     key: 'phase_name',     width: 30 },
-    { header: 'phase_start_month', key: 'phase_start_month', width: 18 },
-    { header: 'phase_end_month',   key: 'phase_end_month',   width: 18 },
-    { header: 'funding_source', key: 'funding_source', width: 28 },
-    { header: 'funding_notes',  key: 'funding_notes',  width: 40 },
+  const wsActivities = wb.addWorksheet('Activities')
+  wsActivities.columns = [
+    { header: 'project_name',      key: 'project_name',      width: 40 },
+    { header: 'activity_name',     key: 'activity_name',     width: 30 },
+    { header: 'activity_start_month', key: 'activity_start_month', width: 18 },
+    { header: 'activity_end_month',   key: 'activity_end_month',   width: 18 },
+    { header: 'funding_source',    key: 'funding_source',    width: 28 },
+    { header: 'funding_notes',     key: 'funding_notes',     width: 40 },
   ]
-  styleHeader(wsPhases)
+  styleHeader(wsActivities)
 
-  addDV(wsPhases, 'A2:A500', {
+  addDV(wsActivities, 'A2:A500', {
     type: 'list', allowBlank: true,
     formulae: ['Projects!$A$2:$A$201'],
     showErrorMessage: true, errorTitle: 'Invalid Project', error: 'Must match a project_name from the Projects tab.',
   })
-  addDV(wsPhases, 'E2:E500', {
+  addDV(wsActivities, 'E2:E500', {
     type: 'list', allowBlank: true,
     formulae: ['"Investment Scheme,Plant/Sector Allocation,Mixed"'],
     showErrorMessage: true, errorTitle: 'Invalid Funding Source', error: 'Must be one of: Investment Scheme, Plant/Sector Allocation, Mixed.',
@@ -87,7 +87,7 @@ export async function downloadImportTemplate(state: AppState): Promise<void> {
   const wsInt = wb.addWorksheet('Internal Requirements')
   wsInt.columns = [
     { header: 'project_name',   key: 'project_name',   width: 40 },
-    { header: 'phase_name',     key: 'phase_name',     width: 30 },
+    { header: 'activity_name',  key: 'activity_name',  width: 30 },
     { header: 'skill_function', key: 'skill_function', width: 25 },
     { header: 'skill_domain',   key: 'skill_domain',   width: 25 },
     { header: 'skill_name',     key: 'skill_name',     width: 30 },
@@ -113,7 +113,7 @@ export async function downloadImportTemplate(state: AppState): Promise<void> {
   const wsExt = wb.addWorksheet('External Requirements')
   wsExt.columns = [
     { header: 'project_name',   key: 'project_name',   width: 40 },
-    { header: 'phase_name',     key: 'phase_name',     width: 30 },
+    { header: 'activity_name',  key: 'activity_name',  width: 30 },
     { header: 'provider',       key: 'provider',       width: 30 },
     { header: 'role',           key: 'role',           width: 30 },
     { header: 'function_tag',   key: 'function_tag',   width: 25 },
@@ -223,7 +223,7 @@ export async function downloadImportTemplate(state: AppState): Promise<void> {
   // ─── Generate filename and trigger download ───────────────────────────────
 
   const today = new Date().toISOString().slice(0, 10)
-  const filename = `ResourceForecastTool_ImportTemplate_v1.19_${today}.xlsx`
+  const filename = `ResourceForecastTool_ImportTemplate_v1.20_${today}.xlsx`
 
   const buffer = await wb.xlsx.writeBuffer()
   const blob = new Blob([buffer], {

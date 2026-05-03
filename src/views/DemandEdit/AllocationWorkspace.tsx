@@ -2,10 +2,10 @@ import { useState, useMemo } from 'react'
 import { Plus, Trash2, AlertTriangle, Lock } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAppStore } from '../../store/useAppStore'
-import type { AppState, DemandItem, SkillRequirement, NamedAllocation, Level, DemandStatus, Phase } from '../../types'
-import { formatMonthLabel, getPersonAvgAvailableForPhase, monthInRange } from '../../utils/capacity'
+import type { AppState, DemandItem, SkillRequirement, NamedAllocation, Level, DemandStatus, Activity } from '../../types'
+import { formatMonthLabel, getPersonAvgAvailableForActivity, monthInRange } from '../../utils/capacity'
 import { generateId } from '../../utils/ids'
-import { getMonths, PhaseGantt } from './ModeAEditor'
+import { getMonths, ActivityGantt } from './ModeAEditor'
 
 const LEVEL_ORDER: Record<Level, number> = { Basic: 0, Advanced: 1, Specialist: 2 }
 function meetsLevel(held: Level, req: Level) { return LEVEL_ORDER[held] >= LEVEL_ORDER[req] }
@@ -44,12 +44,12 @@ function computeHeadroom(
   for (const item of state.demandItems) {
     if (item.id === demandItemId) continue
     if (!ALLOC_STATUSES.has(item.status)) continue
-    for (const phase of item.phases) {
-      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-      for (const req of phase.requirements) {
+    for (const activity of item.activities) {
+      if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+      for (const req of activity.requirements) {
         for (const alloc of req.allocations) {
           if (alloc.person_id !== personId) continue
-          persistedOther += phase.end_month === null
+          persistedOther += activity.end_month === null
             ? (alloc.steady_state_hours ?? 0)
             : (alloc.hours_by_month[month] ?? 0)
         }
@@ -59,13 +59,13 @@ function computeHeadroom(
 
   // Sum in-session (draft) allocations from every OTHER row on this page
   let pendingOther = 0
-  for (const phase of draft.phases) {
-    if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-    for (const req of phase.requirements) {
+  for (const activity of draft.activities) {
+    if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+    for (const req of activity.requirements) {
       for (const alloc of req.allocations) {
         if (alloc.id === excludeAllocId) continue  // exclude this row
         if (alloc.person_id !== personId) continue
-        pendingOther += phase.end_month === null
+        pendingOther += activity.end_month === null
           ? (alloc.steady_state_hours ?? 0)
           : (alloc.hours_by_month[month] ?? 0)
       }
@@ -112,9 +112,9 @@ export function computeAutoStatus(draft: Omit<DemandItem, 'id'>): DemandStatus {
   let hasAnyAllocation = false
   let allFullyCovered = true
 
-  for (const phase of draft.phases) {
-    if (phase.end_month === null) {
-      for (const req of phase.requirements) {
+  for (const activity of draft.activities) {
+    if (activity.end_month === null) {
+      for (const req of activity.requirements) {
         const target = req.steady_state_hours ?? 0
         if (target === 0) continue
         const allocated = req.allocations.reduce((s, a) => s + (a.steady_state_hours ?? 0), 0)
@@ -122,8 +122,8 @@ export function computeAutoStatus(draft: Omit<DemandItem, 'id'>): DemandStatus {
         if (allocated < target) allFullyCovered = false
       }
     } else {
-      const months = getMonths(phase.start_month, phase.end_month)
-      for (const req of phase.requirements) {
+      const months = getMonths(activity.start_month, activity.end_month)
+      for (const req of activity.requirements) {
         if (req.allocations.length > 0) hasAnyAllocation = true
         for (const m of months) {
           const target = req.hours_by_month[m] ?? 0
@@ -228,7 +228,7 @@ function CapacityCell({
 interface AllocationRowProps {
   alloc: NamedAllocation
   req: SkillRequirement
-  phase: Phase
+  activity: Activity
   months: string[]
   draft: Omit<DemandItem, 'id'>
   demandItemId: string | undefined
@@ -236,10 +236,10 @@ interface AllocationRowProps {
   onDelete: () => void
 }
 
-function AllocationRow({ alloc, req, phase, months, draft, demandItemId, onChange, onDelete }: AllocationRowProps) {
+function AllocationRow({ alloc, req, activity, months, draft, demandItemId, onChange, onDelete }: AllocationRowProps) {
   const store = useAppStore()
   const [showAll, setShowAll] = useState(false)
-  const isIndefinite = phase.end_month === null
+  const isIndefinite = activity.end_month === null
 
   const eligibleIds = new Set(
     store.people.filter(p => p.active && p.skills.some(ps => ps.skill_id === req.skill_id && meetsLevel(ps.level, req.level))).map(p => p.id)
@@ -251,10 +251,10 @@ function AllocationRow({ alloc, req, phase, months, draft, demandItemId, onChang
   const personCapacitySummary = useMemo(() => {
     const map = new Map<string, number>()
     visiblePeople.forEach(p => {
-      map.set(p.id, getPersonAvgAvailableForPhase(p.id, phase.start_month, phase.end_month, store))
+      map.set(p.id, getPersonAvgAvailableForActivity(p.id, activity.start_month, activity.end_month, store))
     })
     return map
-  }, [visiblePeople, phase.start_month, phase.end_month, store])
+  }, [visiblePeople, activity.start_month, activity.end_month, store])
 
   const person = alloc.person_id ? store.people.find(p => p.id === alloc.person_id) : null
   const contracted = person?.contracted_hours_per_month ?? 0
@@ -348,7 +348,7 @@ function AllocationRow({ alloc, req, phase, months, draft, demandItemId, onChang
             min={0}
           />
           {alloc.person_id && (() => {
-            const h = computeHeadroom(alloc.person_id, phase.start_month, alloc.id, draft, demandItemId, store)
+            const h = computeHeadroom(alloc.person_id, activity.start_month, alloc.id, draft, demandItemId, store)
             const hrs = alloc.steady_state_hours ?? 0
             const afterAlloc = h.headroom - hrs
             const usagePct = contracted > 0 ? (contracted - afterAlloc) / contracted : 0
@@ -421,16 +421,16 @@ function AllocationRow({ alloc, req, phase, months, draft, demandItemId, onChang
 
 interface ReqBlockProps {
   req: SkillRequirement
-  phase: Phase
+  activity: Activity
   months: string[]
   draft: Omit<DemandItem, 'id'>
   demandItemId: string | undefined
   onChange: (r: SkillRequirement) => void
 }
 
-function RequirementAllocationBlock({ req, phase, months, draft, demandItemId, onChange }: ReqBlockProps) {
+function RequirementAllocationBlock({ req, activity, months, draft, demandItemId, onChange }: ReqBlockProps) {
   const { skills, domains } = useAppStore()
-  const isIndefinite = phase.end_month === null
+  const isIndefinite = activity.end_month === null
 
   const skill = skills.find(s => s.id === req.skill_id)
   const domain = skill ? domains.find(t => t.id === skill.domain_id) : null
@@ -495,7 +495,7 @@ function RequirementAllocationBlock({ req, phase, months, draft, demandItemId, o
             key={alloc.id}
             alloc={alloc}
             req={req}
-            phase={phase}
+            activity={activity}
             months={months}
             draft={draft}
             demandItemId={demandItemId}
@@ -528,8 +528,8 @@ export function AllocationWorkspace({ draft, demandItemId, onChange }: Props) {
   // Auto-derive distinct Functions from requirements for Mode B top summary
   const functionsInvolved = (() => {
     const fnIds = new Set<string>()
-    for (const phase of draft.phases) {
-      for (const req of phase.requirements) {
+    for (const activity of draft.activities) {
+      for (const req of activity.requirements) {
         const skill = store.skills.find(s => s.id === req.skill_id)
         if (!skill) continue
         const dom = store.domains.find(d => d.id === skill.domain_id)
@@ -544,9 +544,9 @@ export function AllocationWorkspace({ draft, demandItemId, onChange }: Props) {
 
   const { totalReqMonths, coveredMonths } = useMemo(() => {
     let total = 0; let covered = 0
-    for (const phase of draft.phases) {
-      if (phase.end_month === null) {
-        for (const req of phase.requirements) {
+    for (const activity of draft.activities) {
+      if (activity.end_month === null) {
+        for (const req of activity.requirements) {
           const target = req.steady_state_hours ?? 0
           if (target === 0) continue
           total++
@@ -554,7 +554,7 @@ export function AllocationWorkspace({ draft, demandItemId, onChange }: Props) {
           if (allocated >= target) covered++
         }
       } else {
-        for (const req of phase.requirements) {
+        for (const req of activity.requirements) {
           for (const [m, target] of Object.entries(req.hours_by_month)) {
             if (target === 0) continue
             total++
@@ -570,12 +570,12 @@ export function AllocationWorkspace({ draft, demandItemId, onChange }: Props) {
   const pct = totalReqMonths > 0 ? Math.round((coveredMonths / totalReqMonths) * 100) : 0
   const unfilledMonths = totalReqMonths - coveredMonths
 
-  const updateReq = (phaseId: string, reqId: string, req: SkillRequirement) =>
+  const updateReq = (activityId: string, reqId: string, req: SkillRequirement) =>
     onChange({
       ...draft,
-      phases: draft.phases.map(p => p.id === phaseId
-        ? { ...p, requirements: p.requirements.map(r => r.id === reqId ? req : r) }
-        : p
+      activities: draft.activities.map(ac => ac.id === activityId
+        ? { ...ac, requirements: ac.requirements.map(r => r.id === reqId ? req : r) }
+        : ac
       ),
     })
 
@@ -616,9 +616,9 @@ export function AllocationWorkspace({ draft, demandItemId, onChange }: Props) {
           </>
         )}
         <div className="text-gray-400 text-[10px]">
-          {draft.phases.length} phase{draft.phases.length !== 1 ? 's' : ''} · {draft.phases.map((p, i) => {
-            const label = p.end_month === null ? `${p.start_month} onwards` : `${p.start_month}–${p.end_month}`
-            return `${p.name || `Phase ${i + 1}`} (${label})`
+          {draft.activities.length} activit{draft.activities.length !== 1 ? 'ies' : 'y'} · {draft.activities.map((ac, i) => {
+            const label = ac.end_month === null ? `${ac.start_month} onwards` : `${ac.start_month}–${ac.end_month}`
+            return `${ac.name || `Activity ${i + 1}`} (${label})`
           }).join(', ')}
         </div>
       </div>
@@ -639,13 +639,13 @@ export function AllocationWorkspace({ draft, demandItemId, onChange }: Props) {
         )}
       </div>
 
-      {/* Read-only phase Gantt — §4.5.2 Mode B, above the lock banner */}
-      {draft.phases.some(p => p.start_month) && (
-        <PhaseGantt
-          phases={draft.phases}
+      {/* Read-only activity Gantt — §4.5.2 Mode B, above the lock banner */}
+      {draft.activities.some(ac => ac.start_month) && (
+        <ActivityGantt
+          activities={draft.activities}
           readOnly
-          onClickPhase={phaseId => {
-            document.getElementById(`phase-${phaseId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          onClickActivity={activityId => {
+            document.getElementById(`activity-${activityId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
           }}
         />
       )}
@@ -659,39 +659,39 @@ export function AllocationWorkspace({ draft, demandItemId, onChange }: Props) {
         </span>
       </div>
 
-      {/* Phase cards */}
-      {draft.phases.map((phase, phaseIdx) => {
-        const months = phase.end_month === null ? [] : getMonths(phase.start_month, phase.end_month)
-        const isIndefinite = phase.end_month === null
+      {/* Activity cards */}
+      {draft.activities.map((activity, activityIdx) => {
+        const months = activity.end_month === null ? [] : getMonths(activity.start_month, activity.end_month)
+        const isIndefinite = activity.end_month === null
         const dateLabel = isIndefinite
-          ? `${phase.start_month} onwards`
-          : `${phase.start_month}–${phase.end_month}`
+          ? `${activity.start_month} onwards`
+          : `${activity.start_month}–${activity.end_month}`
 
         return (
-          <div key={phase.id} id={`phase-${phase.id}`} className="border-2 border-border rounded-lg overflow-hidden bg-white">
+          <div key={activity.id} id={`activity-${activity.id}`} className="border-2 border-border rounded-lg overflow-hidden bg-white">
             <div className="px-4 py-3 bg-gray-100 border-b border-border">
               <h3 className="text-sm font-semibold text-near-black">
-                Phase {phaseIdx + 1}{phase.name ? ` · ${phase.name}` : ''} · <span className="font-normal text-gray-500">{dateLabel}</span>
+                Activity {activityIdx + 1}{activity.name ? ` · ${activity.name}` : ''} · <span className="font-normal text-gray-500">{dateLabel}</span>
               </h3>
             </div>
             <div className="px-4 py-3 flex flex-col gap-3">
-              {phase.requirements.length === 0 && (
-                <p className="text-xs text-gray-400 italic">No requirements in this phase.</p>
+              {activity.requirements.length === 0 && (
+                <p className="text-xs text-gray-400 italic">No requirements in this activity.</p>
               )}
-              {phase.requirements.map(req => (
+              {activity.requirements.map(req => (
                 <RequirementAllocationBlock
                   key={req.id}
                   req={req}
-                  phase={phase}
+                  activity={activity}
                   months={months}
                   draft={draft}
                   demandItemId={demandItemId}
-                  onChange={r => updateReq(phase.id, req.id, r)}
+                  onChange={r => updateReq(activity.id, req.id, r)}
                 />
               ))}
               {/* External requirements — read-only in Mode B */}
               {(() => {
-                const extReqs = store.externalResourceRequirements.filter(r => r.phase_id === phase.id)
+                const extReqs = store.externalResourceRequirements.filter(r => r.activity_id === activity.id)
                 if (extReqs.length === 0) return null
                 return (
                   <div className="mt-1 border-t border-dashed border-amber-200 pt-2">

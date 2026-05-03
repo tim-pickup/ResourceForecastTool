@@ -80,13 +80,13 @@ function PersonPanel({
     const out: Array<{ itemName: string; itemId: string; phase: string; hours: number }> = []
     for (const item of store.demandItems) {
       if (item.status !== 'Approved' && item.status !== 'PartiallyAllocated' && item.status !== 'Allocated') continue
-      for (const phase of item.phases) {
-        for (const req of phase.requirements) {
+      for (const activity of item.activities) {
+        for (const req of activity.requirements) {
           if (req.shape === 'skill' && req.skill_id === skillId) {
-            const hrs = phase.end_month === null
+            const hrs = activity.end_month === null
               ? (req.steady_state_hours ?? 0)
               : Object.values(req.hours_by_month).reduce((s, h) => s + h, 0)
-            out.push({ itemName: item.name, itemId: item.id, phase: phase.name, hours: hrs })
+            out.push({ itemName: item.name, itemId: item.id, phase: activity.name, hours: hrs })
           }
         }
       }
@@ -743,11 +743,11 @@ export default function CapacityValidation() {
           if (!COMMITTED_STATUSES.has(d.status)) continue
           if (!projectIds.includes(d.parent_project_id)) continue
 
-          for (const phase of d.phases) {
-            if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-            for (const req of phase.requirements) {
+          for (const activity of d.activities) {
+            if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+            for (const req of activity.requirements) {
               if (sklFn.get(req.skill_id) !== fnId) continue
-              const hrs = phase.end_month === null
+              const hrs = activity.end_month === null
                 ? (req.steady_state_hours ?? 0)
                 : (req.hours_by_month[month] ?? 0)
               if (hrs <= 0) continue
@@ -770,29 +770,29 @@ export default function CapacityValidation() {
 
   // ── Section C: external demand data — scoped to active Function ────────
   const extDataByMonth = useMemo(() => {
-    const phaseToItem = new Map<string, DemandItem>()
+    const activityToItem = new Map<string, DemandItem>()
     for (const item of demandFilteredState.demandItems) {
       if (!EXT_ACTIVE_STATUSES.has(item.status)) continue
       // §4 View 1 Section C scope: only demands touching the active Function (§4.9)
       if (activeFunctionId) {
-        const touchesActiveFn = item.phases.some(ph => ph.requirements.some(r => activeFnSkillIds.has(r.skill_id)))
+        const touchesActiveFn = item.activities.some(ac => ac.requirements.some(r => activeFnSkillIds.has(r.skill_id)))
         if (!touchesActiveFn) continue
       }
-      for (const phase of item.phases) {
-        phaseToItem.set(phase.id, item)
+      for (const activity of item.activities) {
+        activityToItem.set(activity.id, item)
       }
     }
     return months.map(month => {
       const byProvider: Record<string, number> = {}
       const byProviderByDemand: Record<string, Record<string, number>> = {}
       for (const ext of store.externalResourceRequirements) {
-        const item = phaseToItem.get(ext.phase_id)
+        const item = activityToItem.get(ext.activity_id)
         if (!item) continue
-        const phase = item.phases.find(p => p.id === ext.phase_id)
-        if (!phase) continue
-        if (month < phase.start_month) continue
-        if (phase.end_month !== null && month > phase.end_month) continue
-        const hrs = phase.end_month === null
+        const activity = item.activities.find(ac => ac.id === ext.activity_id)
+        if (!activity) continue
+        if (month < activity.start_month) continue
+        if (activity.end_month !== null && month > activity.end_month) continue
+        const hrs = activity.end_month === null
           ? (ext.steady_state_hours ?? 0)
           : (ext.hours_by_month[month] ?? 0)
         if (hrs <= 0) continue

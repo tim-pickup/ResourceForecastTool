@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { parseISO, isAfter, differenceInMonths, addMonths, format } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
-import type { DemandStatus, Phase, Requirement, FundingSource, Level, SkillRequirement, ExternalResourceRequirement } from '../../types'
+import type { DemandStatus, Activity, Requirement, FundingSource, Level, SkillRequirement, ExternalResourceRequirement } from '../../types'
 import { Input, Select } from '../../components/ui/FormFields'
 import { DomainSkillSelector } from '../../components/DomainSkillSelector'
 import { generateId } from '../../utils/ids'
@@ -28,21 +28,21 @@ function getFnColor(fnId: string | undefined, functions: Array<{ id: string; act
   return FN_PALETTE[Math.max(0, idx) % FN_PALETTE.length]
 }
 
-// ─── Phase Gantt ─────────────────────────────────────────────────────────────
+// ─── Activity Gantt ───────────────────────────────────────────────────────────
 
 interface GanttProps {
-  phases: Phase[]
-  onClickPhase: (phaseId: string) => void
+  activities: Activity[]
+  onClickActivity: (activityId: string) => void
   readOnly?: boolean
 }
 
-export function PhaseGantt({ phases, onClickPhase, readOnly = false }: GanttProps) {
-  const validPhases = phases.filter(p => p.start_month)
-  if (validPhases.length === 0) return null
+export function ActivityGantt({ activities, onClickActivity, readOnly = false }: GanttProps) {
+  const validActivities = activities.filter(p => p.start_month)
+  if (validActivities.length === 0) return null
 
-  const starts = validPhases.map(p => p.start_month).sort()
-  const finiteEnds = validPhases.filter(p => p.end_month).map(p => p.end_month!).sort()
-  const hasIndefinite = validPhases.some(p => !p.end_month)
+  const starts = validActivities.map(p => p.start_month).sort()
+  const finiteEnds = validActivities.filter(p => p.end_month).map(p => p.end_month!).sort()
+  const hasIndefinite = validActivities.some(p => !p.end_month)
 
   const tlStart = starts[0]
   let tlEndDate: Date
@@ -56,7 +56,7 @@ export function PhaseGantt({ phases, onClickPhase, readOnly = false }: GanttProp
   const totalMonths = differenceInMonths(tlEndDate, parseISO(tlStart + '-01')) + 1
   if (totalMonths <= 1) return null
 
-  const sortedPhases = [...validPhases].sort((a, b) => a.start_month.localeCompare(b.start_month))
+  const sortedActivities = [...validActivities].sort((a, b) => a.start_month.localeCompare(b.start_month))
 
   function monthOff(month: string): number {
     return Math.max(0, differenceInMonths(parseISO(month + '-01'), parseISO(tlStart + '-01')))
@@ -70,14 +70,14 @@ export function PhaseGantt({ phases, onClickPhase, readOnly = false }: GanttProp
   }
 
   // Determine which funding sources are actually used (for compact legend)
-  const usedSources = Array.from(new Set(validPhases.map(p => p.funding_source)))
+  const usedSources = Array.from(new Set(validActivities.map(p => p.funding_source)))
 
   return (
     <div className="bg-gray-50 border border-border rounded p-3 mb-3">
       {/* Header with legend */}
       <div className="flex items-center justify-between mb-2">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-          Phase Timeline{readOnly && <span className="ml-1.5 font-normal normal-case tracking-normal text-gray-400">(read only)</span>}
+          Activity Timeline{readOnly && <span className="ml-1.5 font-normal normal-case tracking-normal text-gray-400">(read only)</span>}
         </span>
         <div className="flex items-center gap-3">
           {(usedSources as FundingSource[]).map(src => (
@@ -105,29 +105,29 @@ export function PhaseGantt({ phases, onClickPhase, readOnly = false }: GanttProp
               </span>
             ))}
           </div>
-          {/* Phase bars — with vertical padding above first bar and below last bar */}
+          {/* Activity bars — with vertical padding above first bar and below last bar */}
           <div className="flex flex-col gap-1" style={{ paddingTop: 7, paddingBottom: 10 }}>
-            {sortedPhases.map((phase) => {
-              const origIdx = phases.indexOf(phase)
-              const startOff = monthOff(phase.start_month)
-              const isIndefinite = !phase.end_month
+            {sortedActivities.map((activity) => {
+              const origIdx = activities.indexOf(activity)
+              const startOff = monthOff(activity.start_month)
+              const isIndefinite = !activity.end_month
               const endOff = isIndefinite
                 ? totalMonths - 1
-                : Math.min(monthOff(phase.end_month!), totalMonths - 1)
+                : Math.min(monthOff(activity.end_month!), totalMonths - 1)
               const leftPct = (startOff / (totalMonths - 1)) * 100
               const widthPct = Math.max(((endOff - startOff) / (totalMonths - 1)) * 100, 3)
-              const color = FUNDING_SOURCE_COLORS[phase.funding_source] ?? '#6b7280'
-              const label = phase.name || `Phase ${origIdx + 1}`
+              const color = FUNDING_SOURCE_COLORS[activity.funding_source] ?? '#6b7280'
+              const label = activity.name || `Activity ${origIdx + 1}`
               const dateLabel = isIndefinite
-                ? `${phase.start_month} → ongoing`
-                : `${phase.start_month} → ${phase.end_month}`
+                ? `${activity.start_month} → ongoing`
+                : `${activity.start_month} → ${activity.end_month}`
 
               return (
-                <div key={phase.id} className="relative h-7">
+                <div key={activity.id} className="relative h-7">
                   <button
                     type="button"
-                    onClick={() => onClickPhase(phase.id)}
-                    title={`${label} · ${dateLabel} · ${phase.funding_source}`}
+                    onClick={() => onClickActivity(activity.id)}
+                    title={`${label} · ${dateLabel} · ${activity.funding_source}`}
                     className={`absolute top-0 h-full rounded flex items-center px-2 overflow-hidden text-[10px] font-medium ${readOnly ? 'cursor-default' : 'hover:opacity-80 transition-opacity'}`}
                     style={{
                       left: `${leftPct}%`,
@@ -204,7 +204,7 @@ export function blankSkillReqIndefinite(skillId: string): SkillRequirement {
   return { id: generateId('req'), shape: 'skill', skill_id: skillId, level: 'Basic', hours_by_month: {}, steady_state_hours: 0, notes: null, allocations: [] }
 }
 
-export function blankPhase(): Phase {
+export function blankActivity(): Activity {
   return { id: generateId('phs'), name: '', start_month: '', end_month: '', funding_source: 'Investment Scheme', funding_notes: '', requirements: [] }
 }
 
@@ -362,10 +362,10 @@ function IndefiniteRequirementRow({ req, onChange, onDelete, scopedDomains, scop
 
 // ─── External resource requirement helpers ────────────────────────────────────
 
-export function blankExtReq(phase_id: string, function_tag: string | null = null): ExternalResourceRequirement {
+export function blankExtReq(activity_id: string, function_tag: string | null = null): ExternalResourceRequirement {
   return {
     id: generateId('ext'),
-    phase_id,
+    activity_id,
     provider_id: '',
     role: '',
     notes: null,
@@ -553,28 +553,28 @@ function IndefiniteExtRequirementRow({ ext, onChange, onDelete, showFunctionTagP
   )
 }
 
-// ─── Phase editor ─────────────────────────────────────────────────────────────
+// ─── Activity editor ──────────────────────────────────────────────────────────
 
-interface PhaseEditorProps {
-  phase: Phase
+interface ActivityEditorProps {
+  activity: Activity
   index: number
-  onChange: (p: Phase) => void
+  onChange: (p: Activity) => void
   onDelete: () => void
   extReqs: ExternalResourceRequirement[]
   onExtReqsChange: (reqs: ExternalResourceRequirement[]) => void
   demandId?: string
   demandStatus?: DemandStatus
-  showRequirements?: boolean      // default true; false for Project Draft (§4.5.2)
-  readOnlyPhaseHeader?: boolean   // true for Project-spawned Demand Submitted (§4.5.2)
-  functionScopeId?: string | null // null=full catalogue (Project Scoping); string=scoped to that Function
-  showFunctionTagPicker?: boolean // true for Project Scoping ext reqs (§4.5.2)
+  showRequirements?: boolean        // default true; false for Project Draft (§4.5.2)
+  readOnlyActivityHeader?: boolean  // true for Project-spawned Demand Submitted (§4.5.2)
+  functionScopeId?: string | null   // null=full catalogue (Project Scoping); string=scoped to that Function
+  showFunctionTagPicker?: boolean   // true for Project Scoping ext reqs (§4.5.2)
 }
 
-export function PhaseEditor({
-  phase, index, onChange, onDelete, extReqs, onExtReqsChange,
-  showRequirements = true, readOnlyPhaseHeader = false,
+export function ActivityEditor({
+  activity, index, onChange, onDelete, extReqs, onExtReqsChange,
+  showRequirements = true, readOnlyActivityHeader = false,
   functionScopeId, showFunctionTagPicker = false,
-}: PhaseEditorProps) {
+}: ActivityEditorProps) {
   const [open, setOpen] = useState(true)
   const store = useAppStore()
 
@@ -586,51 +586,51 @@ export function PhaseEditor({
   const scopedDomainIds = useMemo(() => new Set(scopedDomains.map(d => d.id)), [scopedDomains])
   const scopedSkills = useMemo(() => store.skills.filter(s => scopedDomainIds.has(s.domain_id)), [scopedDomainIds, store.skills])
 
-  const isIndefinite = phase.end_month === null
-  const months = useMemo(() => getMonths(phase.start_month, phase.end_month), [phase.start_month, phase.end_month])
+  const isIndefinite = activity.end_month === null
+  const months = useMemo(() => getMonths(activity.start_month, activity.end_month), [activity.start_month, activity.end_month])
 
   const handleStartChange = (value: string) => {
-    const newMonths = getMonths(value, phase.end_month)
-    const updatedReqs = !isIndefinite && newMonths.length > 0 ? adjustRequirements(phase.requirements, newMonths) : phase.requirements
-    onChange({ ...phase, start_month: value, requirements: updatedReqs })
+    const newMonths = getMonths(value, activity.end_month)
+    const updatedReqs = !isIndefinite && newMonths.length > 0 ? adjustRequirements(activity.requirements, newMonths) : activity.requirements
+    onChange({ ...activity, start_month: value, requirements: updatedReqs })
   }
 
   const handleEndChange = (value: string) => {
-    const newMonths = getMonths(phase.start_month, value)
-    const updatedReqs = newMonths.length > 0 ? adjustRequirements(phase.requirements, newMonths) : phase.requirements
-    onChange({ ...phase, end_month: value, requirements: updatedReqs })
+    const newMonths = getMonths(activity.start_month, value)
+    const updatedReqs = newMonths.length > 0 ? adjustRequirements(activity.requirements, newMonths) : activity.requirements
+    onChange({ ...activity, end_month: value, requirements: updatedReqs })
   }
 
   const handleIndefiniteToggle = (checked: boolean) => {
     if (checked) {
-      const updatedReqs = requirementsToIndefinite(phase.requirements)
-      onChange({ ...phase, end_month: null, requirements: updatedReqs })
+      const updatedReqs = requirementsToIndefinite(activity.requirements)
+      onChange({ ...activity, end_month: null, requirements: updatedReqs })
     } else {
       const newEnd = window.prompt('End month (YYYY-MM):', '') ?? ''
       if (!newEnd) return
-      const newMonths = getMonths(phase.start_month, newEnd)
+      const newMonths = getMonths(activity.start_month, newEnd)
       if (newMonths.length === 0) return
-      const updatedReqs = requirementsToFinite(phase.requirements, newMonths, 0)
-      onChange({ ...phase, end_month: newEnd, requirements: updatedReqs })
+      const updatedReqs = requirementsToFinite(activity.requirements, newMonths, 0)
+      onChange({ ...activity, end_month: newEnd, requirements: updatedReqs })
     }
   }
 
   const updateReq = (reqId: string, r: SkillRequirement) =>
-    onChange({ ...phase, requirements: phase.requirements.map(x => x.id === reqId ? r : x) })
+    onChange({ ...activity, requirements: activity.requirements.map(x => x.id === reqId ? r : x) })
   const deleteReq = (reqId: string) =>
-    onChange({ ...phase, requirements: phase.requirements.filter(x => x.id !== reqId) })
+    onChange({ ...activity, requirements: activity.requirements.filter(x => x.id !== reqId) })
   const addReq = () => {
     const skillId = store.skills[0]?.id ?? ''
     const newReq = isIndefinite ? blankSkillReqIndefinite(skillId) : blankSkillReq(skillId, months)
-    onChange({ ...phase, requirements: [...phase.requirements, newReq] })
+    onChange({ ...activity, requirements: [...activity.requirements, newReq] })
   }
 
-  const phaseLabel = phase.name
-    ? `Phase ${index + 1} · ${phase.name}`
-    : `Phase ${index + 1}`
+  const activityLabel = activity.name
+    ? `Activity ${index + 1} · ${activity.name}`
+    : `Activity ${index + 1}`
   const dateLabel = isIndefinite
-    ? `${phase.start_month || '?'} → ongoing`
-    : `${phase.start_month || '?'} → ${phase.end_month || '?'}`
+    ? `${activity.start_month || '?'} → ongoing`
+    : `${activity.start_month || '?'} → ${activity.end_month || '?'}`
 
   return (
     <div className="border border-border rounded overflow-hidden">
@@ -639,7 +639,7 @@ export function PhaseEditor({
         onClick={() => setOpen(o => !o)}
       >
         {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        <span className="text-xs font-medium flex-1">{phaseLabel}</span>
+        <span className="text-xs font-medium flex-1">{activityLabel}</span>
         <span className="text-xs text-gray-400">{dateLabel}</span>
         <button
           onClick={e => { e.stopPropagation(); onDelete() }}
@@ -650,33 +650,33 @@ export function PhaseEditor({
       </div>
       {open && (
         <div className="px-3 py-3 flex flex-col gap-3">
-          {readOnlyPhaseHeader ? (
-            /* Read-only phase header — Project-spawned Demand Submitted (§4.5.2) */
+          {readOnlyActivityHeader ? (
+            /* Read-only activity header — Project-spawned Demand Submitted (§4.5.2) */
             <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
-              <div><span className="font-medium text-gray-700">{phase.name || `Phase ${index + 1}`}</span></div>
-              <div className="text-gray-400 italic">{phase.funding_source}{phase.funding_notes ? ` · ${phase.funding_notes}` : ''}</div>
-              <div>{phase.start_month || '—'}</div>
-              <div>{phase.end_month ?? 'ongoing (indefinite)'}</div>
+              <div><span className="font-medium text-gray-700">{activity.name || `Activity ${index + 1}`}</span></div>
+              <div className="text-gray-400 italic">{activity.funding_source}{activity.funding_notes ? ` · ${activity.funding_notes}` : ''}</div>
+              <div>{activity.start_month || '—'}</div>
+              <div>{activity.end_month ?? 'ongoing (indefinite)'}</div>
             </div>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-2">
-                <Input label="Phase Name" value={phase.name} onChange={e => onChange({ ...phase, name: e.target.value })} placeholder="e.g. Design" />
-                <Select label="Funding Source" value={phase.funding_source} onChange={e => onChange({ ...phase, funding_source: e.target.value as FundingSource })}>
+                <Input label="Activity Name" value={activity.name} onChange={e => onChange({ ...activity, name: e.target.value })} placeholder="e.g. Design" />
+                <Select label="Funding Source" value={activity.funding_source} onChange={e => onChange({ ...activity, funding_source: e.target.value as FundingSource })}>
                   {FUNDING_SOURCES.map(f => <option key={f}>{f}</option>)}
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Input
                   label="Start Month (YYYY-MM)"
-                  value={phase.start_month}
+                  value={activity.start_month}
                   onChange={e => handleStartChange(e.target.value)}
                   placeholder="2026-05"
                 />
                 <div className="flex flex-col gap-1">
                   <Input
                     label="End Month (YYYY-MM)"
-                    value={phase.end_month ?? ''}
+                    value={activity.end_month ?? ''}
                     onChange={e => handleEndChange(e.target.value)}
                     placeholder="2026-08"
                     disabled={isIndefinite}
@@ -692,7 +692,7 @@ export function PhaseEditor({
                   </label>
                 </div>
               </div>
-              <Input label="Funding Notes" value={phase.funding_notes} onChange={e => onChange({ ...phase, funding_notes: e.target.value })} placeholder="e.g. IS-2026-04" />
+              <Input label="Funding Notes" value={activity.funding_notes} onChange={e => onChange({ ...activity, funding_notes: e.target.value })} placeholder="e.g. IS-2026-04" />
             </>
           )}
 
@@ -706,10 +706,10 @@ export function PhaseEditor({
                 </button>
               </div>
               <div className="flex flex-col gap-1.5">
-                {phase.requirements.length === 0 && (
+                {activity.requirements.length === 0 && (
                   <p className="text-xs text-gray-400 italic">No requirements yet.</p>
                 )}
-                {phase.requirements.map(req => (
+                {activity.requirements.map(req => (
                   isIndefinite ? (
                     <IndefiniteRequirementRow
                       key={req.id}
@@ -746,7 +746,7 @@ export function PhaseEditor({
                       alert('No Providers configured. Add at least one Provider in Admin → Providers before adding external requirements.')
                       return
                     }
-                    const newExt = blankExtReq(phase.id)
+                    const newExt = blankExtReq(activity.id)
                     if (isIndefinite) {
                       newExt.steady_state_hours = 0
                     } else {

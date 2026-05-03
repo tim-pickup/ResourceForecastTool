@@ -4,7 +4,7 @@ d = json.load(open(os.path.join(os.path.dirname(__file__), '..', 'DEMOSEED.json'
 
 print('=== PROJECTS ===')
 for p in d['projects']:
-    print(f"  {p['id']} {p['name'][:40]:40} status={p['status']:12} phases={len(p['phases'])}")
+    print(f"  {p['id']} {p['name'][:40]:40} status={p['status']:12} activities={len(p['activities'])}")
 
 print('\n=== DEMAND STATUSES ===')
 dm = [di for di in d['demand_items'] if di['function_id'] == 'func_001']
@@ -26,12 +26,12 @@ def real_committed(pid, month):
     total = 0
     for item in demands:
         if item['status'] not in REAL: continue
-        for ph in item['phases']:
-            if not month_in_range(month, ph['start_month'], ph.get('end_month')): continue
-            for req in ph.get('requirements', []):
+        for ac in item.get('activities', []):
+            if not month_in_range(month, ac['start_month'], ac.get('end_month')): continue
+            for req in ac.get('requirements', []):
                 for alloc in req.get('allocations', []):
                     if alloc['person_id'] != pid: continue
-                    if ph.get('end_month') is None:
+                    if ac.get('end_month') is None:
                         total += alloc.get('steady_state_hours', 0) or 0
                     else:
                         total += alloc.get('hours_by_month', {}).get(month, 0)
@@ -66,13 +66,13 @@ for month in ['2026-07', '2026-08']:
         other_committed = 0
         for item in demands:
             if item['status'] not in REAL: continue
-            for ph in item['phases']:
-                if not month_in_range(month, ph['start_month'], ph.get('end_month')): continue
-                for req in ph.get('requirements', []):
+            for ac in item.get('activities', []):
+                if not month_in_range(month, ac['start_month'], ac.get('end_month')): continue
+                for req in ac.get('requirements', []):
                     if req['skill_id'] in data_int_skills: continue  # skip D&I skills
                     for alloc in req.get('allocations', []):
                         if alloc['person_id'] != p['id']: continue
-                        if ph.get('end_month') is None:
+                        if ac.get('end_month') is None:
                             other_committed += alloc.get('steady_state_hours', 0) or 0
                         else:
                             other_committed += alloc.get('hours_by_month', {}).get(month, 0)

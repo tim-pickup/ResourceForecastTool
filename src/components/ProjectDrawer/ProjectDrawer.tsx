@@ -37,10 +37,10 @@ function ProjectOverflowMenu({ project, onDelete }: {
 
   const childDemands = store.demandItems.filter(d => d.parent_project_id === project.id)
   const allocCount = childDemands.reduce((s, d) => {
-    for (const ph of d.phases) for (const req of ph.requirements) s += req.allocations.length
+    for (const ac of d.activities) for (const req of ac.requirements) s += req.allocations.length
     return s
   }, 0)
-  const phaseCount = childDemands.reduce((s, d) => s + d.phases.length, 0)
+  const phaseCount = childDemands.reduce((s, d) => s + d.activities.length, 0)
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -54,7 +54,7 @@ function ProjectOverflowMenu({ project, onDelete }: {
 
   const demandText = childDemands.length === 1 ? '1 child Demand' : `${childDemands.length} child Demands`
   const allocText = allocCount === 1 ? '1 named allocation' : `${allocCount} named allocations`
-  const phaseText = phaseCount === 1 ? '1 phase' : `${phaseCount} phases`
+  const phaseText = phaseCount === 1 ? '1 activity' : `${phaseCount} activities`
 
   return (
     <div className="relative" ref={ref}>
@@ -129,12 +129,12 @@ export function ProjectDrawer({ projectId, onClose, onOpenDemand }: Props) {
   const programme = project.programme_id ? store.programmes.find(p => p.id === project.programme_id) : null
   const childDemands = store.demandItems.filter(d => d.parent_project_id === projectId)
 
-  // Functions involved: from project phase requirements + child demand function_ids
+  // Functions involved: from project activity requirements + child demand function_ids
   const domFn = new Map(store.domains.map(d => [d.id, d.functionId]))
   const sklFn = new Map(store.skills.map(s => [s.id, domFn.get(s.domain_id)]))
   const fnIds = new Set<string>()
-  for (const phase of project.phases) {
-    for (const req of phase.requirements) {
+  for (const activity of project.activities) {
+    for (const req of activity.requirements) {
       const fnId = sklFn.get(req.skill_id)
       if (fnId) fnIds.add(fnId)
     }
@@ -142,21 +142,21 @@ export function ProjectDrawer({ projectId, onClose, onOpenDemand }: Props) {
   for (const d of childDemands) { if (d.function_id) fnIds.add(d.function_id) }
   const functionsInvolved = [...fnIds].map(id => store.functions.find(f => f.id === id)).filter(Boolean)
 
-  // Hours summary from project phases
+  // Hours summary from project activities
   let totalInternalHrs = 0, totalExternalHrs = 0
-  for (const phase of project.phases) {
-    for (const req of phase.requirements) {
-      totalInternalHrs += phase.end_month === null
+  for (const activity of project.activities) {
+    for (const req of activity.requirements) {
+      totalInternalHrs += activity.end_month === null
         ? (req.steady_state_hours ?? 0)
         : Object.values(req.hours_by_month).reduce((s, h) => s + h, 0)
     }
   }
-  const projectPhaseIds = new Set(project.phases.map(ph => ph.id))
+  const projectActivityIds = new Set(project.activities.map(ac => ac.id))
   for (const ext of store.externalResourceRequirements) {
-    if (!projectPhaseIds.has(ext.phase_id)) continue
-    const phase = project.phases.find(ph => ph.id === ext.phase_id)
-    if (!phase) continue
-    totalExternalHrs += phase.end_month === null
+    if (!projectActivityIds.has(ext.activity_id)) continue
+    const activity = project.activities.find(ac => ac.id === ext.activity_id)
+    if (!activity) continue
+    totalExternalHrs += activity.end_month === null
       ? (ext.steady_state_hours ?? 0)
       : Object.values(ext.hours_by_month).reduce((s, h) => s + h, 0)
   }
@@ -291,8 +291,8 @@ export function ProjectDrawer({ projectId, onClose, onOpenDemand }: Props) {
 
           {/* Summary stats */}
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-            <div><span className="text-gray-400">Phases: </span><span>{project.phases.length}</span></div>
-            <div><span className="text-gray-400">Dates: </span><span>{projectDateRange(project.phases)}</span></div>
+            <div><span className="text-gray-400">Activities: </span><span>{project.activities.length}</span></div>
+            <div><span className="text-gray-400">Dates: </span><span>{projectDateRange(project.activities)}</span></div>
             {totalInternalHrs > 0 && (
               <div className="col-span-2"><span className="text-gray-400">Internal hours: </span><span>{Math.round(totalInternalHrs)}h</span></div>
             )}
@@ -327,20 +327,20 @@ export function ProjectDrawer({ projectId, onClose, onOpenDemand }: Props) {
             </div>
           )}
 
-          {/* Phases list (compact) */}
-          {project.phases.length > 0 && (
+          {/* Activities list (compact) */}
+          {project.activities.length > 0 && (
             <div>
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Phases</div>
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Activities</div>
               <div className="flex flex-col gap-1">
-                {project.phases.map((ph, i) => {
-                  const reqCount = ph.requirements.length
-                  const dateLabel = ph.end_month === null
-                    ? `${ph.start_month} → ongoing`
-                    : `${ph.start_month} – ${ph.end_month}`
+                {project.activities.map((ac, i) => {
+                  const reqCount = ac.requirements.length
+                  const dateLabel = ac.end_month === null
+                    ? `${ac.start_month} → ongoing`
+                    : `${ac.start_month} – ${ac.end_month}`
                   return (
-                    <div key={ph.id} className="text-xs flex items-center gap-2 py-1 border-b border-border/50 last:border-0">
-                      <span className="text-gray-400 shrink-0">Phase {i + 1}</span>
-                      <span className="flex-1 font-medium truncate">{ph.name || `Phase ${i + 1}`}</span>
+                    <div key={ac.id} className="text-xs flex items-center gap-2 py-1 border-b border-border/50 last:border-0">
+                      <span className="text-gray-400 shrink-0">Activity {i + 1}</span>
+                      <span className="flex-1 font-medium truncate">{ac.name || `Activity ${i + 1}`}</span>
                       <span className="text-gray-400 text-[10px] shrink-0">{dateLabel}</span>
                       {reqCount > 0 && <span className="text-[10px] text-gray-400">{reqCount} req{reqCount > 1 ? 's' : ''}</span>}
                     </div>

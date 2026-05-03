@@ -93,8 +93,8 @@ function FunctionsInvolvedChips({ item, functions, domains, skills }: {
   skills: { id: string; domain_id: string }[]
 }) {
   const fnIds = new Set<string>()
-  for (const phase of item.phases) {
-    for (const req of phase.requirements) {
+  for (const activity of item.activities) {
+    for (const req of activity.requirements) {
       const skill = skills.find(s => s.id === req.skill_id)
       if (!skill) continue
       const domain = domains.find(d => d.id === skill.domain_id)
@@ -129,11 +129,11 @@ function TableRow({ item, projectMap, programmeMap, phasesWithExt, functions, do
   const project = item.parent_project_id ? projectMap.get(item.parent_project_id) : null
   const programme = project?.programme_id ? programmeMap.get(project.programme_id) : null
   const extHrs = store.externalResourceRequirements
-    .filter(r => item.phases.some(p => p.id === r.phase_id))
+    .filter(r => item.activities.some(ac => ac.id === r.activity_id))
     .reduce((s, ext) => {
-      const phase = item.phases.find(p => p.id === ext.phase_id)
-      if (!phase) return s
-      if (phase.end_month === null) return s + (ext.steady_state_hours ?? 0)
+      const activity = item.activities.find(ac => ac.id === ext.activity_id)
+      if (!activity) return s
+      if (activity.end_month === null) return s + (ext.steady_state_hours ?? 0)
       return s + Object.values(ext.hours_by_month).reduce((ss, h) => ss + h, 0)
     }, 0)
   return (
@@ -265,8 +265,8 @@ export default function DemandDiscovery() {
       if (item) {
         const newFnDomainIds = new Set(store.domains.filter(d => d.functionId === activeFunctionId).map(d => d.id))
         const newFnSkillIds = new Set(store.skills.filter(s => newFnDomainIds.has(s.domain_id)).map(s => s.id))
-        const touchesNewFn = item.phases.some(ph => ph.requirements.some(r => newFnSkillIds.has(r.skill_id)))
-        const hasAnyReqs = item.phases.some(ph => ph.requirements.length > 0)
+        const touchesNewFn = item.activities.some(ac => ac.requirements.some(r => newFnSkillIds.has(r.skill_id)))
+        const hasAnyReqs = item.activities.some(ac => ac.requirements.length > 0)
         const shouldClose = hasAnyReqs ? !touchesNewFn : item.function_id !== activeFunctionId
         if (shouldClose) setDrawerId(null)
       }
@@ -279,9 +279,9 @@ export default function DemandDiscovery() {
   const projectMap = useMemo(() => new Map(store.projects.map(p => [p.id, p])), [store.projects])
   const programmeMap = useMemo(() => new Map(store.programmes.map(p => [p.id, p])), [store.programmes])
 
-  // Phase sets with external requirements
-  const phasesWithExt = useMemo(() => new Set(store.externalResourceRequirements.map(r => r.phase_id)), [store.externalResourceRequirements])
-  const demandHasExternal = (item: DemandItem) => item.phases.some(p => phasesWithExt.has(p.id))
+  // Activity sets with external requirements
+  const phasesWithExt = useMemo(() => new Set(store.externalResourceRequirements.map(r => r.activity_id)), [store.externalResourceRequirements])
+  const demandHasExternal = (item: DemandItem) => item.activities.some(ac => phasesWithExt.has(ac.id))
 
   // Active Function lens — Domain/Skill sets for the currently active Function
   const activeFnDomainIds = useMemo(() =>
@@ -327,7 +327,7 @@ export default function DemandDiscovery() {
     if (filterType) items = items.filter(d => d.type === filterType)
     if (filterDomains.length > 0) {
       items = items.filter(item =>
-        item.phases.some(ph => ph.requirements.some(r => {
+        item.activities.some(ac => ac.requirements.some(r => {
           const skill = store.skills.find(s => s.id === r.skill_id)
           return skill ? filterDomains.includes(skill.domain_id) : false
         }))
@@ -348,7 +348,7 @@ export default function DemandDiscovery() {
         d.name.toLowerCase().includes(q) ||
         d.description.toLowerCase().includes(q) ||
         d.owner.toLowerCase().includes(q) ||
-        d.phases.some(p => p.name.toLowerCase().includes(q))
+        d.activities.some(ac => ac.name.toLowerCase().includes(q))
       )
     }
     items.sort((a, b) => {
@@ -379,7 +379,7 @@ export default function DemandDiscovery() {
     if (filterStatus && item.status !== filterStatus) return false
     if (filterType && item.type !== filterType) return false
     if (filterDomains.length > 0) {
-      const touches = item.phases.some(ph => ph.requirements.some(r => {
+      const touches = item.activities.some(ac => ac.requirements.some(r => {
         const skill = store.skills.find(s => s.id === r.skill_id)
         return skill ? filterDomains.includes(skill.domain_id) : false
       }))

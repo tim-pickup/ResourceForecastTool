@@ -54,7 +54,7 @@ function buildSeedState(): AppState {
       type: (p.type ?? 'pt_group_strat') as string,
       programme_id: (p.programme_id ?? null) as string | null,
       status: (p.status ?? 'Draft') as ProjectStatus,
-      phases: (p.phases ?? []) as [],
+      activities: (p.activities ?? []) as [],
       active: (p.active ?? true) as boolean,
       functions_required: (p.functions_required ?? []) as string[],
       functions_actually_involved: (p.functions_actually_involved ?? []) as string[],
@@ -76,18 +76,18 @@ function buildSeedState(): AppState {
       description: d.description as string,
       function_id: (d.function_id ?? d.createdUnderFunctionId ?? '') as string,
       parent_project_id: (d.parent_project_id ?? d.project_id ?? null) as string | null,
-      phases: ((d.phases || []) as Record<string, unknown>[]).map(p => ({
+      activities: ((d.activities || []) as Record<string, unknown>[]).map(p => ({
         id: p.id as string,
         name: p.name as string,
         start_month: p.start_month as string,
         end_month: (p.end_month ?? null) as string | null,
-        funding_source: p.funding_source as DemandItem['phases'][0]['funding_source'],
+        funding_source: p.funding_source as DemandItem['activities'][0]['funding_source'],
         funding_notes: (p.funding_notes ?? '') as string,
         requirements: ((p.requirements || []) as Record<string, unknown>[]).map(r => ({
           id: r.id as string,
           shape: 'skill' as const,
           skill_id: r.skill_id as string,
-          level: r.level as DemandItem['phases'][0]['requirements'][0]['level'],
+          level: r.level as DemandItem['activities'][0]['requirements'][0]['level'],
           hours_by_month: (r.hours_by_month ?? {}) as Record<string, number>,
           steady_state_hours: (r.steady_state_hours ?? null) as number | null,
           notes: (r.notes ?? null) as string | null,
@@ -124,7 +124,7 @@ export function runSeedAssertions(): void {
   const projNoOverlay = computeProjection(state, months)
 
   // dmd_p4_dm "Plant C MES Platform Migration — DM" is PartiallyAllocated.
-  // Its Phase 2 has 40 hrs/mo of skl_mom_workflow (Advanced) that is UNALLOCATED.
+  // Its Activity 2 has 40 hrs/mo of skl_mom_workflow (Advanced) that is UNALLOCATED.
   // Alex Morgan (per_001) holds both skl_mom_mes AND skl_mom_workflow — the
   // Workflow projection consumes his headroom and appears as a grey band on the
   // MES chart (other-skill demand projecting onto MES pool members).
@@ -145,7 +145,7 @@ export function runSeedAssertions(): void {
   // of skl_miv_analytics (Advanced) in 2026-09 and 2026-10. James Whitfield
   // (per_005) and Fatima Al-Rashid (per_006) hold Analytics; both also hold
   // Integration — so Analytics projection produces a grey band on the
-  // Integration chart.
+  // Integration chart (activity-level requirement).
   const bandIntSep = grey_band(
     { type: 'skill', id: 'skl_miv_integration' },
     '2026-09',
@@ -175,9 +175,9 @@ export function runSeedAssertions(): void {
         ? {
             ...d,
             status: 'Approved' as DemandStatus,
-            phases: d.phases.map(ph => ({
-              ...ph,
-              requirements: ph.requirements.map(r => ({ ...r, allocations: [] })),
+            activities: d.activities.map(ac => ({
+              ...ac,
+              requirements: ac.requirements.map(r => ({ ...r, allocations: [] })),
             })),
           }
         : d
@@ -362,7 +362,7 @@ export function runSeedAssertions(): void {
   // Project 4 must have exactly 2 child Demands (DM + GroupIT).
   const p4Demands = state.demandItems.filter(d => d.parent_project_id === 'prj_004')
   if (p4Demands.length !== 2) {
-    console.error(`[SeedAssertion FAIL] prj_004 (Plant C MES Platform Migration) has ${p4Demands.length} child Demands, expected 2`)
+    console.error(`[SeedAssertion FAIL] prj_004 (Plant C MES Platform Migration) has ${p4Demands.length} child Demands, expected 2 (DM + GroupIT)`)
   }
   // All spawned Demands must carry a parent_project_id.
   const spawnedWithoutParent = state.demandItems.filter(d => !d.parent_project_id && d.name.includes(' — '))
@@ -428,65 +428,65 @@ export function runSeedAssertions(): void {
 
   // ── §11.20 v1.19 Spawn renderability invariants ───────────────────────────
   // Verify Project 4 carries its frozen planning record, child Demands carry
-  // their materialised phases, and the spawn-drift example is demonstrable.
+  // their materialised activities, and the spawn-drift example is demonstrable.
 
-  // 1. prj_004 must have non-empty frozen phases (planning record at Submit).
+  // 1. prj_004 must have non-empty frozen activities (planning record at Submit).
   const prj4 = state.projects.find(p => p.id === 'prj_004')
   let spawnInvariantsOk = true
 
-  if (!prj4 || prj4.phases.length === 0) {
-    console.error('[SeedAssertion FAIL] §11.20: prj_004 has no frozen phases — Project planning record missing')
+  if (!prj4 || prj4.activities.length === 0) {
+    console.error('[SeedAssertion FAIL] §11.20: prj_004 has no frozen activities — Project planning record missing')
     spawnInvariantsOk = false
   }
 
-  // 2. Each child Demand of prj_004 must have non-zero phases.
+  // 2. Each child Demand of prj_004 must have non-zero activities.
   for (const d of state.demandItems.filter(d => d.parent_project_id === 'prj_004')) {
-    if (d.phases.length === 0) {
+    if (d.activities.length === 0) {
       console.error(
-        `[SeedAssertion FAIL] §11.20: ${d.id} (${d.name}) has zero phases — materialisation incomplete`
+        `[SeedAssertion FAIL] §11.20: ${d.id} (${d.name}) has zero activities — materialisation incomplete`
       )
       spawnInvariantsOk = false
     }
   }
 
-  // 3. Every external requirement on a child Demand's phase must have a
+  // 3. Every external requirement on a child Demand's activity must have a
   //    function_tag matching the Demand's function_id.
-  const demandPhaseToFn = new Map<string, string>() // phase_id → demand.function_id
+  const demandActivityToFn = new Map<string, string>() // activity_id → demand.function_id
   for (const d of state.demandItems) {
-    for (const ph of d.phases) demandPhaseToFn.set(ph.id, d.function_id)
+    for (const ac of d.activities) demandActivityToFn.set(ac.id, d.function_id)
   }
   for (const ext of state.externalResourceRequirements) {
-    const fnId = demandPhaseToFn.get(ext.phase_id)
-    if (fnId === undefined) continue // Project frozen phase — not checked here
+    const fnId = demandActivityToFn.get(ext.activity_id)
+    if (fnId === undefined) continue // Project frozen activity — not checked here
     if (ext.function_tag !== fnId) {
       console.error(
-        `[SeedAssertion FAIL] §11.20: External req ${ext.id} on Demand phase ${ext.phase_id} ` +
+        `[SeedAssertion FAIL] §11.20: External req ${ext.id} on Demand activity ${ext.activity_id} ` +
         `has function_tag "${ext.function_tag}" but Demand function_id is "${fnId}"`
       )
       spawnInvariantsOk = false
     }
   }
 
-  // 4. Spawn drift demonstration: prj_004 frozen Build-phase MES Specialist
-  //    requirement = 60h/mo (spawn-time value); dmd_p4_dm Build-phase MES req = 80h/mo (post-drift).
+  // 4. Spawn drift demonstration: prj_004 frozen Build-activity MES Specialist
+  //    requirement = 60h/mo (spawn-time value); dmd_p4_dm Build-activity MES req = 80h/mo (post-drift).
   const dmdP4Dm = state.demandItems.find(d => d.id === 'dmd_p4_dm')
-  const prj4BuildPhase = prj4?.phases.find(ph => ph.name === 'Build & Integration')
-  const prj4MesReq = prj4BuildPhase?.requirements.find(r => r.skill_id === 'skl_mom_mes')
-  const dmdBuildPhase = dmdP4Dm?.phases.find(ph => ph.name === 'Build & Integration')
-  const dmdMesReq = dmdBuildPhase?.requirements.find(r => r.skill_id === 'skl_mom_mes')
+  const prj4BuildActivity = prj4?.activities.find(ac => ac.name === 'Build & Integration')
+  const prj4MesReq = prj4BuildActivity?.requirements.find(r => r.skill_id === 'skl_mom_mes')
+  const dmdBuildActivity = dmdP4Dm?.activities.find(ac => ac.name === 'Build & Integration')
+  const dmdMesReq = dmdBuildActivity?.requirements.find(r => r.skill_id === 'skl_mom_mes')
 
   const frozenMesHours = prj4MesReq?.hours_by_month?.['2026-08'] ?? -1
   const driftedMesHours = dmdMesReq?.hours_by_month?.['2026-08'] ?? -1
 
   if (frozenMesHours !== 60) {
     console.error(
-      `[SeedAssertion FAIL] §11.20 drift: prj_004 frozen Build MES hours at 2026-08 = ${frozenMesHours}, expected 60 (spawn-time value)`
+      `[SeedAssertion FAIL] §11.20 drift: prj_004 frozen Build activity MES hours at 2026-08 = ${frozenMesHours}, expected 60 (spawn-time value)`
     )
     spawnInvariantsOk = false
   }
   if (driftedMesHours !== 80) {
     console.error(
-      `[SeedAssertion FAIL] §11.20 drift: dmd_p4_dm Build MES hours at 2026-08 = ${driftedMesHours}, expected 80 (post-spawn drift value)`
+      `[SeedAssertion FAIL] §11.20 drift: dmd_p4_dm Build activity MES hours at 2026-08 = ${driftedMesHours}, expected 80 (post-spawn drift value)`
     )
     spawnInvariantsOk = false
   }
@@ -552,10 +552,10 @@ export function runSeedAssertions(): void {
     }
   }
 
-  // 5. Project 3 (Corporate Data Lake, Submitted) — frozen phases must be non-empty after Change 10
+  // 5. Project 3 (Corporate Data Lake, Submitted) — frozen activities must be non-empty after Change 10
   const prj3 = state.projects.find(p => p.id === 'prj_003')
-  if (!prj3 || prj3.phases.length === 0) {
-    console.error('[SeedAssertion FAIL] §6 v1.19: prj_003 has no frozen phases — Change 10 seed rebuild incomplete')
+  if (!prj3 || prj3.activities.length === 0) {
+    console.error('[SeedAssertion FAIL] §6 v1.19: prj_003 has no frozen activities — Change 10 seed rebuild incomplete')
     v119Ok = false
   }
 
@@ -572,10 +572,10 @@ export function runSeedAssertions(): void {
     console.error('[SeedAssertion FAIL] §6 v1.19: dmd_p3_dm or dmd_p3_git not found in seed')
     v119Ok = false
   } else {
-    const p3dmPhaseIds = new Set(p3dmDemand.phases.map(ph => ph.id))
-    const p3gitPhaseIds = new Set(p3gitDemand.phases.map(ph => ph.id))
-    const p3dmExts = state.externalResourceRequirements.filter(e => p3dmPhaseIds.has(e.phase_id))
-    const p3gitExts = state.externalResourceRequirements.filter(e => p3gitPhaseIds.has(e.phase_id))
+    const p3dmActivityIds = new Set(p3dmDemand.activities.map(ac => ac.id))
+    const p3gitActivityIds = new Set(p3gitDemand.activities.map(ac => ac.id))
+    const p3dmExts = state.externalResourceRequirements.filter(e => p3dmActivityIds.has(e.activity_id))
+    const p3gitExts = state.externalResourceRequirements.filter(e => p3gitActivityIds.has(e.activity_id))
     if (!p3dmExts.some(e => e.function_tag === 'func_001')) {
       console.error('[SeedAssertion FAIL] §6 v1.19: dmd_p3_dm has no external req with function_tag=func_001 (DM-tagged Contractor expected)')
       v119Ok = false
@@ -589,8 +589,8 @@ export function runSeedAssertions(): void {
   // 8. Direct Demand D3 external function_tag auto-set to demand's function_id
   const d3 = state.demandItems.find(d => d.id === 'dmd_d3')
   if (d3) {
-    const d3PhaseIds = new Set(d3.phases.map(ph => ph.id))
-    const d3Exts = state.externalResourceRequirements.filter(e => d3PhaseIds.has(e.phase_id))
+    const d3ActivityIds = new Set(d3.activities.map(ac => ac.id))
+    const d3Exts = state.externalResourceRequirements.filter(e => d3ActivityIds.has(e.activity_id))
     for (const ext of d3Exts) {
       if (ext.function_tag !== d3.function_id) {
         console.error(
@@ -602,19 +602,19 @@ export function runSeedAssertions(): void {
     }
   }
 
-  // 9. Project 4 DM and GroupIT Demands each have their own independent phases
+  // 9. Project 4 DM and GroupIT Demands each have their own independent activities
   const p4dm = state.demandItems.find(d => d.parent_project_id === 'prj_004' && d.function_id === 'func_001')
   const p4git = state.demandItems.find(d => d.parent_project_id === 'prj_004' && d.function_id === 'func_002')
   if (!p4dm || !p4git) {
     console.error('[SeedAssertion FAIL] §6 v1.19: Project 4 DM or GroupIT Demand not found')
     v119Ok = false
   } else {
-    if (p4dm.phases.length === 0) {
-      console.error('[SeedAssertion FAIL] §6 v1.19: prj_004 DM Demand has zero phases — materialisation incomplete')
+    if (p4dm.activities.length === 0) {
+      console.error('[SeedAssertion FAIL] §6 v1.19: prj_004 DM Demand has zero activities — materialisation incomplete')
       v119Ok = false
     }
-    if (p4git.phases.length === 0) {
-      console.error('[SeedAssertion FAIL] §6 v1.19: prj_004 GroupIT Demand has zero phases — materialisation incomplete')
+    if (p4git.activities.length === 0) {
+      console.error('[SeedAssertion FAIL] §6 v1.19: prj_004 GroupIT Demand has zero activities — materialisation incomplete')
       v119Ok = false
     }
     // Verify sibling count: each sibling sees the other

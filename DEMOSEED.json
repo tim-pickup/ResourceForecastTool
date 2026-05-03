@@ -690,7 +690,7 @@
         "func_002"
       ],
       "functions_actually_involved": [],
-      "phases": [
+      "activities": [
         {
           "id": "phs_prj001_concept",
           "name": "Concept & Feasibility",
@@ -727,7 +727,7 @@
         "func_001",
         "func_002"
       ],
-      "phases": [
+      "activities": [
         {
           "id": "phs_prj002_spec",
           "name": "Design & Specification",
@@ -855,7 +855,7 @@
         "func_001",
         "func_002"
       ],
-      "phases": [
+      "activities": [
         {
           "id": "phs_prj3_main",
           "name": "Build & Deploy",
@@ -930,7 +930,7 @@
         "func_001",
         "func_002"
       ],
-      "phases": [
+      "activities": [
         {
           "id": "phs_prj4_spec",
           "name": "Design & Specification",
@@ -1069,7 +1069,7 @@
       "functions_actually_involved": [
         "func_001"
       ],
-      "phases": []
+      "activities": []
     },
     {
       "id": "prj_006",
@@ -1086,7 +1086,7 @@
       "functions_actually_involved": [
         "func_001"
       ],
-      "phases": []
+      "activities": []
     }
   ],
   "demand_items": [
@@ -1099,7 +1099,7 @@
       "description": "DM MI&V integration slice for the Corporate Data Lake.",
       "function_id": "func_001",
       "parent_project_id": "prj_003",
-      "phases": [
+      "activities": [
         {
           "id": "phs_p3dm_main",
           "name": "Build & Deploy",
@@ -1135,7 +1135,7 @@
       "description": "GroupIT Data & Integration platform build for the Corporate Data Lake.",
       "function_id": "func_002",
       "parent_project_id": "prj_003",
-      "phases": [
+      "activities": [
         {
           "id": "phs_p3git_main",
           "name": "Build & Deploy",
@@ -1185,7 +1185,7 @@
       "description": "DM MOM and MI&V work for Plant C MES Platform Migration. Phase 1 fully allocated; Phase 2 partially in progress.",
       "function_id": "func_001",
       "parent_project_id": "prj_004",
-      "phases": [
+      "activities": [
         {
           "id": "phs_p4dm_spec",
           "name": "Design & Specification",
@@ -1322,7 +1322,7 @@
       "description": "GroupIT Data & Integration work for Plant C MES Platform Migration. Approved, pending resource planning.",
       "function_id": "func_002",
       "parent_project_id": "prj_004",
-      "phases": [
+      "activities": [
         {
           "id": "phs_p4git_spec",
           "name": "Design & Specification",
@@ -1392,7 +1392,7 @@
       "description": "DM MBM work for the MBM Foundation Library. Fully allocated.",
       "function_id": "func_001",
       "parent_project_id": "prj_005",
-      "phases": [
+      "activities": [
         {
           "id": "phs_p5dm_build",
           "name": "Foundation Build",
@@ -1466,7 +1466,7 @@
       "description": "DM MOM work for Plant B MES Refresh. Fully allocated.",
       "function_id": "func_001",
       "parent_project_id": "prj_006",
-      "phases": [
+      "activities": [
         {
           "id": "phs_p6dm_rollout",
           "name": "Rollout",
@@ -1536,7 +1536,7 @@
       "description": "Ad-hoc review of MES shift patterns at Plant A. 1 phase, 1 MOM Basic requirement. No external.",
       "function_id": "func_001",
       "parent_project_id": null,
-      "phases": [
+      "activities": [
         {
           "id": "phs_d1_review",
           "name": "Review",
@@ -1570,7 +1570,7 @@
       "description": "Assist with SCADA migration at Plant A. Submitted \u00e2\u20ac\u201d Approve is the next-step CTA.",
       "function_id": "func_001",
       "parent_project_id": null,
-      "phases": [
+      "activities": [
         {
           "id": "phs_d2_support",
           "name": "Migration Support",
@@ -1605,7 +1605,7 @@
       "description": "Ongoing BAU MES super user support at Plant B. Indefinite phase; partial allocation in place. Has Other Internal Team external requirement.",
       "function_id": "func_001",
       "parent_project_id": null,
-      "phases": [
+      "activities": [
         {
           "id": "phs_d3_ongoing",
           "name": "Ongoing support",
@@ -1643,7 +1643,7 @@
       "description": "Configuration handover for historian upgrade at Plant B. Fully allocated.",
       "function_id": "func_001",
       "parent_project_id": null,
-      "phases": [
+      "activities": [
         {
           "id": "phs_d4_handover",
           "name": "Handover",
@@ -1687,7 +1687,7 @@
       "description": "OEE metric enhancement at Plant A. Approved, ready for resource planning.",
       "function_id": "func_001",
       "parent_project_id": null,
-      "phases": [
+      "activities": [
         {
           "id": "phs_d5_impl",
           "name": "Implementation",
@@ -1754,7 +1754,7 @@
   "external_resource_requirements": [
     {
       "id": "ext_prj4_oem",
-      "phase_id": "phs_prj4_build",
+      "activity_id": "phs_prj4_build",
       "provider_id": "prv_003",
       "role": "MES Platform Vendor Support",
       "notes": "OEM provides specialist platform configuration support during build. (Frozen planning record on Project.)",
@@ -1768,7 +1768,7 @@
     },
     {
       "id": "ext_prj4_ms",
-      "phase_id": "phs_prj4_build",
+      "activity_id": "phs_prj4_build",
       "provider_id": "prv_001",
       "role": "SCADA Engineer",
       "notes": "Managed Services SCADA resource for integration work. (Frozen planning record on Project.)",
@@ -1782,7 +1782,7 @@
     },
     {
       "id": "ext_p4_oem",
-      "phase_id": "phs_p4dm_build",
+      "activity_id": "phs_p4dm_build",
       "provider_id": "prv_003",
       "role": "MES Platform Vendor Support",
       "notes": "OEM provides specialist platform configuration support during build.",
@@ -1796,7 +1796,7 @@
     },
     {
       "id": "ext_p4_ms",
-      "phase_id": "phs_p4dm_build",
+      "activity_id": "phs_p4dm_build",
       "provider_id": "prv_001",
       "role": "SCADA Engineer",
       "notes": "Managed Services SCADA resource for integration work.",
@@ -1810,7 +1810,7 @@
     },
     {
       "id": "ext_p3_contractor",
-      "phase_id": "phs_p3git_main",
+      "activity_id": "phs_p3git_main",
       "provider_id": "prv_003",
       "role": "Data Platform Vendor",
       "notes": "Contract data engineer for pipeline build and integration testing.",
@@ -1825,7 +1825,7 @@
     },
     {
       "id": "ext_d3_oit",
-      "phase_id": "phs_d3_ongoing",
+      "activity_id": "phs_d3_ongoing",
       "provider_id": "prv_005",
       "role": "Plant Electrician Support",
       "notes": "Plant B electricians provide hardware first-line support for MES-connected equipment.",
@@ -1835,7 +1835,7 @@
     },
     {
       "id": "ext_p3dm_contractor",
-      "phase_id": "phs_p3dm_main",
+      "activity_id": "phs_p3dm_main",
       "provider_id": "prv_002",
       "role": "Data Engineer",
       "notes": null,
@@ -1850,7 +1850,7 @@
     },
     {
       "id": "ext_prj3_contractor",
-      "phase_id": "phs_prj3_main",
+      "activity_id": "phs_prj3_main",
       "provider_id": "prv_002",
       "role": "Data Engineer",
       "notes": null,
@@ -1865,7 +1865,7 @@
     },
     {
       "id": "ext_prj3_oem",
-      "phase_id": "phs_prj3_main",
+      "activity_id": "phs_prj3_main",
       "provider_id": "prv_003",
       "role": "Data Platform Vendor",
       "notes": null,

@@ -775,14 +775,14 @@ function ProjectsPanel() {
     let count = 0
     for (const d of store.demandItems) {
       if (d.parent_project_id !== projId) continue
-      for (const phase of d.phases) {
-        for (const req of phase.requirements) count += req.allocations.length
+      for (const activity of d.activities) {
+        for (const req of activity.requirements) count += req.allocations.length
       }
     }
     const project = store.projects.find(p => p.id === projId)
     if (project) {
-      for (const phase of project.phases) {
-        for (const req of phase.requirements) count += req.allocations.length
+      for (const activity of project.activities) {
+        for (const req of activity.requirements) count += req.allocations.length
       }
     }
     return count
@@ -792,7 +792,7 @@ function ProjectsPanel() {
   const deleteCascadeInfo = deleteTarget ? {
     demands: childDemandCount(deleteTarget.id),
     allocations: allocationCount(deleteTarget.id),
-    phases: deleteTarget.phases.length,
+    activities: deleteTarget.activities.length,
   } : null
 
   return (
@@ -815,7 +815,7 @@ function ProjectsPanel() {
             This will permanently delete{' '}
             <strong>{deleteCascadeInfo.demands}</strong> child Demand{deleteCascadeInfo.demands !== 1 ? 's' : ''},{' '}
             <strong>{deleteCascadeInfo.allocations}</strong> allocation{deleteCascadeInfo.allocations !== 1 ? 's' : ''}, and{' '}
-            <strong>{deleteCascadeInfo.phases}</strong> phase{deleteCascadeInfo.phases !== 1 ? 's' : ''}. This cannot be undone.
+            <strong>{deleteCascadeInfo.activities}</strong> activit{deleteCascadeInfo.activities !== 1 ? 'ies' : 'y'}. This cannot be undone.
           </p>
           <div className="flex gap-2">
             <Button size="sm" variant="danger" onClick={() => { store.deleteProject(deleteTarget.id); setDeleteConfirmId(null) }}>

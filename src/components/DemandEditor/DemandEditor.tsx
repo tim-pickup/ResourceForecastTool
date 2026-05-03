@@ -45,16 +45,16 @@ function footerButtons(status: DemandStatus): FooterButton[] {
 
 function coveragePct(item: DemandItem): number | null {
   let total = 0, covered = 0
-  for (const phase of item.phases) {
-    if (phase.end_month === null) {
-      for (const req of phase.requirements) {
+  for (const activity of item.activities) {
+    if (activity.end_month === null) {
+      for (const req of activity.requirements) {
         const target = req.steady_state_hours ?? 0
         if (target === 0) continue
         total++
         if (req.allocations.reduce((s, a) => s + (a.steady_state_hours ?? 0), 0) >= target) covered++
       }
     } else {
-      for (const req of phase.requirements) {
+      for (const req of activity.requirements) {
         for (const [m, target] of Object.entries(req.hours_by_month)) {
           if (target === 0) continue
           total++
@@ -68,9 +68,9 @@ function coveragePct(item: DemandItem): number | null {
 
 function totalItemHours(item: DemandItem): { finite: number; indefiniteCount: number } {
   let finite = 0, indefiniteCount = 0
-  for (const phase of item.phases) {
-    if (phase.end_month === null) { indefiniteCount++; continue }
-    for (const req of phase.requirements) {
+  for (const activity of item.activities) {
+    if (activity.end_month === null) { indefiniteCount++; continue }
+    for (const req of activity.requirements) {
       finite += Object.values(req.hours_by_month).reduce((s, h) => s + h, 0)
     }
   }
@@ -78,11 +78,11 @@ function totalItemHours(item: DemandItem): { finite: number; indefiniteCount: nu
 }
 
 function dateRange(item: DemandItem): string {
-  const starts = item.phases.map(p => p.start_month).filter(Boolean).sort()
-  const ends = item.phases.map(p => p.end_month).filter((e): e is string => !!e).sort()
+  const starts = item.activities.map(ac => ac.start_month).filter(Boolean).sort()
+  const ends = item.activities.map(ac => ac.end_month).filter((e): e is string => !!e).sort()
   if (!starts.length) return '—'
   const fmt = (m: string) => format(parseISO(m + '-01'), 'MMM yy')
-  const hasIndefinite = item.phases.some(p => p.end_month === null)
+  const hasIndefinite = item.activities.some(ac => ac.end_month === null)
   return `${fmt(starts[0])} – ${hasIndefinite ? 'ongoing' : (ends.length ? fmt(ends[ends.length - 1]) : '—')}`
 }
 
@@ -158,8 +158,8 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
   // Auto-derive distinct Functions from requirements
   const functionsInvolved = (() => {
     const fnIds = new Set<string>()
-    for (const phase of item.phases) {
-      for (const req of phase.requirements) {
+    for (const activity of item.activities) {
+      for (const req of activity.requirements) {
         const skill = store.skills.find(s => s.id === req.skill_id)
         if (!skill) continue
         const dom = store.domains.find(d => d.id === skill.domain_id)
@@ -314,16 +314,16 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
 
           {/* Summary stats */}
           {(() => {
-            const allExtReqs = store.externalResourceRequirements.filter(r => item.phases.some(p => p.id === r.phase_id))
+            const allExtReqs = store.externalResourceRequirements.filter(r => item.activities.some(ac => ac.id === r.activity_id))
             const totalExtHours = allExtReqs.reduce((s, ext) => {
-              const phase = item.phases.find(p => p.id === ext.phase_id)
-              if (!phase) return s
-              if (phase.end_month === null) return s + (ext.steady_state_hours ?? 0)
+              const activity = item.activities.find(ac => ac.id === ext.activity_id)
+              if (!activity) return s
+              if (activity.end_month === null) return s + (ext.steady_state_hours ?? 0)
               return s + Object.values(ext.hours_by_month).reduce((ss, h) => ss + h, 0)
             }, 0)
             return (
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                <div><span className="text-gray-400">Phases: </span><span>{item.phases.length}</span></div>
+                <div><span className="text-gray-400">Activities: </span><span>{item.activities.length}</span></div>
                 <div><span className="text-gray-400">Dates: </span><span>{dateRange(item)}</span></div>
                 {totalFiniteHours > 0 && (
                   <div className="col-span-2"><span className="text-gray-400">Internal hours (finite phases): </span><span>{Math.round(totalFiniteHours)}h</span></div>
@@ -332,7 +332,7 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
                   <div className="col-span-2"><span className="text-amber-500">External hours (finite phases): </span><span className="text-amber-700">{Math.round(totalExtHours)}h</span></div>
                 )}
                 {indefiniteCount > 0 && (
-                  <div className="col-span-2"><span className="text-gray-400">Indefinite phases: </span><span>{indefiniteCount}</span></div>
+                  <div className="col-span-2"><span className="text-gray-400">Indefinite activities: </span><span>{indefiniteCount}</span></div>
                 )}
               </div>
             )
@@ -356,31 +356,31 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
             <p className="text-xs text-gray-600 leading-relaxed">{item.description}</p>
           )}
 
-          {item.phases.length > 0 && (
+          {item.activities.length > 0 && (
             <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 block mb-2">Phases</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 block mb-2">Activities</span>
               <div className="flex flex-col gap-2.5">
-                {item.phases.map((phase, idx) => {
-                  const isIndefinite = phase.end_month === null
-                  const phaseHrs = isIndefinite
+                {item.activities.map((activity, idx) => {
+                  const isIndefinite = activity.end_month === null
+                  const activityHrs = isIndefinite
                     ? null
-                    : phase.requirements.flatMap(r => Object.values(r.hours_by_month)).reduce((s, h) => s + h, 0)
-                  const extReqs = store.externalResourceRequirements.filter(r => r.phase_id === phase.id)
+                    : activity.requirements.flatMap(r => Object.values(r.hours_by_month)).reduce((s, h) => s + h, 0)
+                  const extReqs = store.externalResourceRequirements.filter(r => r.activity_id === activity.id)
                   return (
-                    <div key={phase.id} className="border border-border rounded p-3">
+                    <div key={activity.id} className="border border-border rounded p-3">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-medium">
-                          Phase {idx + 1}{phase.name ? ` · ${phase.name}` : ''}
+                          Activity {idx + 1}{activity.name ? ` · ${activity.name}` : ''}
                         </span>
                         <span className="text-xs text-gray-400">
-                          {isIndefinite ? `${phase.start_month} → ongoing` : `${phase.start_month} → ${phase.end_month}`}
+                          {isIndefinite ? `${activity.start_month} → ongoing` : `${activity.start_month} → ${activity.end_month}`}
                         </span>
                       </div>
                       <div className="text-xs text-gray-500 mb-2">
-                        {phase.funding_source}{phase.funding_notes ? ` — ${phase.funding_notes}` : ''}
+                        {activity.funding_source}{activity.funding_notes ? ` — ${activity.funding_notes}` : ''}
                       </div>
                       <div className="flex flex-col gap-1">
-                        {phase.requirements.map(req => {
+                        {activity.requirements.map(req => {
                           const skill = store.skills.find(s => s.id === req.skill_id)
                           const allocCount = req.allocations.length
                           const hrsLabel = isIndefinite
@@ -396,7 +396,7 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
                             </div>
                           )
                         })}
-                        {phase.requirements.length === 0 && (
+                        {activity.requirements.length === 0 && (
                           <p className="text-xs text-gray-400 italic">No internal requirements</p>
                         )}
                       </div>
@@ -417,9 +417,9 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
                           })}
                         </div>
                       )}
-                      {phaseHrs !== null && (
+                      {activityHrs !== null && (
                         <div className="mt-2 pt-1.5 border-t border-gray-100 text-xs text-gray-500 text-right">
-                          {Math.round(phaseHrs)}h internal total
+                          {Math.round(activityHrs)}h internal total
                         </div>
                       )}
                     </div>

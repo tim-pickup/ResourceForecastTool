@@ -17,7 +17,7 @@ import { ProjectStatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { SubmitProjectDialog } from '../../components/SubmitProjectDialog'
 import { ImportPreview } from './ImportPreview'
-import type { Project, ProjectStatus, Phase, ExternalResourceRequirement } from '../../types'
+import type { Project, ProjectStatus, Activity, ExternalResourceRequirement } from '../../types'
 import type { ParseResult, ParsedImportProject } from '../../lib/excelImport'
 import { clsx } from 'clsx'
 import { getCurrentMonth, generateMonths } from '../../utils/capacity'
@@ -44,8 +44,8 @@ function useProjectFunctions(project: Project) {
     const domFn = new Map(store.domains.map(d => [d.id, d.functionId]))
     const sklFn = new Map(store.skills.map(s => [s.id, domFn.get(s.domain_id)]))
     const fnIds = new Set<string>()
-    for (const phase of project.phases) {
-      for (const req of phase.requirements) {
+    for (const activity of project.activities) {
+      for (const req of activity.requirements) {
         const fnId = sklFn.get(req.skill_id)
         if (fnId) fnIds.add(fnId)
       }
@@ -166,7 +166,7 @@ function ProjectTableRow({
           {fns.length === 0 && <span className="text-gray-300 text-xs">—</span>}
         </div>
       </td>
-      <td className="px-4 py-2.5 text-right text-xs text-gray-500">{project.phases.length}</td>
+      <td className="px-4 py-2.5 text-right text-xs text-gray-500">{project.activities.length}</td>
       <td className="px-4 py-2.5 text-right text-xs text-gray-500">{intHrs > 0 ? `${Math.round(intHrs)}h` : '—'}</td>
       <td className="px-4 py-2.5 text-right text-xs text-amber-600">{extHrs > 0 ? `${Math.round(extHrs)}h` : '—'}</td>
       <td className="px-4 py-2.5 text-right text-xs text-gray-500">{childCount}</td>
@@ -231,8 +231,8 @@ export default function ManageProjects() {
   const sklFn = useMemo(() => new Map(store.skills.map(s => [s.id, domFn.get(s.domain_id)])), [store.skills, domFn])
   function getProjectFnIds(project: Project): Set<string> {
     const ids = new Set<string>()
-    for (const phase of project.phases) {
-      for (const req of phase.requirements) {
+    for (const activity of project.activities) {
+      for (const req of activity.requirements) {
         const fnId = sklFn.get(req.skill_id)
         if (fnId) ids.add(fnId)
       }
@@ -244,17 +244,17 @@ export default function ManageProjects() {
   }
 
   // Check for external requirements
-  const projectPhaseSet = useMemo(() => {
+  const projectActivitySet = useMemo(() => {
     const m = new Map<string, string[]>()
     for (const p of store.projects) {
-      m.set(p.id, p.phases.map(ph => ph.id))
+      m.set(p.id, p.activities.map(ac => ac.id))
     }
     return m
   }, [store.projects])
-  const extPhaseIds = useMemo(() => new Set(store.externalResourceRequirements.map(r => r.phase_id)), [store.externalResourceRequirements])
+  const extActivityIds = useMemo(() => new Set(store.externalResourceRequirements.map(r => r.activity_id)), [store.externalResourceRequirements])
   function projectHasExternal(project: Project): boolean {
-    const phaseIds = projectPhaseSet.get(project.id) ?? []
-    return phaseIds.some(pid => extPhaseIds.has(pid))
+    const activityIds = projectActivitySet.get(project.id) ?? []
+    return activityIds.some(aid => extActivityIds.has(aid))
   }
 
   const filtered = useMemo(() => {
@@ -275,7 +275,7 @@ export default function ManageProjects() {
         p.name.toLowerCase().includes(q) ||
         p.description.toLowerCase().includes(q) ||
         p.owner.toLowerCase().includes(q) ||
-        p.phases.some(ph => ph.name.toLowerCase().includes(q)) ||
+        p.activities.some(ac => ac.name.toLowerCase().includes(q)) ||
         (p.programme_id && store.programmes.find(pr => pr.id === p.programme_id)?.name.toLowerCase().includes(q))
       )
     }
@@ -393,11 +393,11 @@ export default function ManageProjects() {
     for (const parsed of projects) {
       const projectId = generateId('prj')
 
-      // Build Phase[] with generated IDs and inline requirements (hours_by_month: use steady-state placeholder)
-      const projectPhases: Phase[] = parsed.phases.map(ph => {
-        const phaseId = generateId('phs')
+      // Build Activity[] with generated IDs and inline requirements (hours_by_month: use steady-state placeholder)
+      const projectActivities: Activity[] = parsed.activities.map(ac => {
+        const activityId = generateId('phs')
         const reqs = parsed.internalReqs
-          .filter(r => r.phaseName === ph.name)
+          .filter(r => r.activityName === ac.name)
           .map(r => ({
             id: generateId('req'),
             shape: 'skill' as const,
@@ -409,12 +409,12 @@ export default function ManageProjects() {
             allocations: [],
           }))
         return {
-          id: phaseId,
-          name: ph.name,
-          start_month: ph.startMonth,
-          end_month: ph.endMonth,
-          funding_source: (ph.fundingSource as import('../../types').FundingSource) || 'Investment Scheme',
-          funding_notes: ph.fundingNotes,
+          id: activityId,
+          name: ac.name,
+          start_month: ac.startMonth,
+          end_month: ac.endMonth,
+          funding_source: (ac.fundingSource as import('../../types').FundingSource) || 'Investment Scheme',
+          funding_notes: ac.fundingNotes,
           requirements: reqs,
         }
       })
@@ -435,7 +435,7 @@ export default function ManageProjects() {
         programme_id: parsed.programmeId,
         description: parsed.description,
         status: 'Submitted',
-        phases: projectPhases,
+        activities: projectActivities,
         active: true,
         functions_required: [...functionsInvolved],
         functions_actually_involved: [...functionsInvolved],
@@ -446,22 +446,22 @@ export default function ManageProjects() {
       for (const fnId of functionsInvolved) {
         const fn = store.functions.find(f => f.id === fnId)
 
-        // Filter project phases relevant to this function
-        const relevantPhases = projectPhases.filter(ph =>
-          ph.requirements.some(r => sklFn.get(r.skill_id) === fnId) ||
-          parsed.externalReqs.some(er => er.phaseName === ph.name && resolveFnTag(er.functionTag, functionsInvolved) === fnId)
+        // Filter project activities relevant to this function
+        const relevantActivities = projectActivities.filter(ac =>
+          ac.requirements.some(r => sklFn.get(r.skill_id) === fnId) ||
+          parsed.externalReqs.some(er => er.activityName === ac.name && resolveFnTag(er.functionTag, functionsInvolved) === fnId)
         )
-        if (relevantPhases.length === 0) continue
+        if (relevantActivities.length === 0) continue
 
-        // Clone phases for this demand (filter reqs to this function only)
-        const cloneMap = new Map<string, string>() // origPhase.id → cloned phase.id
-        const demandPhases: Phase[] = relevantPhases.map(origPh => {
+        // Clone activities for this demand (filter reqs to this function only)
+        const cloneMap = new Map<string, string>() // origActivity.id → cloned activity.id
+        const demandActivities: Activity[] = relevantActivities.map(origAc => {
           const clonedId = generateId('phs')
-          cloneMap.set(origPh.id, clonedId)
+          cloneMap.set(origAc.id, clonedId)
           return {
-            ...origPh,
+            ...origAc,
             id: clonedId,
-            requirements: origPh.requirements
+            requirements: origAc.requirements
               .filter(r => sklFn.get(r.skill_id) === fnId)
               .map(r => ({ ...r, id: generateId('req'), allocations: [] })),
           }
@@ -476,21 +476,21 @@ export default function ManageProjects() {
           owner: parsed.owner,
           description: parsed.description,
           status: 'Submitted',
-          phases: demandPhases,
+          activities: demandActivities,
         })
 
-        // Route external requirements to cloned demand phases
-        for (const [origPhId, clonedPhId] of cloneMap.entries()) {
-          const origPh = projectPhases.find(ph => ph.id === origPhId)
-          if (!origPh) continue
-          const phExtReqs = parsed.externalReqs.filter(er =>
-            er.phaseName === origPh.name &&
+        // Route external requirements to cloned demand activities
+        for (const [origAcId, clonedAcId] of cloneMap.entries()) {
+          const origAc = projectActivities.find(ac => ac.id === origAcId)
+          if (!origAc) continue
+          const acExtReqs = parsed.externalReqs.filter(er =>
+            er.activityName === origAc.name &&
             resolveFnTag(er.functionTag, functionsInvolved) === fnId
           )
-          for (const er of phExtReqs) {
+          for (const er of acExtReqs) {
             newExternals.push({
               id: generateId('ext'),
-              phase_id: clonedPhId,
+              activity_id: clonedAcId,
               provider_id: er.providerId,
               role: er.role,
               notes: er.notes || null,
@@ -684,7 +684,7 @@ export default function ManageProjects() {
                   </th>
                 ))}
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Functions Actually Involved</th>
-                <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Phases</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Activities</th>
                 <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Int. hrs</th>
                 <th className="px-4 py-2.5 text-right text-xs font-semibold text-amber-600 uppercase tracking-wide">Ext. hrs</th>
                 <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Demands</th>

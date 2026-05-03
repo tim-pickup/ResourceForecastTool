@@ -109,12 +109,12 @@ export default function TeamActivity() {
     for (const item of activeDemand) {
       const key = typeToBreakdownKey(item.type, store.projectTypes) as keyof HoursByType | null
       if (!key) continue
-      for (const phase of item.phases) {
-        if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-        for (const req of phase.requirements) {
+      for (const activity of item.activities) {
+        if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+        for (const req of activity.requirements) {
           for (const alloc of req.allocations) {
             if (alloc.person_id !== personId) continue
-            const hours = phase.end_month === null
+            const hours = activity.end_month === null
               ? (alloc.steady_state_hours ?? 0)
               : (alloc.hours_by_month[month] ?? 0)
             if (hours <= 0) continue
@@ -134,12 +134,12 @@ export default function TeamActivity() {
     for (const item of activeDemand) {
       const key = typeToBreakdownKey(item.type, store.projectTypes) as keyof HoursByType | null
       if (!key) continue
-      for (const phase of item.phases) {
-        if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-        for (const req of phase.requirements) {
+      for (const activity of item.activities) {
+        if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+        for (const req of activity.requirements) {
           for (const alloc of req.allocations) {
             if (alloc.person_id !== personId) continue
-            const hours = phase.end_month === null
+            const hours = activity.end_month === null
               ? (alloc.steady_state_hours ?? 0)
               : (alloc.hours_by_month[month] ?? 0)
             if (hours <= 0) continue
@@ -169,15 +169,15 @@ export default function TeamActivity() {
     for (const item of activeDemand) {
       const key = typeToBreakdownKey(item.type, store.projectTypes) as SegKey | null
       if (filterKey && key !== filterKey) continue
-      for (const phase of item.phases) {
-        if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-        for (const req of phase.requirements) {
+      for (const activity of item.activities) {
+        if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+        for (const req of activity.requirements) {
           for (const alloc of req.allocations) {
             if (alloc.person_id !== personId) continue
-            const hours = phase.end_month === null
+            const hours = activity.end_month === null
               ? (alloc.steady_state_hours ?? 0)
               : (alloc.hours_by_month[month] ?? 0)
-            if (hours > 0) items.push({ demandId: item.id, name: item.name, type: item.type, hours, phase: phase.name || 'Phase' })
+            if (hours > 0) items.push({ demandId: item.id, name: item.name, type: item.type, hours, phase: activity.name || 'Activity' })
           }
         }
       }

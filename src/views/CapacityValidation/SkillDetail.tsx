@@ -74,12 +74,12 @@ function HeatCell({
     for (const item of store.demandItems) {
       if (!COMMITTED_STATUSES.has(item.status)) continue
       const bucketKey = typeToBreakdownKey(item.type, store.projectTypes)
-      for (const phase of item.phases) {
-        if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-        for (const req of phase.requirements) {
+      for (const activity of item.activities) {
+        if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+        for (const req of activity.requirements) {
           for (const alloc of req.allocations) {
             if (alloc.person_id !== personId) continue
-            const h = phase.end_month === null ? (alloc.steady_state_hours ?? 0) : (alloc.hours_by_month[month] ?? 0)
+            const h = activity.end_month === null ? (alloc.steady_state_hours ?? 0) : (alloc.hours_by_month[month] ?? 0)
             if (bucketKey === 'bau') bau += h
             else if (bucketKey === 'plant') plant += h
             else if (bucketKey === 'npd') npd += h
@@ -281,12 +281,12 @@ function getSkillMonthRuns(
 ): Array<{ startLabel: string; endLabel: string; startIdx: number; endIdx: number }> {
   const activeMonths = new Set<number>()
 
-  for (const phase of item.phases) {
-    for (const req of phase.requirements) {
+  for (const activity of item.activities) {
+    for (const req of activity.requirements) {
       if (req.skill_id !== skillId) continue
       if (requiredLevel !== null && LEVEL_ORDER[req.level] < LEVEL_ORDER[requiredLevel]) continue
       for (let i = 0; i < months.length; i++) {
-        if (monthInRange(months[i], phase.start_month, phase.end_month)) {
+        if (monthInRange(months[i], activity.start_month, activity.end_month)) {
           activeMonths.add(i)
         }
       }

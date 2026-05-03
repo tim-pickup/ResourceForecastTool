@@ -6,7 +6,7 @@ import type { DemandItem, DemandStatus, ExternalResourceRequirement } from '../.
 import { Button } from '../../components/ui/Button'
 import { Input, Select, Textarea } from '../../components/ui/FormFields'
 import { StatusBadge } from '../../components/ui/Badge'
-import { PhaseEditor, blankPhase, PhaseGantt } from './ModeAEditor'
+import { ActivityEditor, blankActivity, ActivityGantt } from './ModeAEditor'
 import { AllocationWorkspace, computeAutoStatus } from './AllocationWorkspace'
 // v1.18: Mode A = pre-Approved statuses; Mode B = allocation workspace
 const MODE_A: DemandStatus[] = ['Draft', 'Submitted']
@@ -32,7 +32,7 @@ function blankDemand(activeFunctionId: string | null): Omit<DemandItem, 'id'> {
     description: '',
     function_id: activeFunctionId ?? '',
     parent_project_id: null,
-    phases: [],
+    activities: [],
   }
 }
 
@@ -50,12 +50,12 @@ export default function DemandEdit() {
   )
   const [isDirty, setIsDirty] = useState(false)
 
-  // External resource requirements — keyed by phase_id, tracked separately from draft
-  const [extReqsByPhase, setExtReqsByPhase] = useState<Record<string, ExternalResourceRequirement[]>>(() => {
+  // External resource requirements — keyed by activity_id, tracked separately from draft
+  const [extReqsByActivity, setExtReqsByActivity] = useState<Record<string, ExternalResourceRequirement[]>>(() => {
     if (!existing) return {}
     const result: Record<string, ExternalResourceRequirement[]> = {}
-    for (const phase of existing.phases) {
-      result[phase.id] = store.externalResourceRequirements.filter(r => r.phase_id === phase.id)
+    for (const activity of existing.activities) {
+      result[activity.id] = store.externalResourceRequirements.filter(r => r.activity_id === activity.id)
     }
     return result
   })
@@ -78,20 +78,20 @@ export default function DemandEdit() {
     let toSave = { ...draft }
     if (mode === 'B') {
       // Requirement-level over-allocation check (hard block)
-      for (const phase of toSave.phases) {
-        for (const req of phase.requirements) {
-          if (phase.end_month === null) {
+      for (const activity of toSave.activities) {
+        for (const req of activity.requirements) {
+          if (activity.end_month === null) {
             const target = req.steady_state_hours ?? 0
             const allocated = req.allocations.reduce((s, a) => s + (a.steady_state_hours ?? 0), 0)
             if (allocated > target) {
-              window.alert(`Allocation error: a requirement in "${phase.name || 'a phase'}" has more allocated hours than its target (${allocated}h vs ${target}h/mo). Reduce allocations before saving.`)
+              window.alert(`Allocation error: a requirement in "${activity.name || 'an activity'}" has more allocated hours than its target (${allocated}h vs ${target}h/mo). Reduce allocations before saving.`)
               return
             }
           } else {
             for (const [m, target] of Object.entries(req.hours_by_month)) {
               const allocated = req.allocations.reduce((s, a) => s + (a.hours_by_month[m] ?? 0), 0)
               if (allocated > target) {
-                window.alert(`Allocation error: ${m} on a requirement in "${phase.name || 'a phase'}" exceeds its target (${allocated}h vs ${target}h). Reduce allocations before saving.`)
+                window.alert(`Allocation error: ${m} on a requirement in "${activity.name || 'an activity'}" exceeds its target (${allocated}h vs ${target}h). Reduce allocations before saving.`)
                 return
               }
             }
@@ -106,14 +106,14 @@ export default function DemandEdit() {
       store.updateDemandItem(id, toSave)
     }
 
-    // Sync external requirements: delete all for this demand's phases, then re-add from draft
-    const phaseIds = new Set(toSave.phases.map(p => p.id))
+    // Sync external requirements: delete all for this demand's activities, then re-add from draft
+    const activityIds = new Set(toSave.activities.map(ac => ac.id))
     for (const ext of store.externalResourceRequirements) {
-      if (phaseIds.has(ext.phase_id)) store.deleteExternalRequirement(ext.id)
+      if (activityIds.has(ext.activity_id)) store.deleteExternalRequirement(ext.id)
     }
-    for (const [, reqs] of Object.entries(extReqsByPhase)) {
+    for (const [, reqs] of Object.entries(extReqsByActivity)) {
       for (const req of reqs) {
-        if (phaseIds.has(req.phase_id)) {
+        if (activityIds.has(req.activity_id)) {
           store.addExternalRequirement({ ...req })
         }
       }
@@ -138,19 +138,19 @@ export default function DemandEdit() {
 
   const trans = pageTransitions(draft.status as DemandStatus, isNew)
 
-  // Submit Demand gating: must have at least one phase with at least one requirement
+  // Submit Demand gating: must have at least one activity with at least one requirement
   const submitHint = draft.status === 'Draft' && !isNew ? (() => {
-    if (draft.phases.length === 0) return 'Add at least one phase first.'
-    if (!draft.phases.some(ph => ph.requirements.length > 0)) return 'Add at least one requirement to a phase.'
+    if (draft.activities.length === 0) return 'Add at least one activity first.'
+    if (!draft.activities.some(ac => ac.requirements.length > 0)) return 'Add at least one requirement to an activity.'
     return null
   })() : null
 
-  const updatePhase = (phaseId: string, p: typeof draft.phases[0]) =>
-    update(d => ({ ...d, phases: d.phases.map(x => x.id === phaseId ? p : x) }))
-  const deletePhase = (phaseId: string) =>
-    update(d => ({ ...d, phases: d.phases.filter(x => x.id !== phaseId) }))
-  const addPhase = () =>
-    update(d => ({ ...d, phases: [...d.phases, blankPhase()] }))
+  const updateActivity = (activityId: string, p: typeof draft.activities[0]) =>
+    update(d => ({ ...d, activities: d.activities.map(x => x.id === activityId ? p : x) }))
+  const deleteActivity = (activityId: string) =>
+    update(d => ({ ...d, activities: d.activities.filter(x => x.id !== activityId) }))
+  const addActivity = () =>
+    update(d => ({ ...d, activities: [...d.activities, blankActivity()] }))
 
   return (
     <div className="flex flex-col h-full">
@@ -223,51 +223,51 @@ export default function DemandEdit() {
                 <Textarea label="Description" value={draft.description} onChange={e => update(d => ({ ...d, description: e.target.value }))} placeholder="Brief description" />
               </div>
 
-              {/* Phases — shown for all Mode A Demands */}
+              {/* Activities — shown for all Mode A Demands */}
               {/* Direct Demands: fully editable (add/delete/edit headers + requirements)   */}
-              {/* Spawned Demands in Submitted: phase headers read-only, requirements editable */}
+              {/* Spawned Demands in Submitted: activity headers read-only, requirements editable */}
               {(() => {
                 const isSpawned = draft.parent_project_id !== null
-                const readOnlyHeader = isSpawned  // spawned = phase header frozen
-                const canEditPhases = !isSpawned  // only direct Demands can add/delete phases
+                const readOnlyHeader = isSpawned  // spawned = activity header frozen
+                const canEditActivities = !isSpawned  // only direct Demands can add/delete activities
                 return (
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">Phases</span>
-                      {canEditPhases && (
-                        <button onClick={addPhase} className="flex items-center gap-1 text-xs text-brand hover:text-brand-hover font-medium">
-                          + Add Phase
+                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">Activities</span>
+                      {canEditActivities && (
+                        <button onClick={addActivity} className="flex items-center gap-1 text-xs text-brand hover:text-brand-hover font-medium">
+                          + Add Activity
                         </button>
                       )}
                       {isSpawned && (
-                        <span className="text-[10px] text-gray-400 italic">Phase shape is frozen (owned by parent Project)</span>
+                        <span className="text-[10px] text-gray-400 italic">Activity shape is frozen (owned by parent Project)</span>
                       )}
                     </div>
-                    {draft.phases.length > 0 && (
-                      <PhaseGantt
-                        phases={draft.phases}
-                        onClickPhase={phaseId => {
-                          document.getElementById(`phase-${phaseId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    {draft.activities.length > 0 && (
+                      <ActivityGantt
+                        activities={draft.activities}
+                        onClickActivity={activityId => {
+                          document.getElementById(`activity-${activityId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                         }}
                         readOnly={readOnlyHeader}
                       />
                     )}
                     <div className="flex flex-col gap-2">
-                      {draft.phases.length === 0 && (
-                        <p className="text-xs text-gray-400 italic">No phases yet. Add a phase to define resource requirements.</p>
+                      {draft.activities.length === 0 && (
+                        <p className="text-xs text-gray-400 italic">No activities yet. Add an activity to define resource requirements.</p>
                       )}
-                      {draft.phases.map((phase, idx) => (
-                        <div key={phase.id} id={`phase-${phase.id}`}>
-                          <PhaseEditor
-                            phase={phase}
+                      {draft.activities.map((activity, idx) => (
+                        <div key={activity.id} id={`activity-${activity.id}`}>
+                          <ActivityEditor
+                            activity={activity}
                             index={idx}
-                            onChange={p => updatePhase(phase.id, p)}
-                            onDelete={() => deletePhase(phase.id)}
-                            extReqs={extReqsByPhase[phase.id] ?? []}
-                            onExtReqsChange={reqs => { setExtReqsByPhase(prev => ({ ...prev, [phase.id]: reqs })); setIsDirty(true) }}
+                            onChange={p => updateActivity(activity.id, p)}
+                            onDelete={() => deleteActivity(activity.id)}
+                            extReqs={extReqsByActivity[activity.id] ?? []}
+                            onExtReqsChange={reqs => { setExtReqsByActivity(prev => ({ ...prev, [activity.id]: reqs })); setIsDirty(true) }}
                             demandId={id}
                             demandStatus={draft.status as DemandStatus}
-                            readOnlyPhaseHeader={readOnlyHeader}
+                            readOnlyActivityHeader={readOnlyHeader}
                             functionScopeId={draft.function_id || null}
                           />
                         </div>

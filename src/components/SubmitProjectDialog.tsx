@@ -24,8 +24,8 @@ export function SubmitProjectDialog({ projectId, onConfirm, onCancel }: Props) {
   const domFn = new Map(store.domains.map(d => [d.id, d.functionId]))
   const sklFn = new Map(store.skills.map(s => [s.id, domFn.get(s.domain_id) ?? '']))
   const fnIds = new Set<string>()
-  for (const phase of project.phases) {
-    for (const req of phase.requirements) {
+  for (const activity of project.activities) {
+    for (const req of activity.requirements) {
       const fnId = sklFn.get(req.skill_id)
       if (fnId) fnIds.add(fnId)
     }
@@ -39,7 +39,7 @@ export function SubmitProjectDialog({ projectId, onConfirm, onCancel }: Props) {
         <div className="relative bg-white rounded-lg shadow-xl p-6 w-[480px] max-w-full mx-4">
           <h2 className="text-sm font-semibold text-near-black mb-3">Cannot Submit Project</h2>
           <p className="text-xs text-gray-600 mb-4">
-            This Project has no internal requirements. Add at least one internal requirement to a phase
+            This Project has no internal requirements. Add at least one internal requirement to an activity
             before submitting — the Submit step spawns one Demand per Function actually involved, and a
             Project with no requirements has no Demands to spawn.
           </p>
@@ -58,23 +58,23 @@ export function SubmitProjectDialog({ projectId, onConfirm, onCancel }: Props) {
     return fa.localeCompare(fb)
   })[0] ?? ''
 
-  const projectPhaseIds = new Set(project.phases.map(ph => ph.id))
-  const allProjectExternals = store.externalResourceRequirements.filter(e => projectPhaseIds.has(e.phase_id))
+  const projectActivityIds = new Set(project.activities.map(ac => ac.id))
+  const allProjectExternals = store.externalResourceRequirements.filter(e => projectActivityIds.has(e.activity_id))
 
   // Per-Function spawn preview
   const perFn = [...fnIds].map(fnId => {
     const fn = store.functions.find(f => f.id === fnId)
-    const phaseIdsForFn = new Set<string>()
+    const activityIdsForFn = new Set<string>()
     let reqCount = 0
     let internalHrs = 0
 
-    for (const phase of project.phases) {
-      const fnReqs = phase.requirements.filter(r => sklFn.get(r.skill_id) === fnId)
+    for (const activity of project.activities) {
+      const fnReqs = activity.requirements.filter(r => sklFn.get(r.skill_id) === fnId)
       if (fnReqs.length > 0) {
-        phaseIdsForFn.add(phase.id)
+        activityIdsForFn.add(activity.id)
         reqCount += fnReqs.length
         for (const req of fnReqs) {
-          if (phase.end_month === null) {
+          if (activity.end_month === null) {
             internalHrs += req.steady_state_hours ?? 0
           } else {
             internalHrs += Object.values(req.hours_by_month).reduce((s, h) => s + h, 0)
@@ -90,10 +90,10 @@ export function SubmitProjectDialog({ projectId, onConfirm, onCancel }: Props) {
     let externalHrs = 0
     const providerCounts = new Map<string, number>()
     for (const ext of fnExternals) {
-      const phase = project.phases.find(p => p.id === ext.phase_id)
-      if (!phase) continue
-      phaseIdsForFn.add(phase.id)
-      if (phase.end_month === null) {
+      const activity = project.activities.find(ac => ac.id === ext.activity_id)
+      if (!activity) continue
+      activityIdsForFn.add(activity.id)
+      if (activity.end_month === null) {
         externalHrs += ext.steady_state_hours ?? 0
       } else {
         externalHrs += Object.values(ext.hours_by_month).reduce((s, h) => s + h, 0)
@@ -105,7 +105,7 @@ export function SubmitProjectDialog({ projectId, onConfirm, onCancel }: Props) {
     return {
       fnId,
       fnName: fn?.name ?? fnId,
-      phaseCount: phaseIdsForFn.size,
+      phaseCount: activityIdsForFn.size,
       reqCount,
       externalCount: fnExternals.length,
       internalHrs: Math.round(internalHrs),
@@ -143,7 +143,7 @@ export function SubmitProjectDialog({ projectId, onConfirm, onCancel }: Props) {
         )}
 
         <p className="text-xs text-gray-600 mb-3">
-          {perFn.length} Demand{perFn.length !== 1 ? 's' : ''} will be spawned, with phases and requirements
+          {perFn.length} Demand{perFn.length !== 1 ? 's' : ''} will be spawned, with activities and requirements
           materialised onto each:
         </p>
 
@@ -163,7 +163,7 @@ export function SubmitProjectDialog({ projectId, onConfirm, onCancel }: Props) {
                 </div>
                 <div className="text-gray-500">
                   {f.reqCount} internal req{f.reqCount !== 1 ? 's' : ''} across{' '}
-                  {f.phaseCount} phase{f.phaseCount !== 1 ? 's' : ''}
+                  {f.phaseCount} activit{f.phaseCount !== 1 ? 'ies' : 'y'}
                   {f.externalCount > 0 && `, ${f.externalCount} external req${f.externalCount !== 1 ? 's' : ''}${provList ? ` (${provList})` : ''}`}.
                   {f.internalHrs > 0 && ` ${f.internalHrs.toLocaleString()}h internal`}
                   {f.externalHrs > 0 && `, ${f.externalHrs.toLocaleString()}h external`}.
@@ -174,7 +174,7 @@ export function SubmitProjectDialog({ projectId, onConfirm, onCancel }: Props) {
         </div>
 
         <p className="text-xs text-gray-500 mb-4">
-          The Project's planning record (phases, Functions Required, requirements) will be frozen at this
+          The Project's planning record (activities, Functions Required, requirements) will be frozen at this
           point. Spawned Demands will be independently editable in Submitted before approval — Function
           teams can refine technical detail without affecting the Project record.
         </p>

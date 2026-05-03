@@ -1,5 +1,5 @@
 import { addMonths, format, parseISO, isAfter, isBefore, differenceInMonths } from 'date-fns'
-import type { Person, DemandItem, AppState, Level, Requirement, Phase, NamedAllocation, ProjectType } from '../types'
+import type { Person, DemandItem, AppState, Level, Requirement, Activity, NamedAllocation, ProjectType } from '../types'
 
 // ─── Shared type-to-breakdown key mapping ────────────────────────────────────
 // Defined here (utils) to avoid circular deps with lib/capacity.
@@ -30,13 +30,13 @@ export function monthInRange(month: string, from: string | null, to: string | nu
   return true
 }
 
-function getReqHoursForMonth(req: Requirement, month: string, phase: Phase): number {
-  if (phase.end_month === null) return req.steady_state_hours ?? 0
+function getReqHoursForMonth(req: Requirement, month: string, activity: Activity): number {
+  if (activity.end_month === null) return req.steady_state_hours ?? 0
   return req.hours_by_month[month] ?? 0
 }
 
-function getAllocHoursForMonth(alloc: NamedAllocation, month: string, phase: Phase): number {
-  if (phase.end_month === null) return alloc.steady_state_hours ?? 0
+function getAllocHoursForMonth(alloc: NamedAllocation, month: string, activity: Activity): number {
+  if (activity.end_month === null) return alloc.steady_state_hours ?? 0
   return alloc.hours_by_month[month] ?? 0
 }
 
@@ -46,12 +46,12 @@ export function getPersonBauHoursFromDemand(personId: string, month: string, sta
     const pt = state.projectTypes.find(p => p.id === item.type)
     if (!pt?.is_bau) continue
     if (item.status !== 'Approved' && item.status !== 'PartiallyAllocated' && item.status !== 'Allocated') continue
-    for (const phase of item.phases) {
-      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-      for (const req of phase.requirements) {
+    for (const activity of item.activities) {
+      if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+      for (const req of activity.requirements) {
         for (const alloc of req.allocations) {
           if (alloc.person_id === personId) {
-            total += getAllocHoursForMonth(alloc, month, phase)
+            total += getAllocHoursForMonth(alloc, month, activity)
           }
         }
       }
@@ -71,12 +71,12 @@ export function getPersonNamedProjectHours(
     const counted = item.status === 'Approved' || item.status === 'PartiallyAllocated' || item.status === 'Allocated' ||
       (includeSubmitted && item.status === 'Submitted')
     if (!counted) continue
-    for (const phase of item.phases) {
-      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-      for (const req of phase.requirements) {
+    for (const activity of item.activities) {
+      if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+      for (const req of activity.requirements) {
         for (const alloc of req.allocations) {
           if (alloc.person_id === personId) {
-            total += getAllocHoursForMonth(alloc, month, phase)
+            total += getAllocHoursForMonth(alloc, month, activity)
           }
         }
       }
@@ -114,12 +114,12 @@ export function getPersonAvailableHoursExcluding(
   let committed = 0
   for (const item of state.demandItems) {
     if (item.status !== 'Approved' && item.status !== 'PartiallyAllocated' && item.status !== 'Allocated') continue
-    for (const phase of item.phases) {
-      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-      for (const req of phase.requirements) {
+    for (const activity of item.activities) {
+      if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+      for (const req of activity.requirements) {
         for (const alloc of req.allocations) {
           if (alloc.person_id === personId && alloc.id !== excludeAllocId) {
-            committed += getAllocHoursForMonth(alloc, month, phase)
+            committed += getAllocHoursForMonth(alloc, month, activity)
           }
         }
       }
@@ -128,7 +128,7 @@ export function getPersonAvailableHoursExcluding(
   return person.contracted_hours_per_month - committed
 }
 
-export function getPersonAvgAvailableForPhase(
+export function getPersonAvgAvailableForActivity(
   personId: string,
   phaseStartMonth: string,
   phaseEndMonth: string | null,
@@ -159,12 +159,12 @@ export function getOverlayHoursForPerson(
 ): number {
   let total = 0
   for (const item of overlayItems) {
-    for (const phase of item.phases) {
-      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-      for (const req of phase.requirements) {
+    for (const activity of item.activities) {
+      if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+      for (const req of activity.requirements) {
         for (const alloc of req.allocations) {
           if (alloc.person_id === personId) {
-            total += getAllocHoursForMonth(alloc, month, phase)
+            total += getAllocHoursForMonth(alloc, month, activity)
           }
         }
       }
@@ -240,10 +240,10 @@ function demandFromItems(
     if (!statuses.has(item.status)) continue
     const key = typeToBreakdownKey(item.type, state.projectTypes)
     if (!key) continue
-    for (const phase of item.phases) {
-      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-      const hrs = phase.requirements.filter(reqFilter).reduce((s, r) => {
-        return s + getReqHoursForMonth(r, month, phase)
+    for (const activity of item.activities) {
+      if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+      const hrs = activity.requirements.filter(reqFilter).reduce((s, r) => {
+        return s + getReqHoursForMonth(r, month, activity)
       }, 0)
       if (hrs === 0) continue
       out[key] += hrs
@@ -305,9 +305,9 @@ export function getSkillDemand(
 export function getOverlayDemand(month: string, overlayItems: DemandItem[]): number {
   let total = 0
   for (const item of overlayItems) {
-    for (const phase of item.phases) {
-      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-      total += phase.requirements.reduce((s, r) => s + getReqHoursForMonth(r, month, phase), 0)
+    for (const activity of item.activities) {
+      if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+      total += activity.requirements.reduce((s, r) => s + getReqHoursForMonth(r, month, activity), 0)
     }
   }
   return total
@@ -331,11 +331,11 @@ export function getDomainSkillDemand(
   let total = 0
   for (const item of state.demandItems) {
     if (!statuses.includes(item.status)) continue
-    for (const phase of item.phases) {
-      if (!monthInRange(month, phase.start_month, phase.end_month)) continue
-      for (const req of phase.requirements) {
+    for (const activity of item.activities) {
+      if (!monthInRange(month, activity.start_month, activity.end_month)) continue
+      for (const req of activity.requirements) {
         const skill = state.skills.find(s => s.id === req.skill_id)
-        if (skill?.domain_id === domainId) total += getReqHoursForMonth(req, month, phase)
+        if (skill?.domain_id === domainId) total += getReqHoursForMonth(req, month, activity)
       }
     }
   }

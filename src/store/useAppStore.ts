@@ -56,14 +56,14 @@ function normalizeSeed(raw: any): AppState {
     programme_id: p.programme_id ?? null,
     description: p.description ?? '',
     status: (p.status ?? 'Draft') as ProjectStatus,
-    phases: (p.phases || []).map((ph: any) => ({
-      id: ph.id,
-      name: ph.name,
-      start_month: ph.start_month,
-      end_month: ph.end_month ?? null,
-      funding_source: ph.funding_source,
-      funding_notes: ph.funding_notes ?? '',
-      requirements: (ph.requirements || []).map((r: any) => ({
+    activities: (p.activities || []).map((ac: any) => ({
+      id: ac.id,
+      name: ac.name,
+      start_month: ac.start_month,
+      end_month: ac.end_month ?? null,
+      funding_source: ac.funding_source,
+      funding_notes: ac.funding_notes ?? '',
+      requirements: (ac.requirements || []).map((r: any) => ({
         id: r.id,
         shape: 'skill' as const,
         skill_id: r.skill_id,
@@ -117,14 +117,14 @@ function normalizeSeed(raw: any): AppState {
       description: d.description ?? '',
       function_id: d.function_id ?? d.createdUnderFunctionId ?? defaultFunctionId ?? '',
       parent_project_id: d.parent_project_id ?? d.project_id ?? null,
-      phases: (d.phases || []).map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        start_month: p.start_month,
-        end_month: p.end_month ?? null,
-        funding_source: p.funding_source,
-        funding_notes: p.funding_notes ?? '',
-        requirements: (p.requirements || []).map((r: any) => ({
+      activities: (d.activities || []).map((ac: any) => ({
+        id: ac.id,
+        name: ac.name,
+        start_month: ac.start_month,
+        end_month: ac.end_month ?? null,
+        funding_source: ac.funding_source,
+        funding_notes: ac.funding_notes ?? '',
+        requirements: (ac.requirements || []).map((r: any) => ({
           id: r.id,
           shape: 'skill' as const,
           skill_id: r.skill_id,
@@ -255,11 +255,11 @@ export const useAppStore = create<Store>()(
       deleteDemandItem: (id) => set(s => {
         const demand = s.demandItems.find(d => d.id === id)
         if (!demand) return {}
-        const phaseIds = new Set(demand.phases.map(p => p.id))
+        const activityIds = new Set(demand.activities.map(ac => ac.id))
         return {
           demandItems: s.demandItems.filter(d => d.id !== id),
-          externalResourceRequirements: phaseIds.size > 0
-            ? s.externalResourceRequirements.filter(e => !phaseIds.has(e.phase_id))
+          externalResourceRequirements: activityIds.size > 0
+            ? s.externalResourceRequirements.filter(e => !activityIds.has(e.activity_id))
             : s.externalResourceRequirements,
         }
       }),
@@ -272,35 +272,35 @@ export const useAppStore = create<Store>()(
       updateProject: (id, p) => set(s => ({ projects: s.projects.map(x => x.id === id ? { ...x, ...p } : x) })),
       deleteProject: (id) => set(s => {
         const project = s.projects.find(p => p.id === id)
-        const projectPhaseIds = new Set((project?.phases ?? []).map(ph => ph.id))
-        // Also collect child demand phase IDs for external req cleanup
+        const projectActivityIds = new Set((project?.activities ?? []).map(ac => ac.id))
+        // Also collect child demand activity IDs for external req cleanup
         const childDemands = s.demandItems.filter(d => d.parent_project_id === id)
-        const childPhaseIds = new Set(childDemands.flatMap(d => d.phases.map(ph => ph.id)))
-        const allPhaseIds = new Set([...projectPhaseIds, ...childPhaseIds])
+        const childActivityIds = new Set(childDemands.flatMap(d => d.activities.map(ac => ac.id)))
+        const allActivityIds = new Set([...projectActivityIds, ...childActivityIds])
         return {
           projects: s.projects.filter(p => p.id !== id),
           demandItems: s.demandItems.filter(d => d.parent_project_id !== id),
-          externalResourceRequirements: allPhaseIds.size > 0
-            ? s.externalResourceRequirements.filter(e => !allPhaseIds.has(e.phase_id))
+          externalResourceRequirements: allActivityIds.size > 0
+            ? s.externalResourceRequirements.filter(e => !allActivityIds.has(e.activity_id))
             : s.externalResourceRequirements,
         }
       }),
       // §3 Project state machine — Submit for Scoping (Draft → Scoping)
-      // v1.19: gate requires ≥1 phase AND ≥1 entry in functions_required
+      // v1.19: gate requires ≥1 activity AND ≥1 entry in functions_required
       submitProjectForScoping: (projectId) => {
         let error: string | null = null
         set(s => {
           const project = s.projects.find(p => p.id === projectId)
           if (!project) { error = 'Project not found.'; return {} }
           if (project.status !== 'Draft') { error = 'Project must be in Draft status.'; return {} }
-          if (project.phases.length === 0) { error = 'Add at least one phase before submitting for scoping.'; return {} }
+          if (project.activities.length === 0) { error = 'Add at least one activity before submitting for scoping.'; return {} }
           if (project.functions_required.length === 0) { error = 'Add at least one Function to Functions Required before submitting for scoping.'; return {} }
           return { projects: s.projects.map(p => p.id === projectId ? { ...p, status: 'Scoping' as ProjectStatus } : p) }
         })
         return error
       },
       // §3 Project state machine — Submit Project (Scoping → Submitted) + spawn Demands
-      // v1.19: materialises a deep copy of Function-scoped phases/requirements onto each spawned Demand
+      // v1.19: materialises a deep copy of Function-scoped activities/requirements onto each spawned Demand
       submitProject: (projectId) => {
         let error: string | null = null
         set(s => {
@@ -310,17 +310,17 @@ export const useAppStore = create<Store>()(
           const domFn = new Map(s.domains.map(d => [d.id, d.functionId]))
           const sklFn = new Map(s.skills.map(sk => [sk.id, domFn.get(sk.domain_id) ?? '']))
           const functionsInvolved = new Set<string>()
-          for (const phase of project.phases) {
-            for (const req of phase.requirements) {
+          for (const activity of project.activities) {
+            for (const req of activity.requirements) {
               const fnId = sklFn.get(req.skill_id)
               if (fnId) functionsInvolved.add(fnId)
             }
           }
           if (functionsInvolved.size === 0) { error = 'Project has no requirements — cannot spawn Demands.'; return {} }
 
-          // Get external requirements for all project phases
-          const projectPhaseIds = new Set(project.phases.map(ph => ph.id))
-          const projectExternals = s.externalResourceRequirements.filter(e => projectPhaseIds.has(e.phase_id))
+          // Get external requirements for all project activities
+          const projectActivityIds = new Set(project.activities.map(ac => ac.id))
+          const projectExternals = s.externalResourceRequirements.filter(e => projectActivityIds.has(e.activity_id))
 
           // Build a name map for resolveFunctionTag alphabetical fallback
           const fnNameMap = new Map(s.functions.map(f => [f.id, f.name]))
@@ -331,27 +331,27 @@ export const useAppStore = create<Store>()(
           for (const fnId of functionsInvolved) {
             const fn = s.functions.find(f => f.id === fnId)
 
-            // Collect project phases relevant to this Function (has ≥1 internal OR external for this Function)
-            const relevantOrigPhases = project.phases.filter(ph =>
-              ph.requirements.some(r => sklFn.get(r.skill_id) === fnId) ||
+            // Collect project activities relevant to this Function (has ≥1 internal OR external for this Function)
+            const relevantOrigActivities = project.activities.filter(ac =>
+              ac.requirements.some(r => sklFn.get(r.skill_id) === fnId) ||
               projectExternals.some(e =>
-                e.phase_id === ph.id && resolveFunctionTag(e, functionsInvolved, fnNameMap) === fnId
+                e.activity_id === ac.id && resolveFunctionTag(e, functionsInvolved, fnNameMap) === fnId
               )
             )
 
-            if (relevantOrigPhases.length === 0) continue
+            if (relevantOrigActivities.length === 0) continue
 
-            // Build a map from original phase ID → new cloned phase
-            const origToClone = new Map<string, typeof relevantOrigPhases[0] & { id: string }>()
-            const fnPhases = relevantOrigPhases.map(origPh => {
+            // Build a map from original activity ID → new cloned activity
+            const origToClone = new Map<string, typeof relevantOrigActivities[0] & { id: string }>()
+            const fnActivities = relevantOrigActivities.map(origAc => {
               const cloned = {
-                ...origPh,
+                ...origAc,
                 id: generateId('phs'),
-                requirements: origPh.requirements
+                requirements: origAc.requirements
                   .filter(r => sklFn.get(r.skill_id) === fnId)
                   .map(r => ({ ...r, id: generateId('req'), allocations: [] })),
               }
-              origToClone.set(origPh.id, cloned)
+              origToClone.set(origAc.id, cloned)
               return cloned
             })
 
@@ -364,17 +364,17 @@ export const useAppStore = create<Store>()(
               owner: project.owner,
               description: project.description,
               status: 'Submitted' as DemandStatus,
-              phases: fnPhases,
+              activities: fnActivities,
             })
 
-            // Route external requirements onto cloned Demand phases via resolveFunctionTag
-            for (const [origPhId, clonedPh] of origToClone.entries()) {
-              const phExternals = projectExternals.filter(e =>
-                e.phase_id === origPhId &&
+            // Route external requirements onto cloned Demand activities via resolveFunctionTag
+            for (const [origAcId, clonedAc] of origToClone.entries()) {
+              const acExternals = projectExternals.filter(e =>
+                e.activity_id === origAcId &&
                 resolveFunctionTag(e, functionsInvolved, fnNameMap) === fnId
               )
-              for (const ext of phExternals) {
-                newExternals.push({ ...ext, id: generateId('ext'), phase_id: clonedPh.id, function_tag: fnId })
+              for (const ext of acExternals) {
+                newExternals.push({ ...ext, id: generateId('ext'), activity_id: clonedAc.id, function_tag: fnId })
               }
             }
           }
@@ -427,14 +427,14 @@ export const useAppStore = create<Store>()(
             owner: d.owner ?? '', description: d.description ?? '',
             function_id: d.function_id ?? d.createdUnderFunctionId ?? defaultFunctionId ?? '',
             parent_project_id: d.parent_project_id ?? d.project_id ?? null,
-            phases: d.phases ?? [],
+            activities: d.activities ?? [],
           }))
           const projects = (s.projects || []).map((p: any): Project => ({
             id: p.id, name: p.name, owner: p.owner ?? '',
             type: p.type ?? 'pt_group_strat',
             programme_id: p.programme_id ?? null, description: p.description ?? '',
             status: (p.status ?? 'Draft') as ProjectStatus,
-            phases: p.phases ?? [], active: p.active ?? true,
+            activities: p.activities ?? [], active: p.active ?? true,
             functions_required: [], functions_actually_involved: [],
           }))
           return { ...s, projects, demandItems } as Store
@@ -456,12 +456,14 @@ export const useAppStore = create<Store>()(
           const projects = (s.projects || []).map((p: any): Project => ({
             ...p,
             type: typeMap[p.type] ?? p.type,
+            activities: p.activities ?? p.phases ?? [],
             functions_required: p.functions_required ?? [],
             functions_actually_involved: p.functions_actually_involved ?? [],
           }))
           const demandItems = (s.demandItems || []).map((d: any): DemandItem => ({
             ...d,
             type: typeMap[d.type] ?? d.type,
+            activities: d.activities ?? d.phases ?? [],
           }))
           const externalResourceRequirements = (s.externalResourceRequirements || []).map((e: any) => ({
             ...e,

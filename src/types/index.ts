@@ -83,11 +83,11 @@ export interface SkillRequirement {
 
 export type Requirement = SkillRequirement
 
-export interface Phase {
+export interface Activity {
   id: string
   name: string
   start_month: string
-  end_month: string | null  // null = indefinite phase
+  end_month: string | null  // null = indefinite activity
   funding_source: FundingSource
   funding_notes: string
   requirements: Requirement[]
@@ -102,7 +102,7 @@ export interface DemandItem {
   description: string
   function_id: string      // required — single Function this Demand belongs to
   parent_project_id: string | null  // null for direct Demands
-  phases: Phase[]          // Demands own their phases (materialised at spawn for Project-spawned)
+  activities: Activity[]   // Demands own their activities (materialised at spawn for Project-spawned)
 }
 
 // ─── v1.14 entities ───────────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ export interface Project {
   programme_id: string | null
   description: string
   status: ProjectStatus
-  phases: Phase[]
+  activities: Activity[]
   active: boolean
   functions_required: string[]          // originator's declared Functions; frozen at Submit
   functions_actually_involved: string[] // derived from requirements; frozen at Submit
@@ -135,7 +135,7 @@ export interface Provider {
 
 export interface ExternalResourceRequirement {
   id: string
-  phase_id: string
+  activity_id: string
   provider_id: string
   role: string
   notes: string | null
@@ -163,20 +163,20 @@ export interface AppState {
 
 // ─── Selector helpers ─────────────────────────────────────────────────────────
 
-export function getExternalRequirementsForPhase(
-  phase_id: string,
+export function getExternalRequirementsForActivity(
+  activity_id: string,
   state: Pick<AppState, 'externalResourceRequirements'>
 ): ExternalResourceRequirement[] {
-  return state.externalResourceRequirements.filter(r => r.phase_id === phase_id)
+  return state.externalResourceRequirements.filter(r => r.activity_id === activity_id)
 }
 
-export function derivedPrimaryDomain(item: Pick<DemandItem, 'phases'>, domains: Domain[], skills: Skill[]): Domain | null {
+export function derivedPrimaryDomain(item: Pick<DemandItem, 'activities'>, domains: Domain[], skills: Skill[]): Domain | null {
   const totals = new Map<string, number>()
-  for (const phase of item.phases) {
-    for (const req of phase.requirements) {
+  for (const activity of item.activities) {
+    for (const req of activity.requirements) {
       const skill = skills.find(s => s.id === req.skill_id)
       if (!skill) continue
-      const hours = phase.end_month === null
+      const hours = activity.end_month === null
         ? (req.steady_state_hours ?? 0)
         : Object.values(req.hours_by_month).reduce((s, h) => s + h, 0)
       totals.set(skill.domain_id, (totals.get(skill.domain_id) ?? 0) + hours)

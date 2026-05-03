@@ -24,7 +24,7 @@ export interface ImportWarning {
   message: string
 }
 
-export interface ParsedImportPhase {
+export interface ParsedImportActivity {
   name: string
   startMonth: string
   endMonth: string | null
@@ -33,7 +33,7 @@ export interface ParsedImportPhase {
 }
 
 export interface ParsedImportIntReq {
-  phaseName: string
+  activityName: string
   skillId: string    // resolved Skill.id
   level: string
   hoursPerMonth: number
@@ -41,7 +41,7 @@ export interface ParsedImportIntReq {
 }
 
 export interface ParsedImportExtReq {
-  phaseName: string
+  activityName: string
   providerId: string   // resolved Provider.id
   role: string
   functionTag: string  // resolved Function.id (from function_tag name)
@@ -55,7 +55,7 @@ export interface ParsedImportProject {
   typeId: string           // resolved ProjectType.id
   owner: string
   description: string
-  phases: ParsedImportPhase[]
+  activities: ParsedImportActivity[]
   internalReqs: ParsedImportIntReq[]
   externalReqs: ParsedImportExtReq[]
 }
@@ -130,10 +130,14 @@ export async function parseImportWorkbook(file: File, state: AppState): Promise<
 
   // ─── Step 1: Workbook structure check ──────────────────────────────────────
 
-  const REQUIRED_TABS = ['Projects', 'Phases', 'Internal Requirements', 'External Requirements']
+  const REQUIRED_TABS = ['Projects', 'Activities', 'Internal Requirements', 'External Requirements']
   for (const tab of REQUIRED_TABS) {
     if (!wb.getWorksheet(tab)) {
-      errors.push({ tab: '__workbook__', row: 0, message: `This file does not match the import template. Tab '${tab}' is missing.` })
+      if (tab === 'Activities' && wb.getWorksheet('Phases')) {
+        errors.push({ tab: '__workbook__', row: 0, message: "This file uses the v1.19 template (tab 'Phases'). Please download the latest template — Phases have been renamed to Activities." })
+      } else {
+        errors.push({ tab: '__workbook__', row: 0, message: `This file does not match the import template. Tab '${tab}' is missing.` })
+      }
     }
   }
   if (errors.length > 0) {
@@ -141,7 +145,7 @@ export async function parseImportWorkbook(file: File, state: AppState): Promise<
   }
 
   const wsProjects = wb.getWorksheet('Projects')!
-  const wsPhases = wb.getWorksheet('Phases')!
+  const wsActivities = wb.getWorksheet('Activities')!
   const wsInt = wb.getWorksheet('Internal Requirements')!
   const wsExt = wb.getWorksheet('External Requirements')!
 
@@ -213,71 +217,71 @@ export async function parseImportWorkbook(file: File, state: AppState): Promise<
     }
   }
 
-  // ─── Step 4: Parse Phases tab ──────────────────────────────────────────────
+  // ─── Step 4: Parse Activities tab ──────────────────────────────────────────
 
-  interface RawPhase {
+  interface RawActivity {
     rowNum: number
     projectName: string
-    phaseName: string
+    activityName: string
     startMonth: string
     endMonth: string
     fundingSource: string
     fundingNotes: string
   }
-  const rawPhases: RawPhase[] = []
+  const rawActivities: RawActivity[] = []
 
-  wsPhases.eachRow((row, rowNum) => {
+  wsActivities.eachRow((row, rowNum) => {
     if (rowNum === 1) return
     const vals = row.values as unknown[]
     if (isBlankRow(vals.slice(1))) return
 
-    const projectName   = cellStr(vals[1])
-    const phaseName     = cellStr(vals[2])
-    const startMonth    = cellStr(vals[3])
-    const endMonth      = cellStr(vals[4])
-    const fundingSource = cellStr(vals[5])
-    const fundingNotes  = cellStr(vals[6])
+    const projectName    = cellStr(vals[1])
+    const activityName   = cellStr(vals[2])
+    const startMonth     = cellStr(vals[3])
+    const endMonth       = cellStr(vals[4])
+    const fundingSource  = cellStr(vals[5])
+    const fundingNotes   = cellStr(vals[6])
 
-    if (!projectName) { errors.push({ tab: 'Phases', row: rowNum, column: 'project_name', message: 'project_name is required.' }); return }
-    if (!phaseName)   { errors.push({ tab: 'Phases', row: rowNum, column: 'phase_name',   message: 'phase_name is required.' }); return }
-    if (!startMonth)  { errors.push({ tab: 'Phases', row: rowNum, column: 'phase_start_month', message: 'phase_start_month is required.' }) }
-    else if (!MONTH_RE.test(startMonth)) { errors.push({ tab: 'Phases', row: rowNum, column: 'phase_start_month', message: `phase_start_month "${startMonth}" must be YYYY-MM format.` }) }
-    if (endMonth && !MONTH_RE.test(endMonth)) { errors.push({ tab: 'Phases', row: rowNum, column: 'phase_end_month', message: `phase_end_month "${endMonth}" must be YYYY-MM format.` }) }
+    if (!projectName)   { errors.push({ tab: 'Activities', row: rowNum, column: 'project_name',  message: 'project_name is required.' }); return }
+    if (!activityName)  { errors.push({ tab: 'Activities', row: rowNum, column: 'activity_name', message: 'activity_name is required.' }); return }
+    if (!startMonth)    { errors.push({ tab: 'Activities', row: rowNum, column: 'activity_start_month', message: 'activity_start_month is required.' }) }
+    else if (!MONTH_RE.test(startMonth)) { errors.push({ tab: 'Activities', row: rowNum, column: 'activity_start_month', message: `activity_start_month "${startMonth}" must be YYYY-MM format.` }) }
+    if (endMonth && !MONTH_RE.test(endMonth)) { errors.push({ tab: 'Activities', row: rowNum, column: 'activity_end_month', message: `activity_end_month "${endMonth}" must be YYYY-MM format.` }) }
 
-    rawPhases.push({ rowNum, projectName, phaseName, startMonth, endMonth, fundingSource, fundingNotes })
+    rawActivities.push({ rowNum, projectName, activityName, startMonth, endMonth, fundingSource, fundingNotes })
   })
 
-  // Cross-tab: phase project_name must exist in Projects
+  // Cross-tab: activity project_name must exist in Projects
   const projectNamesInFile = new Set(rawProjects.map(p => p.projectName))
-  for (const ph of rawPhases) {
-    if (!projectNamesInFile.has(ph.projectName)) {
-      errors.push({ tab: 'Phases', row: ph.rowNum, column: 'project_name', message: `project_name "${ph.projectName}" not found in Projects tab.` })
+  for (const ac of rawActivities) {
+    if (!projectNamesInFile.has(ac.projectName)) {
+      errors.push({ tab: 'Activities', row: ac.rowNum, column: 'project_name', message: `project_name "${ac.projectName}" not found in Projects tab.` })
     }
   }
 
-  // Phase uniqueness within project
-  const phaseKey = (projName: string, phaseName: string) => `${projName}||${phaseName}`
-  const phaseCounts = new Map<string, number>()
-  for (const ph of rawPhases) {
-    const k = phaseKey(ph.projectName, ph.phaseName)
-    phaseCounts.set(k, (phaseCounts.get(k) ?? 0) + 1)
+  // Activity uniqueness within project
+  const activityKey = (projName: string, activityName: string) => `${projName}||${activityName}`
+  const activityCounts = new Map<string, number>()
+  for (const ac of rawActivities) {
+    const k = activityKey(ac.projectName, ac.activityName)
+    activityCounts.set(k, (activityCounts.get(k) ?? 0) + 1)
   }
-  for (const ph of rawPhases) {
-    const k = phaseKey(ph.projectName, ph.phaseName)
-    if ((phaseCounts.get(k) ?? 0) > 1) {
-      errors.push({ tab: 'Phases', row: ph.rowNum, column: 'phase_name', message: `Duplicate phase_name "${ph.phaseName}" within project "${ph.projectName}".` })
+  for (const ac of rawActivities) {
+    const k = activityKey(ac.projectName, ac.activityName)
+    if ((activityCounts.get(k) ?? 0) > 1) {
+      errors.push({ tab: 'Activities', row: ac.rowNum, column: 'activity_name', message: `Duplicate activity_name "${ac.activityName}" within project "${ac.projectName}".` })
     }
   }
 
-  // Build set of valid (project, phase) pairs
-  const validPhasePairs = new Set(rawPhases.map(ph => phaseKey(ph.projectName, ph.phaseName)))
+  // Build set of valid (project, activity) pairs
+  const validActivityPairs = new Set(rawActivities.map(ac => activityKey(ac.projectName, ac.activityName)))
 
   // ─── Step 5: Parse Internal Requirements tab ───────────────────────────────
 
   interface RawIntReq {
     rowNum: number
     projectName: string
-    phaseName: string
+    activityName: string
     skillFunction: string
     skillDomain: string
     skillName: string
@@ -293,23 +297,23 @@ export async function parseImportWorkbook(file: File, state: AppState): Promise<
     const vals = row.values as unknown[]
     if (isBlankRow(vals.slice(1))) return
 
-    const projectName   = cellStr(vals[1])
-    const phaseName     = cellStr(vals[2])
-    const skillFunction = cellStr(vals[3])
-    const skillDomain   = cellStr(vals[4])
-    const skillName     = cellStr(vals[5])
-    const level         = cellStr(vals[6])
-    const hoursRaw      = cellNum(vals[7])
-    const notes         = cellStr(vals[8])
+    const projectName    = cellStr(vals[1])
+    const activityName   = cellStr(vals[2])
+    const skillFunction  = cellStr(vals[3])
+    const skillDomain    = cellStr(vals[4])
+    const skillName      = cellStr(vals[5])
+    const level          = cellStr(vals[6])
+    const hoursRaw       = cellNum(vals[7])
+    const notes          = cellStr(vals[8])
 
-    if (!projectName) { errors.push({ tab: 'Internal Requirements', row: rowNum, column: 'project_name', message: 'project_name is required.' }); return }
-    if (!phaseName)   { errors.push({ tab: 'Internal Requirements', row: rowNum, column: 'phase_name',   message: 'phase_name is required.' }); return }
+    if (!projectName)  { errors.push({ tab: 'Internal Requirements', row: rowNum, column: 'project_name',  message: 'project_name is required.' }); return }
+    if (!activityName) { errors.push({ tab: 'Internal Requirements', row: rowNum, column: 'activity_name', message: 'activity_name is required.' }); return }
 
     if (!projectNamesInFile.has(projectName)) {
       errors.push({ tab: 'Internal Requirements', row: rowNum, column: 'project_name', message: `project_name "${projectName}" not found in Projects tab.` })
     }
-    if (!validPhasePairs.has(phaseKey(projectName, phaseName))) {
-      errors.push({ tab: 'Internal Requirements', row: rowNum, column: 'phase_name', message: `Phase "${phaseName}" not found for project "${projectName}" in Phases tab.` })
+    if (!validActivityPairs.has(activityKey(projectName, activityName))) {
+      errors.push({ tab: 'Internal Requirements', row: rowNum, column: 'activity_name', message: `Activity "${activityName}" not found for project "${projectName}" in Activities tab.` })
     }
     if (!skillName) { errors.push({ tab: 'Internal Requirements', row: rowNum, column: 'skill_name', message: 'skill_name is required.' }) }
     if (!level) { errors.push({ tab: 'Internal Requirements', row: rowNum, column: 'level', message: 'level is required.' }) }
@@ -328,7 +332,7 @@ export async function parseImportWorkbook(file: File, state: AppState): Promise<
       errors.push({ tab: 'Internal Requirements', row: rowNum, column: 'skill_name', message: `Skill "${skillFunction} / ${skillDomain} / ${skillName}" not found in reference data.` })
     }
 
-    rawIntReqs.push({ rowNum, projectName, phaseName, skillFunction, skillDomain, skillName, level, hoursPerMonth, notes, resolvedSkillId: resolvedSkill?.id })
+    rawIntReqs.push({ rowNum, projectName, activityName, skillFunction, skillDomain, skillName, level, hoursPerMonth, notes, resolvedSkillId: resolvedSkill?.id })
   })
 
   // ─── Step 6: Parse External Requirements tab ───────────────────────────────
@@ -336,7 +340,7 @@ export async function parseImportWorkbook(file: File, state: AppState): Promise<
   interface RawExtReq {
     rowNum: number
     projectName: string
-    phaseName: string
+    activityName: string
     provider: string
     role: string
     functionTag: string
@@ -352,22 +356,22 @@ export async function parseImportWorkbook(file: File, state: AppState): Promise<
     const vals = row.values as unknown[]
     if (isBlankRow(vals.slice(1))) return
 
-    const projectName  = cellStr(vals[1])
-    const phaseName    = cellStr(vals[2])
-    const provider     = cellStr(vals[3])
-    const role         = cellStr(vals[4])
-    const functionTag  = cellStr(vals[5])
-    const hoursRaw     = cellNum(vals[6])
-    const notes        = cellStr(vals[7])
+    const projectName   = cellStr(vals[1])
+    const activityName  = cellStr(vals[2])
+    const provider      = cellStr(vals[3])
+    const role          = cellStr(vals[4])
+    const functionTag   = cellStr(vals[5])
+    const hoursRaw      = cellNum(vals[6])
+    const notes         = cellStr(vals[7])
 
-    if (!projectName) { errors.push({ tab: 'External Requirements', row: rowNum, column: 'project_name', message: 'project_name is required.' }); return }
-    if (!phaseName)   { errors.push({ tab: 'External Requirements', row: rowNum, column: 'phase_name',   message: 'phase_name is required.' }); return }
+    if (!projectName)  { errors.push({ tab: 'External Requirements', row: rowNum, column: 'project_name',  message: 'project_name is required.' }); return }
+    if (!activityName) { errors.push({ tab: 'External Requirements', row: rowNum, column: 'activity_name', message: 'activity_name is required.' }); return }
 
     if (!projectNamesInFile.has(projectName)) {
       errors.push({ tab: 'External Requirements', row: rowNum, column: 'project_name', message: `project_name "${projectName}" not found in Projects tab.` })
     }
-    if (!validPhasePairs.has(phaseKey(projectName, phaseName))) {
-      errors.push({ tab: 'External Requirements', row: rowNum, column: 'phase_name', message: `Phase "${phaseName}" not found for project "${projectName}" in Phases tab.` })
+    if (!validActivityPairs.has(activityKey(projectName, activityName))) {
+      errors.push({ tab: 'External Requirements', row: rowNum, column: 'activity_name', message: `Activity "${activityName}" not found for project "${projectName}" in Activities tab.` })
     }
 
     const hoursPerMonth = hoursRaw ?? 0
@@ -404,7 +408,7 @@ export async function parseImportWorkbook(file: File, state: AppState): Promise<
       }
     }
 
-    rawExtReqs.push({ rowNum, projectName, phaseName, provider, role, functionTag, hoursPerMonth, notes, resolvedProviderId, resolvedFunctionId })
+    rawExtReqs.push({ rowNum, projectName, activityName, provider, role, functionTag, hoursPerMonth, notes, resolvedProviderId, resolvedFunctionId })
   })
 
   // ─── Step 7: Resolve references & cross-tab checks ────────────────────────
@@ -438,22 +442,22 @@ export async function parseImportWorkbook(file: File, state: AppState): Promise<
       }
     }
 
-    // Phases for this project
-    const phases: ParsedImportPhase[] = rawPhases
-      .filter(ph => ph.projectName === rp.projectName)
-      .map(ph => ({
-        name: ph.phaseName,
-        startMonth: ph.startMonth,
-        endMonth: ph.endMonth || null,
-        fundingSource: ph.fundingSource,
-        fundingNotes: ph.fundingNotes,
+    // Activities for this project
+    const activities: ParsedImportActivity[] = rawActivities
+      .filter(ac => ac.projectName === rp.projectName)
+      .map(ac => ({
+        name: ac.activityName,
+        startMonth: ac.startMonth,
+        endMonth: ac.endMonth || null,
+        fundingSource: ac.fundingSource,
+        fundingNotes: ac.fundingNotes,
       }))
 
     // Internal reqs for this project
     const internalReqs: ParsedImportIntReq[] = rawIntReqs
       .filter(r => r.projectName === rp.projectName && r.resolvedSkillId)
       .map(r => ({
-        phaseName: r.phaseName,
+        activityName: r.activityName,
         skillId: r.resolvedSkillId!,
         level: r.level,
         hoursPerMonth: r.hoursPerMonth,
@@ -469,7 +473,7 @@ export async function parseImportWorkbook(file: File, state: AppState): Promise<
     const externalReqs: ParsedImportExtReq[] = rawExtReqs
       .filter(r => r.projectName === rp.projectName && r.resolvedProviderId && r.resolvedFunctionId)
       .map(r => ({
-        phaseName: r.phaseName,
+        activityName: r.activityName,
         providerId: r.resolvedProviderId!,
         role: r.role,
         functionTag: r.resolvedFunctionId!,
@@ -507,7 +511,7 @@ export async function parseImportWorkbook(file: File, state: AppState): Promise<
       typeId,
       owner: rp.owner,
       description: rp.description,
-      phases,
+      activities,
       internalReqs,
       externalReqs,
     })
