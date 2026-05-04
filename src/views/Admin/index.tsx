@@ -12,6 +12,7 @@ import { Input, Select } from '../../components/ui/FormFields'
 import { DomainSkillSelector } from '../../components/DomainSkillSelector'
 import { project_internal_hours, project_external_hours } from '../../lib/capacity'
 import { generateMonths, getCurrentMonth } from '../../utils/capacity'
+import { slugifyProjectTypeId } from '../../utils/ids'
 import { clsx } from 'clsx'
 
 const LEVELS: Level[] = ['Basic', 'Advanced', 'Specialist']
@@ -1091,9 +1092,12 @@ function STypeRow(props: STypeRowProps) {
           </div>
           <div className="w-4 h-4 rounded border border-border shrink-0" style={{ backgroundColor: hexForToken(pt.colour_token) }} title={pt.colour_token} />
           <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium">{pt.name}</span>
-            {pt.is_bau && <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">BAU</span>}
-            {!pt.active && <span className="ml-2 text-[10px] text-gray-400 italic">inactive</span>}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">{pt.name}</span>
+              {pt.is_bau && <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">BAU</span>}
+              {!pt.active && <span className="text-[10px] text-gray-400 italic">inactive</span>}
+            </div>
+            <code className="text-[10px] text-gray-400 font-mono">{pt.id}</code>
           </div>
           <span className="text-xs text-gray-400 shrink-0">{count} in use</span>
           <div className="flex items-center gap-1.5">
@@ -1119,6 +1123,7 @@ function ProjectTypesPanel() {
   const [showNew, setShowNew] = useState(false)
   const [newName, setNewName] = useState('')
   const [newToken, setNewToken] = useState(PROJECT_TYPE_PALETTE[0].token)
+  const [newNameError, setNewNameError] = useState<string | null>(null)
   const [editId, setEditId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editToken, setEditToken] = useState('')
@@ -1165,8 +1170,8 @@ function ProjectTypesPanel() {
     if (!newName.trim()) return
     const nextOrder = sorted.length > 0 ? sorted[sorted.length - 1].display_order + 1 : 0
     const err = store.addProjectType({ name: newName.trim(), display_order: nextOrder, colour_token: newToken, is_bau: false, active: true })
-    if (err) { alert(err); return }
-    setNewName(''); setNewToken(PROJECT_TYPE_PALETTE[0].token); setShowNew(false)
+    if (err) { setNewNameError(err); return }
+    setNewName(''); setNewToken(PROJECT_TYPE_PALETTE[0].token); setShowNew(false); setNewNameError(null)
   }
 
   function saveEdit(ptId: string) {
@@ -1187,11 +1192,19 @@ function ProjectTypesPanel() {
 
       {showNew && (
         <div className="border border-brand rounded-md p-3 mb-3 bg-blue-50/30 flex flex-col gap-3">
-          <Input label="Name" value={newName} onChange={e => setNewName(e.target.value)} />
+          <div className="flex flex-col gap-0.5">
+            <Input label="Name" value={newName} onChange={e => { setNewName(e.target.value); setNewNameError(null) }} />
+            {newName.trim() && (
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                System key: <code className="font-mono text-gray-700">{slugifyProjectTypeId(newName.trim())}</code>
+              </p>
+            )}
+            {newNameError && <p className="text-[11px] text-accent-red mt-0.5">{newNameError}</p>}
+          </div>
           <div><p className="text-xs text-gray-500 mb-1.5">Colour</p><SwatchPicker value={newToken} onChange={setNewToken} /></div>
           <div className="flex gap-2">
             <Button size="sm" variant="primary" onClick={saveNew}>Save</Button>
-            <Button size="sm" variant="ghost" onClick={() => { setNewName(''); setShowNew(false) }}>Cancel</Button>
+            <Button size="sm" variant="ghost" onClick={() => { setNewName(''); setShowNew(false); setNewNameError(null) }}>Cancel</Button>
           </div>
         </div>
       )}

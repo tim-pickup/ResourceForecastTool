@@ -222,7 +222,7 @@ export const useAppStore = create<Store>()(
           const nameDupe = s.projectTypes.some(p => p.active && p.name.toLowerCase() === pt.name.trim().toLowerCase())
           if (nameDupe) { error = 'An active Project Type with that name already exists.'; return {} }
           const idDupe = s.projectTypes.find(p => p.id === derivedId)
-          if (idDupe) { error = `A Project Type with this system key already exists. Choose a different name.`; return {} }
+          if (idDupe) { error = `A Project Type with this system key already exists ('${idDupe.name}'). Choose a different name.`; return {} }
           return { projectTypes: [...s.projectTypes, { ...pt, id: derivedId }] }
         })
         return error

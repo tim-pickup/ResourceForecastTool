@@ -32,7 +32,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 3 — Project Types admin: surface system key
 
-- [ ] Add a read-only `id` display to the Project Types admin list (small monospace tag adjacent to `name`). Add real-time `id` preview to the Add Project Type form ("System key: `pt_<slug>`" below the name input).
+- [x] Add a read-only `id` display to the Project Types admin list (small monospace tag adjacent to `name`). Add real-time `id` preview to the Add Project Type form ("System key: `pt_<slug>`" below the name input).
 
 **Scope**: Project Types admin screen UI; Add form preview logic; uniqueness check at submit time (block on collision against any existing record, active or inactive).
 
