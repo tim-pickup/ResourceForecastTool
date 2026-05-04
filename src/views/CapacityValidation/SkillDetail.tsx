@@ -473,7 +473,7 @@ function DemandSkillGantt({
                   <div key={item.id} className="flex items-center border-b border-border/40 hover:bg-gray-50/50">
                     <div className="w-52 shrink-0 px-3 py-1.5 text-[10px]">
                       <div className="font-medium text-near-black truncate">{item.name}</div>
-                      <div className="text-gray-400">{item.type}</div>
+                      <div className="text-gray-400">{pt?.name ?? item.type}</div>
                     </div>
                     <div className="relative" style={{ width: totalW, height: 28 }}>
                       {runs.map((run, ri) => {

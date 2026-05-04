@@ -67,6 +67,7 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
   const programme = project.programme_id ? store.programmes.find(p => p.id === project.programme_id) : null
   const fns = useProjectFunctions(project)
   const childCount = store.demandItems.filter(d => d.parent_project_id === project.id).length
+  const typeName = store.projectTypes.find(pt => pt.id === project.type)?.name ?? project.type
 
   return (
     <div
@@ -84,7 +85,7 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-near-black truncate">{project.name}</div>
-          <div className="text-xs text-gray-500 mt-0.5">{project.type}</div>
+          <div className="text-xs text-gray-500 mt-0.5">{typeName}</div>
           <div className="text-[10px] text-gray-400 mt-0.5">
             {programme ? programme.name : <span className="italic">No Programme</span>}
           </div>
@@ -148,11 +149,12 @@ function ProjectTableRow({
   const childCount = store.demandItems.filter(d => d.parent_project_id === project.id).length
   const intHrs = horizon.reduce((s, m) => s + project_internal_hours(project.id, m, store), 0)
   const extHrs = horizon.reduce((s, m) => s + project_external_hours(project.id, m, store), 0)
+  const typeName = store.projectTypes.find(pt => pt.id === project.type)?.name ?? project.type
 
   return (
     <tr onClick={onOpen} className="border-b border-border/50 hover:bg-gray-50 cursor-pointer">
       <td className="px-4 py-2.5 font-medium text-near-black">{project.name}</td>
-      <td className="px-4 py-2.5 text-xs text-gray-600">{project.type}</td>
+      <td className="px-4 py-2.5 text-xs text-gray-600">{typeName}</td>
       <td className="px-4 py-2.5"><ProjectStatusBadge status={project.status} /></td>
       <td className="px-4 py-2.5 text-xs text-gray-500">{programme?.name ?? <span className="text-gray-300 italic">No Programme</span>}</td>
       <td className="px-4 py-2.5 text-xs text-gray-600">{project.owner || '—'}</td>
@@ -722,6 +724,7 @@ export default function ManageProjects() {
             {!search && <p className="text-gray-400 text-sm">Type to search projects.</p>}
             {filtered.map(project => {
               const programme = project.programme_id ? store.programmes.find(p => p.id === project.programme_id) : null
+              const typeName = store.projectTypes.find(pt => pt.id === project.type)?.name ?? project.type
               return (
                 <div
                   key={project.id}
@@ -732,7 +735,7 @@ export default function ManageProjects() {
                     <ProjectStatusBadge status={project.status} />
                     <span className="text-sm font-medium text-near-black">{project.name}</span>
                   </div>
-                  <div className="text-xs text-gray-500">{project.type} · {programme?.name ?? 'No Programme'}</div>
+                  <div className="text-xs text-gray-500">{typeName} · {programme?.name ?? 'No Programme'}</div>
                   {project.description && <div className="text-xs text-gray-400 mt-1 line-clamp-2">{project.description}</div>}
                 </div>
               )

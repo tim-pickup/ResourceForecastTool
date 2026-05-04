@@ -128,6 +128,7 @@ export function ProjectDrawer({ projectId, onClose, onOpenDemand }: Props) {
 
   const programme = project.programme_id ? store.programmes.find(p => p.id === project.programme_id) : null
   const childDemands = store.demandItems.filter(d => d.parent_project_id === projectId)
+  const typeName = store.projectTypes.find(pt => pt.id === project.type)?.name ?? project.type
 
   // Functions involved: from project activity requirements + child demand function_ids
   const domFn = new Map(store.domains.map(d => [d.id, d.functionId]))
@@ -194,7 +195,7 @@ export function ProjectDrawer({ projectId, onClose, onOpenDemand }: Props) {
             <div className="flex-1 min-w-0">
               <h2 className="text-sm font-semibold text-near-black leading-snug">{project.name || 'Unnamed Project'}</h2>
               <div className="mt-1.5 flex flex-col gap-1 text-xs">
-                <div><Badge>{project.type}</Badge></div>
+                <div><Badge>{typeName}</Badge></div>
                 {project.owner && <div className="text-gray-500">{project.owner}</div>}
               </div>
             </div>

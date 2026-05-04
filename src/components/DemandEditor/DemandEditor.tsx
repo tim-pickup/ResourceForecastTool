@@ -174,6 +174,7 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
   const project = item.parent_project_id ? store.projects.find(p => p.id === item.parent_project_id) : null
   const programme = project?.programme_id ? store.programmes.find(p => p.id === project.programme_id) : null
   const demandFunction = store.functions.find(f => f.id === item.function_id)
+  const typeName = store.projectTypes.find(pt => pt.id === item.type)?.name ?? item.type
 
   // Sibling Demands (other Demands on the same parent Project)
   const siblingDemands = isProjectSpawned
@@ -216,7 +217,7 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
               </h2>
               <div className="mt-1.5 flex flex-col gap-1 text-xs">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <Badge>{item.type}</Badge>
+                  <Badge>{typeName}</Badge>
                   {/* §4.5.1 Demand header: Function chip */}
                   {demandFunction && (
                     <span className="px-1.5 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-medium">

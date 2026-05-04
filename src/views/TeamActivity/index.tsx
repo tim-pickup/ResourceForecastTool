@@ -469,6 +469,7 @@ export default function TeamActivity() {
                 <div className="flex flex-col gap-2">
                   {drillItems.map((item, i) => {
                     const seg = segments.find(s => s.typeId === item.type)
+                    const typeLabel = store.projectTypes.find(pt => pt.id === item.type)?.name ?? item.type
                     return (
                       <div key={i} className="flex items-center gap-3 p-2.5 rounded border border-border bg-gray-50">
                         {seg && <div className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: SEG_COLORS[seg.key] }} />}
@@ -477,7 +478,7 @@ export default function TeamActivity() {
                             className="text-xs font-medium text-brand hover:underline text-left truncate block">
                             {item.name}
                           </button>
-                          <div className="text-[10px] text-gray-400">{item.phase} · {item.type}</div>
+                          <div className="text-[10px] text-gray-400">{item.phase} · {typeLabel}</div>
                         </div>
                         <span className="text-xs font-medium text-near-black whitespace-nowrap">{item.hours}h</span>
                       </div>

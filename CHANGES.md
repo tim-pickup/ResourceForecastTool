@@ -44,7 +44,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 4 — Type label resolution rule (no `pt_*` in user-facing UI)
 
-- [ ] Audit every UI surface rendering a Project Type and ensure it resolves the FK reference to the record's `name`. Add a runtime DOM scanner (development builds) that logs an error on any rendered text matching `pt_[a-z_]+` outside the admin screen.
+- [x] Audit every UI surface rendering a Project Type and ensure it resolves the FK reference to the record's `name`. Add a runtime DOM scanner (development builds) that logs an error on any rendered text matching `pt_[a-z_]+` outside the admin screen.
 
 **Scope**: Project drawer headers, Demand drawer headers, Manage Projects cards (board + table), Manage Demand cards (board + table), capacity stack legends, Capacity Validation tooltips, filter dropdowns. Add the runtime scanner.
 

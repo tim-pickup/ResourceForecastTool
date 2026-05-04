@@ -1243,7 +1243,7 @@ export default function Admin() {
   const [tab, setTab] = useState<Tab>('Functions')
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full" data-admin-screen="true">
       <div className="w-48 border-r border-border bg-gray-50 flex flex-col py-4 gap-0.5 px-2">
         {TABS.map(t => (
           <button

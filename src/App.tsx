@@ -171,6 +171,37 @@ function AppShell() {
     return () => clearTimeout(t)
   }, [toast])
 
+  // Dev-mode DOM scanner: log any rendered `pt_[a-z_]+` system key outside the Admin screen
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const PT_PATTERN = /\bpt_[a-z_]+\b/
+    function isInsideAdminScreen(node: Node): boolean {
+      let el = node.parentElement
+      while (el) {
+        if (el.dataset.adminScreen === 'true') return true
+        el = el.parentElement
+      }
+      return false
+    }
+    function scanNode(node: Node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent ?? ''
+        if (PT_PATTERN.test(text) && !isInsideAdminScreen(node)) {
+          console.error('[PtDomScanner] Rendered pt_* system key in user-facing UI:', text.trim(), node.parentElement)
+        }
+        return
+      }
+      for (const child of Array.from(node.childNodes)) scanNode(child)
+    }
+    const observer = new MutationObserver(mutations => {
+      for (const m of mutations) {
+        for (const node of Array.from(m.addedNodes)) scanNode(node)
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <div className="min-h-screen bg-white text-near-black flex flex-col">
       <header className="border-b border-border bg-white sticky top-0 z-40 shadow-sm">

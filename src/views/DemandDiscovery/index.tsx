@@ -36,6 +36,7 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
   const store = useAppStore()
   const project = item.parent_project_id ? store.projects.find(p => p.id === item.parent_project_id) : null
   const programme = project?.programme_id ? store.programmes.find(p => p.id === project.programme_id) : null
+  const typeName = store.projectTypes.find(pt => pt.id === item.type)?.name ?? item.type
 
   return (
     <div
@@ -53,7 +54,7 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-near-black truncate">{item.name}</div>
-          <div className="text-xs text-gray-500 mt-0.5">{item.type}</div>
+          <div className="text-xs text-gray-500 mt-0.5">{typeName}</div>
           {/* §4.6 v1.19: parent-Project name only — no Programme › prefix */}
           {item.parent_project_id ? (
             <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5">
@@ -128,6 +129,7 @@ function TableRow({ item, projectMap, programmeMap, phasesWithExt, functions, do
   const store = useAppStore()
   const project = item.parent_project_id ? projectMap.get(item.parent_project_id) : null
   const programme = project?.programme_id ? programmeMap.get(project.programme_id) : null
+  const typeName = store.projectTypes.find(pt => pt.id === item.type)?.name ?? item.type
   const extHrs = store.externalResourceRequirements
     .filter(r => item.activities.some(ac => ac.id === r.activity_id))
     .reduce((s, ext) => {
@@ -142,7 +144,7 @@ function TableRow({ item, projectMap, programmeMap, phasesWithExt, functions, do
       className="border-b border-border/50 hover:bg-gray-50 cursor-pointer"
     >
       <td className="px-4 py-2.5 font-medium text-near-black">{item.name}</td>
-      <td className="px-4 py-2.5 text-gray-600 text-xs">{item.type}</td>
+      <td className="px-4 py-2.5 text-gray-600 text-xs">{typeName}</td>
       <td className="px-4 py-2.5"><StatusBadge status={item.status} /></td>
       <td className="px-4 py-2.5 text-gray-600">{item.owner || '—'}</td>
       <td className="px-4 py-2.5 text-gray-500 text-xs">{programme?.name ?? <span className="text-gray-300">—</span>}</td>
@@ -715,7 +717,9 @@ export default function DemandDiscovery() {
             {!search && (
               <p className="text-gray-400 text-sm">Type to search demand items.</p>
             )}
-            {filtered.map(item => (
+            {filtered.map(item => {
+              const typeName = store.projectTypes.find(pt => pt.id === item.type)?.name ?? item.type
+              return (
               <div
                 key={item.id}
                 onClick={() => setDrawerId(item.id)}
@@ -725,10 +729,11 @@ export default function DemandDiscovery() {
                   <StatusBadge status={item.status} />
                   <span className="text-sm font-medium text-near-black">{item.name}</span>
                 </div>
-                <div className="text-xs text-gray-500">{item.type} · {item.owner || 'No owner'}</div>
+                <div className="text-xs text-gray-500">{typeName} · {item.owner || 'No owner'}</div>
                 {item.description && <div className="text-xs text-gray-400 mt-1 line-clamp-2">{item.description}</div>}
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
