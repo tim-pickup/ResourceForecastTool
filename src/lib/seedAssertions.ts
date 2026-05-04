@@ -365,10 +365,13 @@ export function runSeedAssertions(): void {
   if (p4Demands.length !== 2) {
     console.error(`[SeedAssertion FAIL] prj_004 (Plant C MES Platform Migration) has ${p4Demands.length} child Demands, expected 2 (DM + GroupIT)`)
   }
-  // All spawned Demands must carry a parent_project_id.
-  const spawnedWithoutParent = state.demandItems.filter(d => !d.parent_project_id && d.name.includes(' — '))
-  if (spawnedWithoutParent.length > 0) {
-    console.error(`[SeedAssertion FAIL] Some spawned-name Demands have null parent_project_id: ${spawnedWithoutParent.map(d => d.id).join(', ')}`)
+  // v1.20: spawned Demand names must match parent Project name exactly (no Function suffix).
+  const projectNameMap = new Map(state.projects.map(p => [p.id, p.name]))
+  const wronglyNamedSpawned = state.demandItems.filter(d =>
+    d.parent_project_id && d.name !== projectNameMap.get(d.parent_project_id)
+  )
+  if (wronglyNamedSpawned.length > 0) {
+    console.error(`[SeedAssertion FAIL] §6 v1.20: Spawned Demands with names differing from parent Project: ${wronglyNamedSpawned.map(d => `${d.id}("${d.name}")`).join(', ')}`)
   }
 
   // At least one direct Demand with null parent must exist for DM.

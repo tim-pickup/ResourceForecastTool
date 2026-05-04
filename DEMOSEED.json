@@ -1098,7 +1098,7 @@
   "demand_items": [
     {
       "id": "dmd_p3_dm",
-      "name": "Corporate Data Lake â€” Digital Manufacturing",
+      "name": "Corporate Data Lake",
       "type": "pt_group_strategy_project",
       "status": "Submitted",
       "owner": "James Whitfield",
@@ -1134,7 +1134,7 @@
     },
     {
       "id": "dmd_p3_git",
-      "name": "Corporate Data Lake â€” Group IT Enterprise Solutions",
+      "name": "Corporate Data Lake",
       "type": "pt_group_strategy_project",
       "status": "Submitted",
       "owner": "Anya Petrov",
@@ -1184,7 +1184,7 @@
     },
     {
       "id": "dmd_p4_dm",
-      "name": "Plant C MES Platform Migration â€” Digital Manufacturing",
+      "name": "Plant C MES Platform Migration",
       "type": "pt_plant_project",
       "status": "PartiallyAllocated",
       "owner": "David Lin",
@@ -1321,7 +1321,7 @@
     },
     {
       "id": "dmd_p4_git",
-      "name": "Plant C MES Platform Migration â€” Group IT Enterprise Solutions",
+      "name": "Plant C MES Platform Migration",
       "type": "pt_plant_project",
       "status": "Approved",
       "owner": "Anya Petrov",
@@ -1391,7 +1391,7 @@
     },
     {
       "id": "dmd_p5_dm",
-      "name": "MBM Foundation Library â€” Digital Manufacturing",
+      "name": "MBM Foundation Library",
       "type": "pt_group_strategy_project",
       "status": "Allocated",
       "owner": "Marcus Vogel",
@@ -1465,7 +1465,7 @@
     },
     {
       "id": "dmd_p6_dm",
-      "name": "Plant B MES Refresh â€” Digital Manufacturing",
+      "name": "Plant B MES Refresh",
       "type": "pt_plant_project",
       "status": "Allocated",
       "owner": "Priya Kumar",

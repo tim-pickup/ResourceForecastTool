@@ -56,7 +56,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 5 — Demand auto-name: drop Function suffix
 
-- [ ] Update the spawn algorithm in `spawnDemandsOnProjectSubmit` so spawned Demand `name` equals the parent Project's `name` exactly (no " — Function Name" suffix). Re-seed the bundled seed (Project 4's spawned Demands) accordingly.
+- [x] Update the spawn algorithm in `spawnDemandsOnProjectSubmit` so spawned Demand `name` equals the parent Project's `name` exactly (no " — Function Name" suffix). Re-seed the bundled seed (Project 4's spawned Demands) accordingly.
 
 **Scope**: spawn pseudocode (already updated in spec); seed regeneration (after Change 14, this happens automatically via the `master_seed.xlsx` parse); verify the Function chip in the Demand drawer header continues to disambiguate siblings.
 

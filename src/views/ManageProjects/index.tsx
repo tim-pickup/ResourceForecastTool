@@ -474,7 +474,7 @@ export default function ManageProjects() {
           id: generateId('dmd'),
           function_id: fnId,
           parent_project_id: projectId,
-          name: `${parsed.projectName} — ${fn?.name ?? fnId}`,
+          name: parsed.projectName,  // v1.20: no Function suffix; Function chip disambiguates siblings
           type: parsed.typeId,
           owner: parsed.owner,
           description: parsed.description,

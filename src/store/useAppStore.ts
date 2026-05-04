@@ -371,7 +371,7 @@ export const useAppStore = create<Store>()(
               id: generateId('dmd'),
               function_id: fnId,
               parent_project_id: project.id,
-              name: `${project.name} — ${fn?.name ?? fnId}`,
+              name: project.name,  // v1.20: no Function suffix; Function chip disambiguates siblings
               type: project.type,
               owner: project.owner,
               description: project.description,
