@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { parseISO, isAfter, differenceInMonths, addMonths, format } from 'date-fns'
 import { useAppStore } from '../../store/useAppStore'
-import type { DemandStatus, Activity, Requirement, FundingSource, Level, SkillRequirement, ExternalResourceRequirement } from '../../types'
+import type { AppFunction, DemandStatus, Activity, Requirement, FundingSource, Level, SkillRequirement, ExternalResourceRequirement } from '../../types'
 import { Input, Select } from '../../components/ui/FormFields'
 import { MonthYearPicker } from '../../components/MonthYearPicker'
 import { DomainSkillSelector } from '../../components/DomainSkillSelector'
@@ -218,9 +218,11 @@ interface ReqRowProps {
   onDelete: () => void
   scopedDomains: import('../../types').Domain[]
   scopedSkills: import('../../types').Skill[]
+  crossFunctionMode?: boolean
+  activeFunctions?: AppFunction[]
 }
 
-function RequirementRow({ req, months, onChange, onDelete, scopedDomains, scopedSkills }: ReqRowProps) {
+function RequirementRow({ req, months, onChange, onDelete, scopedDomains, scopedSkills, crossFunctionMode, activeFunctions }: ReqRowProps) {
   const [fillVal, setFillVal] = useState(0)
 
   const totalHrs = months.reduce((s, m) => s + (req.hours_by_month[m] ?? 0), 0)
@@ -243,6 +245,8 @@ function RequirementRow({ req, months, onChange, onDelete, scopedDomains, scoped
             onChange={id => onChange({ ...req, skill_id: id })}
             domains={scopedDomains}
             skills={scopedSkills}
+            crossFunctionMode={crossFunctionMode}
+            functions={activeFunctions}
           />
         </div>
         <select
@@ -310,12 +314,14 @@ function RequirementRow({ req, months, onChange, onDelete, scopedDomains, scoped
 
 // ─── Requirement row (indefinite) ─────────────────────────────────────────────
 
-function IndefiniteRequirementRow({ req, onChange, onDelete, scopedDomains, scopedSkills }: {
+function IndefiniteRequirementRow({ req, onChange, onDelete, scopedDomains, scopedSkills, crossFunctionMode, activeFunctions }: {
   req: SkillRequirement
   onChange: (r: SkillRequirement) => void
   onDelete: () => void
   scopedDomains: import('../../types').Domain[]
   scopedSkills: import('../../types').Skill[]
+  crossFunctionMode?: boolean
+  activeFunctions?: AppFunction[]
 }) {
   return (
     <div className="border border-border rounded p-2.5 bg-gray-50/50 flex flex-col gap-2">
@@ -326,6 +332,8 @@ function IndefiniteRequirementRow({ req, onChange, onDelete, scopedDomains, scop
             onChange={id => onChange({ ...req, skill_id: id })}
             domains={scopedDomains}
             skills={scopedSkills}
+            crossFunctionMode={crossFunctionMode}
+            functions={activeFunctions}
           />
         </div>
         <select
@@ -579,6 +587,10 @@ export function ActivityEditor({
   const [open, setOpen] = useState(true)
   const store = useAppStore()
 
+  // Cross-Function mode: functionScopeId === null means Project Scoping (full catalogue, two-step picker)
+  const crossFunctionMode = functionScopeId === null
+  const activeFunctions = useMemo(() => store.functions.filter(f => f.active), [store.functions])
+
   // Compute skill catalogue scope: null = full catalogue (Project Scoping); string = one Function
   const scopedDomains = useMemo(() => {
     if (functionScopeId === null || functionScopeId === undefined) return store.domains
@@ -733,6 +745,8 @@ export function ActivityEditor({
                       onDelete={() => deleteReq(req.id)}
                       scopedDomains={scopedDomains}
                       scopedSkills={scopedSkills}
+                      crossFunctionMode={crossFunctionMode}
+                      activeFunctions={activeFunctions}
                     />
                   ) : (
                     <RequirementRow
@@ -743,6 +757,8 @@ export function ActivityEditor({
                       onDelete={() => deleteReq(req.id)}
                       scopedDomains={scopedDomains}
                       scopedSkills={scopedSkills}
+                      crossFunctionMode={crossFunctionMode}
+                      activeFunctions={activeFunctions}
                     />
                   )
                 ))}

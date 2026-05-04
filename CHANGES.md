@@ -116,7 +116,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 10 — Skill picker dual-mode
 
-- [ ] Refactor the shared Skill selector into single-Function mode (existing — Domain → Skill) and cross-Function mode (new — two-step Function → Domain → Skill, used only on Project Scoping). Implement search across the full hierarchy with Function · Domain prefix on hits.
+- [x] Refactor the shared Skill selector into single-Function mode (existing — Domain → Skill) and cross-Function mode (new — two-step Function → Domain → Skill, used only on Project Scoping). Implement search across the full hierarchy with Function · Domain prefix on hits.
 
 **Scope**: Skill selector component refactor; mode selection driven by context (Project Scoping → cross-Function mode; everywhere else → single-Function mode); selected-skill display format updates.
 
