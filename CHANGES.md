@@ -140,7 +140,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 12 — Manage Projects / Manage Demand card cleanup
 
-- [ ] Update Kanban / Table card content per the v1.20 rules: Demand cards (no Function suffix on name, resolved Type label, Origin/parent line, active-Function chip when siblings exist, compact stats); Project cards (resolved Type label, Programme line, Functions chip rows, hint footnote on Draft/Scoping). Forbid chevron- or em-dash-joined hierarchy strings on cards.
+- [x] Update Kanban / Table card content per the v1.20 rules: Demand cards (no Function suffix on name, resolved Type label, Origin/parent line, active-Function chip when siblings exist, compact stats); Project cards (resolved Type label, Programme line, Functions chip rows, hint footnote on Draft/Scoping). Forbid chevron- or em-dash-joined hierarchy strings on cards.
 
 **Scope**: Manage Demand Board + Table card rendering; Manage Projects Board + Table card rendering; ensure Type column on Table mode resolves the FK to `name`.
 

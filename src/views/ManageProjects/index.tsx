@@ -69,6 +69,20 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
   const childCount = store.demandItems.filter(d => d.parent_project_id === project.id).length
   const typeName = store.projectTypes.find(pt => pt.id === project.type)?.name ?? project.type
 
+  const isDraftOrScoping = project.status === 'Draft' || project.status === 'Scoping'
+  const requiredIds = new Set(project.functions_required)
+  const hasRequirements = project.activities.some(ac => ac.requirements.length > 0)
+
+  const activityCount = project.activities.length
+  let statsLine: string
+  if (project.status === 'Draft' && !hasRequirements) {
+    statsLine = `${activityCount} ${activityCount === 1 ? 'Activity' : 'Activities'}`
+  } else {
+    const parts = [`${activityCount} ${activityCount === 1 ? 'Activity' : 'Activities'}`]
+    if (childCount > 0) parts.push(`${childCount} ${childCount === 1 ? 'Demand' : 'Demands'}`)
+    statsLine = parts.join(' · ')
+  }
+
   return (
     <div
       ref={setNodeRef}
@@ -84,30 +98,40 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
           <GripVertical size={13} />
         </div>
         <div className="flex-1 min-w-0">
+          {/* 1. Project name */}
           <div className="text-sm font-medium text-near-black truncate">{project.name}</div>
-          <div className="text-xs text-gray-500 mt-0.5">{typeName}</div>
+          {/* 2. Type badge — pill, always resolved label */}
+          <span className="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">
+            {typeName}
+          </span>
+          {/* 3. Programme line */}
           <div className="text-[10px] text-gray-400 mt-0.5">
             {programme ? programme.name : <span className="italic">No Programme</span>}
           </div>
-          {/* §4.6.A v1.19: Functions Actually Involved chips */}
+          {/* 4. Functions Actually Involved chip row — with "added during Scoping" badge on Draft/Scoping */}
           {fns.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {fns.map(fn => fn && (
-                <span key={fn.id} className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                <span key={fn.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
                   {fn.name}
+                  {isDraftOrScoping && !requiredIds.has(fn.id) && (
+                    <span className="px-1 rounded bg-amber-100 text-amber-700 text-[8px] font-medium">+Scoping</span>
+                  )}
                 </span>
               ))}
             </div>
           )}
-          {/* "Required: …" footnote — Draft/Scoping only */}
-          {(project.status === 'Draft' || project.status === 'Scoping') && project.functions_required.length > 0 && (
+          {/* 5. Functions Required hint — always shown on Draft/Scoping */}
+          {isDraftOrScoping && (
             <div className="text-[9px] text-gray-400 mt-0.5">
-              Required: {project.functions_required.map(fid => store.functions.find(f => f.id === fid)?.name ?? fid).join(', ')}
+              {project.functions_required.length > 0
+                ? `Required: ${project.functions_required.map(fid => store.functions.find(f => f.id === fid)?.name ?? fid).join(', ')}`
+                : <span className="italic">Required: not yet declared</span>
+              }
             </div>
           )}
-          {childCount > 0 && (
-            <div className="text-[10px] text-gray-400 mt-0.5">{childCount} Demand{childCount !== 1 ? 's' : ''}</div>
-          )}
+          {/* 6. Compact stats line */}
+          <div className="text-[10px] text-gray-400 mt-0.5">{statsLine}</div>
         </div>
       </div>
     </div>

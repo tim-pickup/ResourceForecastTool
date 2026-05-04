@@ -33,10 +33,67 @@ type OriginFilter = 'all' | 'project-spawned' | 'direct'
 function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: item.id })
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
+  const navigate = useNavigate()
   const store = useAppStore()
   const project = item.parent_project_id ? store.projects.find(p => p.id === item.parent_project_id) : null
-  const programme = project?.programme_id ? store.programmes.find(p => p.id === project.programme_id) : null
   const typeName = store.projectTypes.find(pt => pt.id === item.type)?.name ?? item.type
+
+  // §4.6 v1.20: active-Function chip — shown when demand has siblings on the same project
+  const hasSiblings = item.parent_project_id !== null &&
+    store.demandItems.some(d => d.parent_project_id === item.parent_project_id && d.id !== item.id)
+  const functionName = hasSiblings ? (store.functions.find(f => f.id === item.function_id)?.name ?? null) : null
+
+  // §4.6 v1.20: compact stats (12-mo horizon)
+  const horizon = generateMonths(getCurrentMonth(), 12)
+  const activityMap = new Map(item.activities.map(ac => [ac.id, ac]))
+  const demandActivityIds = new Set(item.activities.map(ac => ac.id))
+
+  let intHrs = 0
+  for (const ac of item.activities) {
+    for (const req of ac.requirements) {
+      for (const month of horizon) {
+        if (month < ac.start_month) continue
+        if (ac.end_month !== null && month > ac.end_month) continue
+        intHrs += ac.end_month === null ? (req.steady_state_hours ?? 0) : (req.hours_by_month[month] ?? 0)
+      }
+    }
+  }
+
+  let extHrs = 0
+  for (const e of store.externalResourceRequirements) {
+    if (!demandActivityIds.has(e.activity_id)) continue
+    const ac = activityMap.get(e.activity_id)!
+    for (const month of horizon) {
+      if (month < ac.start_month) continue
+      if (ac.end_month !== null && month > ac.end_month) continue
+      extHrs += ac.end_month === null ? (e.steady_state_hours ?? 0) : (e.hours_by_month[month] ?? 0)
+    }
+  }
+
+  let coverage: number | null = null
+  if (item.status === 'PartiallyAllocated' && intHrs > 0) {
+    let allocHrs = 0
+    for (const ac of item.activities) {
+      for (const req of ac.requirements) {
+        for (const alloc of req.allocations) {
+          for (const month of horizon) {
+            if (month < ac.start_month) continue
+            if (ac.end_month !== null && month > ac.end_month) continue
+            allocHrs += ac.end_month === null ? (alloc.steady_state_hours ?? 0) : (alloc.hours_by_month[month] ?? 0)
+          }
+        }
+      }
+    }
+    coverage = Math.round((allocHrs / intHrs) * 100)
+  }
+
+  const horizonParts: string[] = []
+  if (intHrs > 0) horizonParts.push(`${Math.round(intHrs)} hrs internal`)
+  if (extHrs > 0) horizonParts.push(`${Math.round(extHrs)} hrs external`)
+  const statsLine = [
+    horizonParts.length > 0 ? horizonParts.join(' · ') + ' (12 mo)' : null,
+    coverage !== null ? `${coverage}% covered` : null,
+  ].filter(Boolean).join(' · ')
 
   return (
     <div
@@ -53,18 +110,38 @@ function DraggableCard({ item, onEdit }: { item: DemandItem; onEdit: () => void 
           <GripVertical size={13} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-near-black truncate">{item.name}</div>
-          <div className="text-xs text-gray-500 mt-0.5">{typeName}</div>
-          {/* §4.6 v1.19: parent-Project name only — no Programme › prefix */}
+          <div className="flex items-start justify-between gap-1 mb-0.5">
+            <span className="text-sm font-medium text-near-black truncate">{item.name}</span>
+            {functionName && (
+              <span className="shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
+                {functionName}
+              </span>
+            )}
+          </div>
+          {/* Type badge — pill, always resolved label */}
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">
+            {typeName}
+          </span>
+          {/* §4.6 v1.20: Origin/parent line */}
           {item.parent_project_id ? (
             <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5">
               <GitMerge size={10} />
-              {project?.name ?? '—'}
+              <button
+                className="hover:underline text-left truncate"
+                onClick={e => { e.stopPropagation(); navigate('/manage-projects') }}
+              >
+                {project?.name ?? '—'}
+              </button>
             </div>
           ) : (
-            <span className="inline-block mt-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">Direct</span>
+            <div className="mt-0.5">
+              <span className="inline-block text-[9px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">Direct</span>
+            </div>
           )}
-          <div className="text-xs text-gray-400">Owner: {item.owner || '—'}</div>
+          {/* §4.6 v1.20: Compact stats line */}
+          {statsLine && (
+            <div className="text-[10px] text-gray-400 mt-1">{statsLine}</div>
+          )}
         </div>
       </div>
     </div>
