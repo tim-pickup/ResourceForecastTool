@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { format, parseISO } from 'date-fns'
 import { Plus, Trash2, AlertTriangle, Lock } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAppStore } from '../../store/useAppStore'
@@ -6,6 +7,44 @@ import type { AppState, DemandItem, SkillRequirement, NamedAllocation, Level, De
 import { formatMonthLabel, getPersonAvgAvailableForActivity, monthInRange } from '../../utils/capacity'
 import { generateId } from '../../utils/ids'
 import { getMonths, ActivityGantt } from './ModeAEditor'
+
+// ─── §4.5.2 Target + coverage summary helpers (v1.20) ────────────────────────
+
+function formatMonthRange(start: string, end: string): string {
+  const startFmt = format(parseISO(start + '-01'), 'MMM')
+  const endFmt = format(parseISO(end + '-01'), 'MMM')
+  const [sy] = start.split('-')
+  const [ey] = end.split('-')
+  return sy === ey ? `${startFmt}–${endFmt} ${ey}` : `${startFmt} ${sy}–${endFmt} ${ey}`
+}
+
+function isUniformRate(hbm: Record<string, number>, months: string[]): boolean {
+  if (months.length === 0) return false
+  const first = hbm[months[0]] ?? 0
+  return months.every(m => (hbm[m] ?? 0) === first)
+}
+
+function targetLine(req: SkillRequirement, activity: Activity, months: string[]): string {
+  if (activity.end_month === null) {
+    const rate = req.steady_state_hours ?? 0
+    const from = format(parseISO(activity.start_month + '-01'), 'MMM yyyy')
+    return `Target: ${rate} hrs/mo · indefinite from ${from}`
+  }
+  const total = months.reduce((s, m) => s + (req.hours_by_month[m] ?? 0), 0)
+  const range = formatMonthRange(activity.start_month, activity.end_month)
+  if (isUniformRate(req.hours_by_month, months)) {
+    const rate = months.length > 0 ? (req.hours_by_month[months[0]] ?? 0) : 0
+    return `Target: ${Math.round(total)} hrs total · ${rate} hrs/mo × ${range}`
+  }
+  return `Target: ${Math.round(total)} hrs total · varies by month · ${range}`
+}
+
+function coverageSummaryLine(targetTotal: number, allocTotal: number, isIndefinite: boolean): string {
+  const unit = isIndefinite ? 'hrs/mo' : 'hrs'
+  const pct = targetTotal > 0 ? Math.round((allocTotal / targetTotal) * 100) : 0
+  const unfilled = Math.max(0, targetTotal - allocTotal)
+  return `Allocated: ${Math.round(allocTotal)} ${unit} (${pct}%) · Unfilled: ${Math.round(unfilled)} ${unit}`
+}
 
 const LEVEL_ORDER: Record<Level, number> = { Basic: 0, Advanced: 1, Specialist: 2 }
 function meetsLevel(held: Level, req: Level) { return LEVEL_ORDER[held] >= LEVEL_ORDER[req] }
@@ -479,7 +518,21 @@ function RequirementAllocationBlock({ req, activity, months, draft, demandItemId
       </div>
 
       <div className="px-3 py-2 flex flex-col gap-2">
-        {/* Coverage */}
+        {/* §4.5.2 v1.20: Target total + coverage summary */}
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs font-medium text-near-black">
+            {targetLine(req, activity, months)}
+          </span>
+          <span className={clsx(
+            'text-[11px]',
+            allocTotal >= targetTotal && targetTotal > 0 ? 'text-green-600' :
+            allocTotal > 0 ? 'text-amber-600' : 'text-gray-400'
+          )}>
+            {coverageSummaryLine(targetTotal, allocTotal, isIndefinite)}
+          </span>
+        </div>
+
+        {/* Coverage strip */}
         <div>
           <span className="text-[10px] text-gray-400 mb-1 block">Coverage</span>
           {isIndefinite && indCovStatus !== null ? (

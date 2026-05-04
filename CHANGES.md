@@ -104,7 +104,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 9 — Mode B requirement total hours
 
-- [ ] Add a prominent "Target: N hrs total · {description}" line above each requirement's coverage strip in Mode B, plus a coverage summary line ("Allocated: N hrs (X%) · Unfilled: N hrs"). Both lines update live as allocations are edited.
+- [x] Add a prominent "Target: N hrs total · {description}" line above each requirement's coverage strip in Mode B, plus a coverage summary line ("Allocated: N hrs (X%) · Unfilled: N hrs"). Both lines update live as allocations are edited.
 
 **Scope**: Mode B requirement row rendering. Total computed from `hours_by_month` sum (finite) or `steady_state_hours` (indefinite). Description format varies by Activity type.
 
