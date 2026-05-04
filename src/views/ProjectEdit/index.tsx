@@ -516,6 +516,7 @@ export default function ProjectEdit() {
                       />
                     ) : (
                       // For new projects (no id yet), use simple ActivityEditor without teams
+                      // §4.5.2 Project Draft strict rule: requirements hidden until Scoping
                       <div className="border-2 border-border rounded-lg overflow-hidden">
                         <div className="px-4 py-3 bg-gray-100 border-b border-border">
                           <h3 className="text-sm font-semibold text-near-black">
@@ -530,7 +531,7 @@ export default function ProjectEdit() {
                             onDelete={() => deleteActivity(activity.id)}
                             extReqs={[]}
                             onExtReqsChange={() => undefined}
-                            demandStatus="Draft"
+                            showRequirements={false}
                           />
                         </div>
                       </div>

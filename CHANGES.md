@@ -80,7 +80,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 7 — Project Draft strictly hides requirements UI
 
-- [ ] In Mode A on Project Draft, hide the internal requirements list, external requirements list, and both "+ Add" affordances on every Activity card. Activity-level metadata (name, dates, funding source, funding notes) remains editable.
+- [x] In Mode A on Project Draft, hide the internal requirements list, external requirements list, and both "+ Add" affordances on every Activity card. Activity-level metadata (name, dates, funding source, funding notes) remains editable.
 
 **Scope**: Mode A status-aware rendering; ensure the affordance is gone (not just the list), so users cannot add requirements until the Project transitions to Scoping.
 
