@@ -6,7 +6,7 @@
  */
 
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, Search, LayoutGrid, List, GripVertical, ChevronUp, ChevronDown, X, Download, Upload } from 'lucide-react'
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { useDroppable, useDraggable } from '@dnd-kit/core'
@@ -184,11 +184,13 @@ type SortDir = 'asc' | 'desc'
 export default function ManageProjects() {
   const store = useAppStore()
   const navigate = useNavigate()
+  const location = useLocation()
   const [mode, setMode] = useState<ViewMode>('board')
   const [drawerProjectId, setDrawerProjectId] = useState<string | null>(null)
   const [drawerDemandId, setDrawerDemandId] = useState<string | null>(null)
   const [submitDialogProjectId, setSubmitDialogProjectId] = useState<string | null>(null)
   const [dragError, setDragError] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterProgramme, setFilterProgramme] = useState('')
@@ -208,7 +210,24 @@ export default function ManageProjects() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
-  // Reset Function-scoped filters on Function switch
+  // Pick up toast message passed via navigation state (e.g. from ProjectEdit guard)
+  useEffect(() => {
+    const msg = (location.state as Record<string, string> | null)?.closedProjectToast
+    if (msg) {
+      setToast(msg)
+      window.history.replaceState({}, '')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Auto-dismiss toast after 4s
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  // Reset Function-scoped filters on Function switch; guard open drawer visibility
   const prevFnRef = useRef<string | null>(activeFunctionId)
   useEffect(() => {
     if (prevFnRef.current === activeFunctionId) return
@@ -216,17 +235,51 @@ export default function ManageProjects() {
     setFilterFunctions([])
   }, [activeFunctionId])
 
-  // §4.6.A visibility rule
+  // Build domain/skill → function map (needed for Scoping visibility predicate)
+  const domFnVis = useMemo(() => new Map(store.domains.map(d => [d.id, d.functionId])), [store.domains])
+  const sklFnVis = useMemo(() => new Map(store.skills.map(s => [s.id, domFnVis.get(s.domain_id)])), [store.skills, domFnVis])
+
+  // §4.6.A visibility rule (v1.20 — Draft/Scoping now Function-scoped)
   const visibleProjects = useMemo(() => {
     return store.projects.filter(project => {
       if (!project.active) return false
-      // Draft/Scoping always visible (pre-spawn)
-      if (project.status === 'Draft' || project.status === 'Scoping') return true
-      // Submitted+: visible only if active Function has a child Demand
       if (!activeFunctionId) return true
+
+      if (project.status === 'Draft') {
+        if (project.functions_required.includes(activeFunctionId)) return true
+        return project.functions_required.length === 0 && project.created_under_function_id === activeFunctionId
+      }
+
+      if (project.status === 'Scoping') {
+        if (project.functions_required.includes(activeFunctionId)) return true
+        // Functions Actually Involved: live from project's own requirements
+        const involvesActiveFn = project.activities.some(ac =>
+          ac.requirements.some(r => sklFnVis.get(r.skill_id) === activeFunctionId)
+        )
+        if (involvesActiveFn) return true
+        // Fallback: empty plan with no declared functions
+        const anyFnInvolved = project.activities.some(ac =>
+          ac.requirements.some(r => sklFnVis.get(r.skill_id))
+        )
+        return project.functions_required.length === 0 && !anyFnInvolved && project.created_under_function_id === activeFunctionId
+      }
+
+      // Submitted/Approved/Allocated: visible if active Function has a child Demand
       return store.demandItems.some(d => d.parent_project_id === project.id && d.function_id === activeFunctionId)
     })
-  }, [store.projects, store.demandItems, activeFunctionId])
+  }, [store.projects, store.demandItems, activeFunctionId, sklFnVis])
+
+  // Guard: close open Project drawer when Function-switch makes the Project invisible
+  useEffect(() => {
+    if (!drawerProjectId || !activeFunctionId) return
+    const stillVisible = visibleProjects.some(p => p.id === drawerProjectId)
+    if (!stillVisible) {
+      const project = store.projects.find(p => p.id === drawerProjectId)
+      const newFn = store.functions.find(f => f.id === activeFunctionId)
+      setDrawerProjectId(null)
+      setToast(`Project "${project?.name}" is not associated with ${newFn?.name ?? 'the new Function'} — returning to Manage Projects.`)
+    }
+  }, [activeFunctionId, drawerProjectId, visibleProjects, store.projects, store.functions])
 
   // Build a helper: getProjectFunctions for filtering
   const domFn = useMemo(() => new Map(store.domains.map(d => [d.id, d.functionId])), [store.domains])
@@ -613,6 +666,14 @@ export default function ManageProjects() {
           <Plus size={12} /> New Project
         </Button>
       </div>
+
+      {/* Function-switch / navigation toast */}
+      {toast && (
+        <div className="flex items-center gap-2 px-5 py-2 bg-blue-50 border-b border-blue-200 text-xs text-blue-700">
+          <span className="flex-1">{toast}</span>
+          <button onClick={() => setToast(null)}><X size={12} /></button>
+        </div>
+      )}
 
       {/* Drag error banner */}
       {dragError && (

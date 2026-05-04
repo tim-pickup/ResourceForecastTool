@@ -68,7 +68,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 6 — Manage Projects Function-scoping
 
-- [ ] Implement the new visibility predicate in `selectProjectsForActiveFunction` per the v1.20 rules: Draft/Scoping require Function involvement (via `functions_required`, requirements, or `created_under_function_id`); Submitted+ unchanged.
+- [x] Implement the new visibility predicate in `selectProjectsForActiveFunction` per the v1.20 rules: Draft/Scoping require Function involvement (via `functions_required`, requirements, or `created_under_function_id`); Submitted+ unchanged.
 
 **Scope**: `selectProjectsForActiveFunction` selector logic; Function-switch guard that closes a drawer/edit page when the active Function changes and the Project becomes invisible; toast on Function switch when this occurs. Update seed so Project 5 (`functions_required = [DM]`, `created_under_function_id = DM`) is invisible under Group IT to exercise the rule.
 

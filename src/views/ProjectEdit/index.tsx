@@ -6,7 +6,7 @@
  * Submitted+:      read-only, shows child Demands summary
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
@@ -143,6 +143,42 @@ export default function ProjectEdit() {
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
   }, [isDirty])
+
+  // §4.6.A Function-switch guard: if this Draft/Scoping Project becomes invisible
+  // under the new active Function, close the edit page and return to Manage Projects.
+  const activeFunctionId = store.activeFunctionId
+  const prevActiveFnRef = useRef<string | null>(activeFunctionId)
+  useEffect(() => {
+    if (!id || isNew) return
+    if (prevActiveFnRef.current === activeFunctionId) return
+    prevActiveFnRef.current = activeFunctionId
+
+    const project = store.projects.find(p => p.id === id)
+    if (!project || (project.status !== 'Draft' && project.status !== 'Scoping')) return
+    if (!activeFunctionId) return
+
+    // Compute visibility under new function
+    const domFn = new Map(store.domains.map(d => [d.id, d.functionId]))
+    const sklFn = new Map(store.skills.map(s => [s.id, domFn.get(s.domain_id)]))
+    let visible = false
+    if (project.status === 'Draft') {
+      visible = project.functions_required.includes(activeFunctionId) ||
+        (project.functions_required.length === 0 && project.created_under_function_id === activeFunctionId)
+    } else {
+      visible = project.functions_required.includes(activeFunctionId) ||
+        project.activities.some(ac => ac.requirements.some(r => sklFn.get(r.skill_id) === activeFunctionId)) ||
+        (project.functions_required.length === 0 &&
+          !project.activities.some(ac => ac.requirements.some(r => sklFn.get(r.skill_id))) &&
+          project.created_under_function_id === activeFunctionId)
+    }
+
+    if (!visible) {
+      const newFn = store.functions.find(f => f.id === activeFunctionId)
+      navigate('/manage-projects', {
+        state: { closedProjectToast: `Project "${project.name}" is not associated with ${newFn?.name ?? 'the new Function'} — returning to Manage Projects.` }
+      })
+    }
+  }, [activeFunctionId, id, isNew, store.projects, store.domains, store.skills, store.functions, navigate])
 
   const isReadOnly = draft.status !== 'Draft' && draft.status !== 'Scoping'
 
