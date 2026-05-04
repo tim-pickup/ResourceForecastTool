@@ -126,6 +126,7 @@ export interface Project {
   active: boolean
   functions_required: string[]          // originator's declared Functions; frozen at Submit
   functions_actually_involved: string[] // derived from requirements; frozen at Submit
+  created_under_function_id: string | null  // active Function at creation time; tiebreaker for Draft/Scoping visibility (v1.20)
 }
 
 export interface Provider {

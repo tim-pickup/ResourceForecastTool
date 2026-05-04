@@ -6,7 +6,7 @@ import type {
   Programme, Project, ProjectStatus, Provider, ExternalResourceRequirement,
   ProjectType,
 } from '../types'
-import { generateId } from '../utils/ids'
+import { generateId, slugifyProjectTypeId } from '../utils/ids'
 import seedRaw from '../../DEMOSEED.json'
 
 function migrateDemandStatus(s: string): DemandStatus {
@@ -52,7 +52,7 @@ function normalizeSeed(raw: any): AppState {
     id: p.id,
     name: p.name,
     owner: p.owner ?? '',
-    type: p.type ?? 'pt_group_strat',
+    type: p.type ?? 'pt_group_strategy_project',
     programme_id: p.programme_id ?? null,
     description: p.description ?? '',
     status: (p.status ?? 'Draft') as ProjectStatus,
@@ -83,6 +83,7 @@ function normalizeSeed(raw: any): AppState {
     active: p.active ?? true,
     functions_required: p.functions_required ?? [],
     functions_actually_involved: p.functions_actually_involved ?? [],
+    created_under_function_id: p.created_under_function_id ?? null,
   }))
 
   const defaultFunctionId = activeFns[0]?.id ?? null
@@ -158,7 +159,7 @@ interface Store extends AppState {
   updateTeam: (id: string, t: Partial<Team>) => void
   deleteTeam: (id: string) => void
 
-  addProjectType: (pt: Omit<ProjectType, 'id'>) => void
+  addProjectType: (pt: Omit<ProjectType, 'id'>) => string | null
   updateProjectType: (id: string, pt: Partial<ProjectType>) => void
   deleteProjectType: (id: string) => void
 
@@ -214,7 +215,18 @@ export const useAppStore = create<Store>()(
       updateTeam: (id, t) => set(s => ({ teams: s.teams.map(x => x.id === id ? { ...x, ...t } : x) })),
       deleteTeam: id => set(s => ({ teams: s.teams.filter(x => x.id !== id) })),
 
-      addProjectType: pt => set(s => ({ projectTypes: [...s.projectTypes, { ...pt, id: generateId('ptp') }] })),
+      addProjectType: pt => {
+        let error: string | null = null
+        set(s => {
+          const derivedId = slugifyProjectTypeId(pt.name)
+          const nameDupe = s.projectTypes.some(p => p.active && p.name.toLowerCase() === pt.name.trim().toLowerCase())
+          if (nameDupe) { error = 'An active Project Type with that name already exists.'; return {} }
+          const idDupe = s.projectTypes.find(p => p.id === derivedId)
+          if (idDupe) { error = `A Project Type with this system key already exists. Choose a different name.`; return {} }
+          return { projectTypes: [...s.projectTypes, { ...pt, id: derivedId }] }
+        })
+        return error
+      },
       updateProjectType: (id, pt) => set(s => ({ projectTypes: s.projectTypes.map(x => x.id === id ? { ...x, ...pt } : x) })),
       deleteProjectType: id => set(s => ({ projectTypes: s.projectTypes.filter(x => x.id !== id) })),
 
@@ -268,7 +280,7 @@ export const useAppStore = create<Store>()(
       updateProgramme: (id, p) => set(s => ({ programmes: s.programmes.map(x => x.id === id ? { ...x, ...p } : x) })),
       deleteProgramme: id => set(s => ({ programmes: s.programmes.filter(x => x.id !== id) })),
 
-      addProject: p => set(s => ({ projects: [...s.projects, { ...p, id: generateId('prj') }] })),
+      addProject: p => set(s => ({ projects: [...s.projects, { ...p, id: generateId('prj'), created_under_function_id: s.activeFunctionId }] })),
       updateProject: (id, p) => set(s => ({ projects: s.projects.map(x => x.id === id ? { ...x, ...p } : x) })),
       deleteProject: (id) => set(s => {
         const project = s.projects.find(p => p.id === id)
@@ -407,7 +419,7 @@ export const useAppStore = create<Store>()(
     }),
     {
       name: 'resource-forecast-v1',
-      version: 12,
+      version: 13,
       migrate: (_state, version) => {
         if (version < 9) return SEED
         if (version < 10) {
@@ -431,11 +443,12 @@ export const useAppStore = create<Store>()(
           }))
           const projects = (s.projects || []).map((p: any): Project => ({
             id: p.id, name: p.name, owner: p.owner ?? '',
-            type: p.type ?? 'pt_group_strat',
+            type: p.type ?? 'pt_group_strategy_project',
             programme_id: p.programme_id ?? null, description: p.description ?? '',
             status: (p.status ?? 'Draft') as ProjectStatus,
             activities: p.activities ?? [], active: p.active ?? true,
             functions_required: [], functions_actually_involved: [],
+            created_under_function_id: null,
           }))
           return { ...s, projects, demandItems } as Store
         }
@@ -444,21 +457,24 @@ export const useAppStore = create<Store>()(
           // - drop projectTeamAssignments (remove from state)
           // - add projectTypes (seed with defaults)
           // - add functions_required / functions_actually_involved to Projects
-          // - migrate type string enum → ProjectType id
+          // - migrate type string enum → ProjectType id (using v1.20 canonical ids)
           // - add function_tag to ExternalResourceRequirements
           const s = _state as any
           const typeMap: Record<string, string> = {
             'BAU': 'pt_bau',
-            'NPD Demand': 'pt_npd',
-            'Plant Project': 'pt_plant',
-            'Group Strategy Project': 'pt_group_strat',
+            'NPD Demand': 'pt_npd_demand',
+            'Plant Project': 'pt_plant_project',
+            'Group Strategy Project': 'pt_group_strategy_project',
           }
+          const activeFns = (s.functions || []).filter((f: any) => f.active)
+          const defaultFunctionId = activeFns[0]?.id ?? null
           const projects = (s.projects || []).map((p: any): Project => ({
             ...p,
             type: typeMap[p.type] ?? p.type,
             activities: p.activities ?? p.phases ?? [],
             functions_required: p.functions_required ?? [],
             functions_actually_involved: p.functions_actually_involved ?? [],
+            created_under_function_id: p.created_under_function_id ?? (p.functions_required?.[0] ?? defaultFunctionId),
           }))
           const demandItems = (s.demandItems || []).map((d: any): DemandItem => ({
             ...d,
@@ -478,6 +494,34 @@ export const useAppStore = create<Store>()(
             projectTypes,
             projectTeamAssignments: undefined,
           } as Store
+        }
+        if (version < 13) {
+          // v12 → v13: v1.20 data model migration
+          // - rename Project Type ids to canonical pt_<slug> form per §2.1.2
+          // - update Project.type and DemandItem.type references accordingly
+          // - add created_under_function_id to Projects (first in functions_required, else first active Function)
+          const s = _state as any
+          const idMap: Record<string, string> = {
+            'pt_npd': 'pt_npd_demand',
+            'pt_plant': 'pt_plant_project',
+            'pt_group_strat': 'pt_group_strategy_project',
+          }
+          const activeFns = (s.functions || []).filter((f: any) => f.active)
+          const defaultFunctionId = activeFns[0]?.id ?? null
+          const projectTypes = (s.projectTypes || []).map((pt: any) => ({
+            ...pt,
+            id: idMap[pt.id] ?? pt.id,
+          }))
+          const projects = (s.projects || []).map((p: any): Project => ({
+            ...p,
+            type: idMap[p.type] ?? p.type,
+            created_under_function_id: p.created_under_function_id ?? (p.functions_required?.[0] ?? defaultFunctionId),
+          }))
+          const demandItems = (s.demandItems || []).map((d: any): DemandItem => ({
+            ...d,
+            type: idMap[d.type] ?? d.type,
+          }))
+          return { ...s, projectTypes, projects, demandItems } as Store
         }
         return _state as Store
       },

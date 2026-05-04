@@ -1163,10 +1163,9 @@ function ProjectTypesPanel() {
 
   function saveNew() {
     if (!newName.trim()) return
-    const dupe = store.projectTypes.some(p => p.active && p.name.toLowerCase() === newName.trim().toLowerCase())
-    if (dupe) { alert('An active Project Type with that name already exists.'); return }
     const nextOrder = sorted.length > 0 ? sorted[sorted.length - 1].display_order + 1 : 0
-    store.addProjectType({ name: newName.trim(), display_order: nextOrder, colour_token: newToken, is_bau: false, active: true })
+    const err = store.addProjectType({ name: newName.trim(), display_order: nextOrder, colour_token: newToken, is_bau: false, active: true })
+    if (err) { alert(err); return }
     setNewName(''); setNewToken(PROJECT_TYPE_PALETTE[0].token); setShowNew(false)
   }
 

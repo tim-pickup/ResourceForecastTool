@@ -51,13 +51,14 @@ function buildSeedState(): AppState {
     projects: (raw.projects || []).map((p: Record<string, unknown>) => ({
       ...p,
       owner: (p.owner ?? '') as string,
-      type: (p.type ?? 'pt_group_strat') as string,
+      type: (p.type ?? 'pt_group_strategy_project') as string,
       programme_id: (p.programme_id ?? null) as string | null,
       status: (p.status ?? 'Draft') as ProjectStatus,
       activities: (p.activities ?? []) as [],
       active: (p.active ?? true) as boolean,
       functions_required: (p.functions_required ?? []) as string[],
       functions_actually_involved: (p.functions_actually_involved ?? []) as string[],
+      created_under_function_id: (p.created_under_function_id ?? null) as string | null,
     })),
     providers: raw.providers || [],
     externalResourceRequirements: (raw.external_resource_requirements || []).map((e: Record<string, unknown>) => ({

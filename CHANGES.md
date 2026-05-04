@@ -20,7 +20,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 2 — Add `created_under_function_id` to Project; tighten Project Type id derivation
 
-- [ ] Add `created_under_function_id` field to Project (set on create to the user's active Function). Verify all seed Project Types' ids match the auto-derived `pt_<slug>` form per section 2.1.2.
+- [x] Add `created_under_function_id` field to Project (set on create to the user's active Function). Verify all seed Project Types' ids match the auto-derived `pt_<slug>` form per section 2.1.2.
 
 **Scope**: store schema addition; seed migration (set `created_under_function_id` on every existing Project — first Function in `functions_required`, falling back to `digital_manufacturing` for empty); Project Types admin form's id derivation logic (already specified — verify implementation).
 

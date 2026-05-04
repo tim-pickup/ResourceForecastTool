@@ -439,6 +439,7 @@ export default function ManageProjects() {
         active: true,
         functions_required: [...functionsInvolved],
         functions_actually_involved: [...functionsInvolved],
+        created_under_function_id: store.activeFunctionId,
       }
       newProjects.push(project)
 

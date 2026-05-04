@@ -30,6 +30,7 @@ function blankProject(): Omit<Project, 'id'> {
     active: true,
     functions_required: [],
     functions_actually_involved: [],
+    created_under_function_id: null,
   }
 }
 
