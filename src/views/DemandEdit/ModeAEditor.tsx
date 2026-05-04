@@ -4,6 +4,7 @@ import { parseISO, isAfter, differenceInMonths, addMonths, format } from 'date-f
 import { useAppStore } from '../../store/useAppStore'
 import type { DemandStatus, Activity, Requirement, FundingSource, Level, SkillRequirement, ExternalResourceRequirement } from '../../types'
 import { Input, Select } from '../../components/ui/FormFields'
+import { MonthYearPicker } from '../../components/MonthYearPicker'
 import { DomainSkillSelector } from '../../components/DomainSkillSelector'
 import { generateId } from '../../utils/ids'
 import { generateMonths, formatMonthLabel, getCurrentMonth } from '../../utils/capacity'
@@ -667,21 +668,35 @@ export function ActivityEditor({
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Input
-                  label="Start Month (YYYY-MM)"
+                <MonthYearPicker
+                  label="Start Month"
                   value={activity.start_month}
-                  onChange={e => handleStartChange(e.target.value)}
-                  placeholder="2026-05"
+                  onChange={handleStartChange}
+                  placeholder="pick a month"
                 />
                 <div className="flex flex-col gap-1">
-                  <Input
-                    label="End Month (YYYY-MM)"
-                    value={activity.end_month ?? ''}
-                    onChange={e => handleEndChange(e.target.value)}
-                    placeholder="2026-08"
-                    disabled={isIndefinite}
-                  />
-                  <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+                  {!isIndefinite && (
+                    <MonthYearPicker
+                      label="End Month"
+                      value={activity.end_month ?? ''}
+                      onChange={handleEndChange}
+                      minValue={activity.start_month || undefined}
+                      placeholder="pick a month"
+                    />
+                  )}
+                  {isIndefinite && (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs font-medium text-gray-700">End Month</span>
+                      <span className="text-xs text-gray-400 italic px-2 py-1.5">ongoing (indefinite)</span>
+                    </div>
+                  )}
+                  {/* §2.2.2 date invalid — end before start */}
+                  {!isIndefinite && activity.start_month && activity.end_month && activity.end_month < activity.start_month && (
+                    <p className="text-[11px] text-accent-red">
+                      End month must be the same as or later than the start month ({format(parseISO(activity.start_month + '-01'), 'MMM yyyy')}).
+                    </p>
+                  )}
+                  <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none mt-0.5">
                     <input
                       type="checkbox"
                       checked={isIndefinite}

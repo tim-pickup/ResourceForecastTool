@@ -145,6 +145,11 @@ export default function DemandEdit() {
     return null
   })() : null
 
+  // §2.2.2 date validation — find any Activity with end < start
+  const invalidDateActivity = draft.activities.find(ac =>
+    ac.end_month !== null && !!ac.start_month && !!ac.end_month && ac.end_month < ac.start_month
+  ) ?? null
+
   const updateActivity = (activityId: string, p: typeof draft.activities[0]) =>
     update(d => ({ ...d, activities: d.activities.map(x => x.id === activityId ? p : x) }))
   const deleteActivity = (activityId: string) =>
@@ -172,6 +177,12 @@ export default function DemandEdit() {
           {submitHint && (
             <span className="text-xs text-amber-600">{submitHint}</span>
           )}
+          {invalidDateActivity && (
+            <span className="text-xs text-accent-red">
+              Date error — Activity {draft.activities.indexOf(invalidDateActivity) + 1}
+              {invalidDateActivity.name ? ` "${invalidDateActivity.name}"` : ''}: end month before start.
+            </span>
+          )}
           {!isNew && trans.map(t => (
             <Button
               key={t.label}
@@ -185,7 +196,7 @@ export default function DemandEdit() {
           ))}
           <div className="h-4 w-px bg-border" />
           <Button size="sm" variant="ghost" onClick={handleCancel}>Cancel</Button>
-          <Button size="sm" variant="primary" onClick={handleSave}>Save</Button>
+          <Button size="sm" variant="primary" onClick={handleSave} disabled={!!invalidDateActivity}>Save</Button>
         </div>
       </div>
 
@@ -291,7 +302,7 @@ export default function DemandEdit() {
           {/* Save/Cancel footer repeat */}
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
             <Button size="sm" variant="ghost" onClick={handleCancel}>Cancel</Button>
-            <Button size="sm" variant="primary" onClick={handleSave}>Save</Button>
+            <Button size="sm" variant="primary" onClick={handleSave} disabled={!!invalidDateActivity}>Save</Button>
           </div>
         </div>
       </div>

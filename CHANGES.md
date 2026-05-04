@@ -92,7 +92,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 8 — Activity date pickers + end-≥-start validation
 
-- [ ] Replace free-text inputs for `activity_start_month` and `activity_end_month` on every Activity card in Mode A with a portalled month-year picker component. Implement live end-≥-start validation; preserve the "No end date (indefinite)" toggle.
+- [x] Replace free-text inputs for `activity_start_month` and `activity_end_month` on every Activity card in Mode A with a portalled month-year picker component. Implement live end-≥-start validation; preserve the "No end date (indefinite)" toggle.
 
 **Scope**: month-year picker component (new); replacement on every Activity card; validation logic; Save button disable when any Activity has invalid dates with a banner naming the offending Activity.
 

@@ -264,6 +264,11 @@ export default function ProjectEdit() {
     return null
   })() : null
 
+  // §2.2.2 date validation — find any Activity with end < start
+  const invalidDateActivity = draft.activities.find(ac =>
+    ac.end_month !== null && !!ac.start_month && !!ac.end_month && ac.end_month < ac.start_month
+  ) ?? null
+
   return (
     <div className="flex flex-col h-full">
       {/* Page header */}
@@ -284,6 +289,12 @@ export default function ProjectEdit() {
         <div className="flex items-center gap-2 flex-wrap">
           {submitError && <span className="text-xs text-red-600">{submitError}</span>}
           {submitHint && <span className="text-xs text-amber-600">{submitHint}</span>}
+          {invalidDateActivity && (
+            <span className="text-xs text-accent-red">
+              Date error — Activity {draft.activities.indexOf(invalidDateActivity) + 1}
+              {invalidDateActivity.name ? ` "${invalidDateActivity.name}"` : ''}: end month before start.
+            </span>
+          )}
 
           {/* Action buttons by status */}
           {!isNew && draft.status === 'Draft' && (
@@ -300,7 +311,7 @@ export default function ProjectEdit() {
           {!isReadOnly && (
             <>
               <Button size="sm" variant="ghost" onClick={handleCancel}>Cancel</Button>
-              <Button size="sm" variant="secondary" onClick={handleSave} disabled={!isDirty && !isNew}>Save</Button>
+              <Button size="sm" variant="secondary" onClick={handleSave} disabled={(!isDirty && !isNew) || !!invalidDateActivity}>Save</Button>
             </>
           )}
           {isReadOnly && (
