@@ -128,7 +128,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 11 — Drawer body status-aware refactor
 
-- [ ] Replace the previous fixed-content drawer body with a status-aware renderer per the v1.20 Project and Demand status tables. Implement the encoding-safety rules including the runtime `\uFFFD` DOM scanner.
+- [x] Replace the previous fixed-content drawer body with a status-aware renderer per the v1.20 Project and Demand status tables. Implement the encoding-safety rules including the runtime `\uFFFD` DOM scanner.
 
 **Scope**: drawer body renderer for both Project and Demand drawers — different fields surface based on lifecycle position; structural rendering for hierarchy (no chevron-joined inline strings); runtime DOM scanner for replacement characters.
 

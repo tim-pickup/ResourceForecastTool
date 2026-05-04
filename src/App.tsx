@@ -171,10 +171,11 @@ function AppShell() {
     return () => clearTimeout(t)
   }, [toast])
 
-  // Dev-mode DOM scanner: log any rendered `pt_[a-z_]+` system key outside the Admin screen
+  // Dev-mode DOM scanners
   useEffect(() => {
     if (!import.meta.env.DEV) return
     const PT_PATTERN = /\bpt_[a-z_]+\b/
+    const REPLACEMENT_CHAR = '�'
     function isInsideAdminScreen(node: Node): boolean {
       let el = node.parentElement
       while (el) {
@@ -188,6 +189,9 @@ function AppShell() {
         const text = node.textContent ?? ''
         if (PT_PATTERN.test(text) && !isInsideAdminScreen(node)) {
           console.error('[PtDomScanner] Rendered pt_* system key in user-facing UI:', text.trim(), node.parentElement)
+        }
+        if (text.includes(REPLACEMENT_CHAR)) {
+          console.error('[EncodingScanner] U+FFFD replacement character in UI — encoding bug:', node.parentElement)
         }
         return
       }

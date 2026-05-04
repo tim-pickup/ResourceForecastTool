@@ -122,6 +122,7 @@ export function ProjectDrawer({ projectId, onClose, onOpenDemand }: Props) {
   const navigate = useNavigate()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
+  const [showPlanningRecord, setShowPlanningRecord] = useState(false)
 
   const project = projectId ? store.projects.find(p => p.id === projectId) : null
   if (!project) return null
@@ -226,130 +227,157 @@ export function ProjectDrawer({ projectId, onClose, onOpenDemand }: Props) {
           </div>
         </div>
 
-        {/* ── Zone 3: Body ────────────────────────────────────────────────── */}
+        {/* ── Zone 3: Body — §4.5.1 v1.20 status-aware ──────────────────────── */}
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
 
           {submitError && (
             <div className="px-3 py-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">{submitError}</div>
           )}
 
-          {/* §4.5.1 v1.19: Programme in body zone */}
+          {/* Common: Description + Programme */}
+          {project.description && <p className="text-xs text-gray-600">{project.description}</p>}
           <div className="text-xs">
             <span className="text-gray-400">Programme: </span>
-            {programme
-              ? <span className="text-gray-600">{programme.name}</span>
-              : <span className="text-gray-400 italic">No Programme</span>
-            }
+            {programme ? <span className="text-gray-600">{programme.name}</span> : <span className="text-gray-400 italic">No Programme</span>}
           </div>
 
-          {/* §4.5.1 v1.19: Functions Required + Actually Involved (two chip rows) */}
-          {(() => {
-            const requiredIds = new Set(project.functions_required ?? [])
-            const requiredFns = [...requiredIds]
-              .map(id => store.functions.find(f => f.id === id))
-              .filter((f): f is NonNullable<typeof f> => !!f)
-            const fullyMatch = functionsInvolved.length > 0 &&
-              requiredFns.length === functionsInvolved.length &&
-              functionsInvolved.every(f => f && requiredIds.has(f.id))
+          {/* ── Draft body ───────────────────────────────────────────────── */}
+          {project.status === 'Draft' && (() => {
+            const requiredFns = (project.functions_required ?? []).map(id => store.functions.find(f => f.id === id)).filter(Boolean)
             return (
-              <div className="flex flex-col gap-1.5">
+              <>
                 <div className="text-xs flex items-start gap-1.5 flex-wrap">
-                  <span className="text-gray-400 shrink-0">Required (originator's plan):</span>
+                  <span className="text-gray-400 shrink-0">Required:</span>
                   <div className="flex flex-wrap gap-1">
                     {requiredFns.length > 0
-                      ? requiredFns.map(fn => (
-                        <span key={fn.id} className="inline-block px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">{fn.name}</span>
-                      ))
-                      : <span className="text-gray-400 italic">not declared</span>
-                    }
+                      ? requiredFns.map(fn => fn && <span key={fn.id} className="px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">{fn.name}</span>)
+                      : <span className="text-gray-400 italic">not yet declared</span>}
                   </div>
                 </div>
-                <div className="text-xs flex items-start gap-1.5 flex-wrap">
-                  <span className="text-gray-400 shrink-0">Actually involved:</span>
-                  <div className="flex flex-wrap gap-1 items-center">
-                    {functionsInvolved.length > 0
-                      ? functionsInvolved.map(fn => fn && (
-                        <span key={fn.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
-                          {fn.name}
-                          {!requiredIds.has(fn.id) && (
-                            <span className="px-1 rounded bg-amber-100 text-amber-700 text-[9px] font-medium">added during Scoping</span>
-                          )}
-                        </span>
-                      ))
-                      : <span className="text-gray-400 italic">—</span>
-                    }
-                    {fullyMatch && <span className="text-gray-400 text-[10px] italic ml-0.5">· matches plan</span>}
-                  </div>
+                <div className="text-xs text-gray-500">
+                  {project.activities.length} {project.activities.length === 1 ? 'Activity' : 'Activities'}
+                  {project.activities.length > 0 && <span className="ml-1 text-gray-400">· {projectDateRange(project.activities)}</span>}
                 </div>
-              </div>
+              </>
             )
           })()}
 
-          {/* Description */}
-          {project.description && (
-            <p className="text-xs text-gray-600">{project.description}</p>
-          )}
+          {/* ── Scoping body ─────────────────────────────────────────────── */}
+          {project.status === 'Scoping' && (() => {
+            const requiredIds = new Set(project.functions_required ?? [])
+            const requiredFns = [...requiredIds].map(id => store.functions.find(f => f.id === id)).filter(Boolean)
+            const fullyMatch = functionsInvolved.length > 0 && requiredFns.length === functionsInvolved.length && functionsInvolved.every(f => f && requiredIds.has(f.id))
+            return (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <div className="text-xs flex items-start gap-1.5 flex-wrap">
+                    <span className="text-gray-400 shrink-0">Required:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {requiredFns.length > 0 ? requiredFns.map(fn => fn && <span key={fn.id} className="px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">{fn.name}</span>) : <span className="text-gray-400 italic">not declared</span>}
+                    </div>
+                  </div>
+                  <div className="text-xs flex items-start gap-1.5 flex-wrap">
+                    <span className="text-gray-400 shrink-0">Actually involved:</span>
+                    <div className="flex flex-wrap gap-1 items-center">
+                      {functionsInvolved.length > 0
+                        ? functionsInvolved.map(fn => fn && (
+                          <span key={fn.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
+                            {fn.name}
+                            {!requiredIds.has(fn.id) && <span className="px-1 rounded bg-amber-100 text-amber-700 text-[9px] font-medium">added during Scoping</span>}
+                          </span>))
+                        : <span className="text-gray-400 italic">—</span>}
+                      {fullyMatch && <span className="text-gray-400 text-[10px] italic ml-0.5">· matches plan</span>}
+                    </div>
+                  </div>
+                </div>
+                {project.activities.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Activities</span>
+                    {project.activities.map((ac, i) => {
+                      const intHrs = ac.requirements.reduce((s, r) => s + (ac.end_month === null ? (r.steady_state_hours ?? 0) : Object.values(r.hours_by_month).reduce((ss, h) => ss + h, 0)), 0)
+                      const extReqs = store.externalResourceRequirements.filter(e => e.activity_id === ac.id)
+                      const extHrs = extReqs.reduce((s, e) => s + (ac.end_month === null ? (e.steady_state_hours ?? 0) : Object.values(e.hours_by_month).reduce((ss, h) => ss + h, 0)), 0)
+                      return (
+                        <div key={ac.id} className="text-xs border border-border rounded px-2.5 py-2 bg-gray-50">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="font-medium">Activity {i + 1}{ac.name ? ` · ${ac.name}` : ''}</span>
+                            <span className="text-gray-400">{ac.end_month === null ? `${ac.start_month} → ongoing` : `${ac.start_month} – ${ac.end_month}`}</span>
+                          </div>
+                          <div className="text-gray-400">{ac.funding_source}</div>
+                          <div className="flex gap-3 mt-0.5 text-gray-500">
+                            {ac.requirements.length > 0 && <span>{ac.requirements.length} internal req{ac.requirements.length !== 1 ? 's' : ''} · {Math.round(intHrs)}h</span>}
+                            {extReqs.length > 0 && <span className="text-amber-500">{extReqs.length} external · {Math.round(extHrs)}h</span>}
+                          </div>
+                        </div>
+                      )
+                    })}
+                    <div className="text-xs text-gray-500 pt-1 border-t border-border">
+                      Total: {Math.round(totalInternalHrs)}h internal{totalExternalHrs > 0 ? ` · ${Math.round(totalExternalHrs)}h external` : ''}
+                    </div>
+                  </div>
+                )}
+              </>
+            )
+          })()}
 
-          {/* Summary stats */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-            <div><span className="text-gray-400">Activities: </span><span>{project.activities.length}</span></div>
-            <div><span className="text-gray-400">Dates: </span><span>{projectDateRange(project.activities)}</span></div>
-            {totalInternalHrs > 0 && (
-              <div className="col-span-2"><span className="text-gray-400">Internal hours: </span><span>{Math.round(totalInternalHrs)}h</span></div>
-            )}
-            {totalExternalHrs > 0 && (
-              <div className="col-span-2"><span className="text-amber-500">External hours: </span><span className="text-amber-700">{Math.round(totalExternalHrs)}h</span></div>
-            )}
-          </div>
-
-          {/* Child Demands (for Submitted+) */}
-          {childDemands.length > 0 && (
-            <div>
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Child Demands</div>
-              <div className="flex flex-col gap-1.5">
-                {childDemands.map(d => {
-                  const fn = store.functions.find(f => f.id === d.function_id)
-                  return (
-                    <div key={d.id} className="flex items-center gap-2 p-2 rounded bg-gray-50 border border-border">
-                      <div className="flex-1">
-                        <button
-                          onClick={() => onOpenDemand?.(d.id)}
-                          className="text-xs font-medium text-brand hover:underline text-left"
-                        >
-                          {d.name}
-                        </button>
-                        {fn && <span className="ml-1.5 text-[10px] text-gray-400">{fn.name}</span>}
+          {/* ── Submitted / Approved / Allocated body ────────────────────── */}
+          {(project.status === 'Submitted' || project.status === 'Approved' || project.status === 'Allocated') && (
+            <>
+              {childDemands.length > 0 && (
+                <div>
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Spawned Demands</div>
+                  <div className="flex flex-col gap-1.5">
+                    {childDemands.map(d => {
+                      const fn = store.functions.find(f => f.id === d.function_id)
+                      const dIntHrs = d.activities.reduce((s, ac) => s + ac.requirements.reduce((ss, r) => ss + (ac.end_month === null ? (r.steady_state_hours ?? 0) : Object.values(r.hours_by_month).reduce((sss, h) => sss + h, 0)), 0), 0)
+                      return (
+                        <div key={d.id} className="flex items-center gap-2 p-2 rounded bg-gray-50 border border-border">
+                          {fn && <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 shrink-0">{fn.name}</span>}
+                          <div className="flex-1 min-w-0">
+                            <button onClick={() => onOpenDemand?.(d.id)} className="text-xs font-medium text-brand hover:underline text-left truncate block w-full">{d.name}</button>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <StatusBadge status={d.status} />
+                              {dIntHrs > 0 && <span className="text-[10px] text-gray-400">{Math.round(dIntHrs)}h</span>}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+              {/* Planning record expander */}
+              {project.activities.length > 0 && (
+                <div>
+                  <button
+                    onClick={() => setShowPlanningRecord(v => !v)}
+                    className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+                  >
+                    <span>{showPlanningRecord ? '▾' : '▸'}</span>
+                    Show planning record at Submit
+                  </button>
+                  {showPlanningRecord && (
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      <div className="text-xs text-gray-400 flex gap-2 flex-wrap">
+                        <span>Required: {(project.functions_required ?? []).map(id => store.functions.find(f => f.id === id)?.name ?? id).join(', ') || 'not declared'}</span>
                       </div>
-                      <StatusBadge status={d.status} />
+                      {project.activities.map((ac, i) => (
+                        <div key={ac.id} className="text-xs border border-border rounded px-2.5 py-2 bg-gray-50">
+                          <div className="font-medium">Activity {i + 1}{ac.name ? ` · ${ac.name}` : ''}</div>
+                          <div className="text-gray-400">{ac.end_month === null ? `${ac.start_month} → ongoing` : `${ac.start_month} – ${ac.end_month}`}</div>
+                          {ac.requirements.map(req => {
+                            const skill = store.skills.find(s => s.id === req.skill_id)
+                            return <div key={req.id} className="text-gray-500 mt-0.5">{skill?.name ?? req.skill_id} · {req.level}</div>
+                          })}
+                        </div>
+                      ))}
                     </div>
-                  )
-                })}
-              </div>
-            </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
-          {/* Activities list (compact) */}
-          {project.activities.length > 0 && (
-            <div>
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Activities</div>
-              <div className="flex flex-col gap-1">
-                {project.activities.map((ac, i) => {
-                  const reqCount = ac.requirements.length
-                  const dateLabel = ac.end_month === null
-                    ? `${ac.start_month} → ongoing`
-                    : `${ac.start_month} – ${ac.end_month}`
-                  return (
-                    <div key={ac.id} className="text-xs flex items-center gap-2 py-1 border-b border-border/50 last:border-0">
-                      <span className="text-gray-400 shrink-0">Activity {i + 1}</span>
-                      <span className="flex-1 font-medium truncate">{ac.name || `Activity ${i + 1}`}</span>
-                      <span className="text-gray-400 text-[10px] shrink-0">{dateLabel}</span>
-                      {reqCount > 0 && <span className="text-[10px] text-gray-400">{reqCount} req{reqCount > 1 ? 's' : ''}</span>}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ── Zone 4: Footer ──────────────────────────────────────────────── */}

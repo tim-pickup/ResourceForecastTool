@@ -357,6 +357,23 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
             <p className="text-xs text-gray-600 leading-relaxed">{item.description}</p>
           )}
 
+          {/* §4.5.1 v1.20 Allocation summary banner (Approved/PartiallyAllocated/Allocated) */}
+          {(item.status === 'Approved' || item.status === 'PartiallyAllocated' || item.status === 'Allocated') && (() => {
+            const namedPeople = new Set(item.activities.flatMap(ac => ac.requirements.flatMap(r => r.allocations.map(a => a.person_id).filter(Boolean)))).size
+            const isFullyAllocated = item.status === 'Allocated'
+            const pctLabel = pct !== null ? `${pct}% covered` : '0% covered'
+            const peopleLabel = namedPeople > 0 ? `${namedPeople} named ${namedPeople === 1 ? 'person' : 'people'}` : null
+            const colour = isFullyAllocated ? 'bg-green-50 border-green-200 text-green-700' : pct && pct > 0 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-gray-50 border-border text-gray-500'
+            return (
+              <div className={`px-3 py-2 rounded border text-xs flex items-center gap-2 flex-wrap ${colour}`}>
+                <span className="font-medium">{isFullyAllocated ? 'Fully Allocated' : item.status === 'Approved' ? 'Approved' : 'Partially Allocated'}</span>
+                <span>·</span>
+                <span>{pctLabel}</span>
+                {peopleLabel && <><span>·</span><span>{peopleLabel}</span></>}
+              </div>
+            )
+          })()}
+
           {item.activities.length > 0 && (
             <div>
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 block mb-2">Activities</span>
@@ -377,8 +394,9 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
                           {isIndefinite ? `${activity.start_month} → ongoing` : `${activity.start_month} → ${activity.end_month}`}
                         </span>
                       </div>
-                      <div className="text-xs text-gray-500 mb-2">
-                        {activity.funding_source}{activity.funding_notes ? ` — ${activity.funding_notes}` : ''}
+                      <div className="text-xs text-gray-500 mb-2 flex items-center gap-1.5">
+                        <span>{activity.funding_source}</span>
+                        {activity.funding_notes && <><span className="text-gray-300">·</span><span>{activity.funding_notes}</span></>}
                       </div>
                       <div className="flex flex-col gap-1">
                         {activity.requirements.map(req => {
