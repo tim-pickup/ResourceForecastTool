@@ -200,7 +200,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 17 — Cleanup
 
-- [ ] Remove every remaining hardcoded "Phase" / `phase_*` identifier from the codebase outside the changelog and section 2.0 terminology table. Add a generated-file header to `seed.json` and `.gitattributes` `linguist-generated=true` to suppress diffs. Audit DESIGNSYSTEM.md for new tokens (month-year picker, dual + Add ghost button) and add if missing.
+- [x] Remove every remaining hardcoded "Phase" / `phase_*` identifier from the codebase outside the changelog and section 2.0 terminology table. Add a generated-file header to `seed.json` and `.gitattributes` `linguist-generated=true` to suppress diffs. Audit DESIGNSYSTEM.md for new tokens (month-year picker, dual + Add ghost button) and add if missing.
 
 **Scope**: grep-driven cleanup; documentation polish; design-system additions.
 

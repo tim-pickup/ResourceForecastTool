@@ -315,7 +315,7 @@ async function buildSeed() {
   /** Build one activity record (and its ext reqs separately). */
   function buildActivity(projName, actRow) {
     actCounter++;
-    const actId = `phs_${actCounter}`;
+    const actId = `act_${actCounter}`;
     const startMonth = String(actRow.activity_start_month ?? '');
     const endMonth = actRow.activity_end_month ? String(actRow.activity_end_month) : null;
     const requirements = buildReqs(projName, actRow.activity_name, startMonth, endMonth);
@@ -406,7 +406,7 @@ async function buildSeed() {
         const demandActivities = [];
         for (const act of projectActivities) {
           actCounter++;
-          const demActId = `phs_d${actCounter}`;
+          const demActId = `act_d${actCounter}`;
           const fnReqs = act.requirements.filter(r => skillFnId.get(r.skill_id) === fnId);
           if (fnReqs.length === 0) continue;
 

@@ -77,7 +77,7 @@ function PersonPanel({
   const people = useMemo(() => getPeopleForSkill(skillId, store), [skillId, store])
 
   const activeReqs = useMemo(() => {
-    const out: Array<{ itemName: string; itemId: string; phase: string; hours: number }> = []
+    const out: Array<{ itemName: string; itemId: string; activity: string; hours: number }> = []
     for (const item of store.demandItems) {
       if (item.status !== 'Approved' && item.status !== 'PartiallyAllocated' && item.status !== 'Allocated') continue
       for (const activity of item.activities) {
@@ -86,7 +86,7 @@ function PersonPanel({
             const hrs = activity.end_month === null
               ? (req.steady_state_hours ?? 0)
               : Object.values(req.hours_by_month).reduce((s, h) => s + h, 0)
-            out.push({ itemName: item.name, itemId: item.id, phase: activity.name, hours: hrs })
+            out.push({ itemName: item.name, itemId: item.id, activity: activity.name, hours: hrs })
           }
         }
       }
@@ -151,7 +151,7 @@ function PersonPanel({
                     >
                       {r.itemName}
                     </button>
-                    <span className="text-xs text-gray-400 ml-2">/ {r.phase}</span>
+                    <span className="text-xs text-gray-400 ml-2">/ {r.activity}</span>
                   </div>
                   <span className="text-xs text-gray-500 tabular-nums">{r.hours}h</span>
                 </div>

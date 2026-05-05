@@ -29,7 +29,7 @@ interface ContributingItem {
   name: string
   type: string
   hours: number
-  phase: string
+  activity: string
 }
 
 interface DrillCell {
@@ -177,7 +177,7 @@ export default function TeamActivity() {
             const hours = activity.end_month === null
               ? (alloc.steady_state_hours ?? 0)
               : (alloc.hours_by_month[month] ?? 0)
-            if (hours > 0) items.push({ demandId: item.id, name: item.name, type: item.type, hours, phase: activity.name || 'Activity' })
+            if (hours > 0) items.push({ demandId: item.id, name: item.name, type: item.type, hours, activity: activity.name || 'Activity' })
           }
         }
       }
@@ -478,7 +478,7 @@ export default function TeamActivity() {
                             className="text-xs font-medium text-brand hover:underline text-left truncate block">
                             {item.name}
                           </button>
-                          <div className="text-[10px] text-gray-400">{item.phase} · {typeLabel}</div>
+                          <div className="text-[10px] text-gray-400">{item.activity} · {typeLabel}</div>
                         </div>
                         <span className="text-xs font-medium text-near-black whitespace-nowrap">{item.hours}h</span>
                       </div>

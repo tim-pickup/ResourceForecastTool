@@ -1,7 +1,7 @@
 /**
  * ProjectEdit — Mode A editor for Projects (§4.5.2)
  *
- * Project Draft:   name, type, owner, description, Programme, phases + requirements
+ * Project Draft:   name, type, owner, description, Programme, activities + requirements
  * Project Scoping: same + requirements UI
  * Submitted+:      read-only, shows child Demands summary
  */
@@ -405,7 +405,7 @@ export default function ProjectEdit() {
                   <span className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">Functions Actually Involved (derived from requirements)</span>
                   <div className="flex flex-wrap gap-1">
                     {functionsInvolved.length === 0 ? (
-                      <span className="text-[10px] text-gray-400 italic">None yet — add requirements to phases in Scoping.</span>
+                      <span className="text-[10px] text-gray-400 italic">None yet — add requirements to activities in Scoping.</span>
                     ) : (
                       functionsInvolved.map(fn => fn && (
                         <span

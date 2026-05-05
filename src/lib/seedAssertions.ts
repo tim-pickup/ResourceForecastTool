@@ -208,7 +208,7 @@ export function runSeedAssertions(): void {
   // prj_004 "Plant C MES Platform Migration" has dmd_p4_dm (PartiallyAllocated)
   // and dmd_p4_git (Approved) with internal requirements active in 2026-08,
   // plus ext_p4_oem (OEM 40h/mo) and ext_p4_ms (Managed Services 120h/mo)
-  // on the Build phase.
+  // on the Build activity.
 
   const plantCProjectId = 'prj_004'
 

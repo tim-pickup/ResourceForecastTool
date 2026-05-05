@@ -471,7 +471,7 @@ export const useAppStore = create<Store>()(
           const projects = (s.projects || []).map((p: any): Project => ({
             ...p,
             type: typeMap[p.type] ?? p.type,
-            activities: p.activities ?? p.phases ?? [],
+            activities: p.activities ?? [],
             functions_required: p.functions_required ?? [],
             functions_actually_involved: p.functions_actually_involved ?? [],
             created_under_function_id: p.created_under_function_id ?? (p.functions_required?.[0] ?? defaultFunctionId),
@@ -479,7 +479,7 @@ export const useAppStore = create<Store>()(
           const demandItems = (s.demandItems || []).map((d: any): DemandItem => ({
             ...d,
             type: typeMap[d.type] ?? d.type,
-            activities: d.activities ?? d.phases ?? [],
+            activities: d.activities ?? [],
           }))
           const externalResourceRequirements = (s.externalResourceRequirements || []).map((e: any) => ({
             ...e,

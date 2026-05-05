@@ -1,6 +1,6 @@
 /**
  * Shared aggregation layer — all capacity and demand numbers across the tool
- * are computed here. No view should iterate over phases/requirements/allocations
+ * are computed here. No view should iterate over activities/requirements/allocations
  * directly; every consumer calls these functions.
  *
  * Section reference: REQUIREMENTS.md §2.4

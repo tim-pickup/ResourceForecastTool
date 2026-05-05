@@ -193,11 +193,11 @@ function FunctionsInvolvedChips({ item, functions, domains, skills }: {
   )
 }
 
-function TableRow({ item, projectMap, programmeMap, phasesWithExt, functions, domains, skills, onSelect }: {
+function TableRow({ item, projectMap, programmeMap, activitiesWithExt, functions, domains, skills, onSelect }: {
   item: DemandItem
   projectMap: Map<string, { id: string; name: string; programme_id: string | null; active: boolean; description: string }>
   programmeMap: Map<string, { id: string; name: string; description: string; active: boolean }>
-  phasesWithExt: Set<string>
+  activitiesWithExt: Set<string>
   functions: AppFunction[]
   domains: { id: string; name: string; functionId: string }[]
   skills: { id: string; domain_id: string }[]
@@ -359,8 +359,8 @@ export default function DemandDiscovery() {
   const programmeMap = useMemo(() => new Map(store.programmes.map(p => [p.id, p])), [store.programmes])
 
   // Activity sets with external requirements
-  const phasesWithExt = useMemo(() => new Set(store.externalResourceRequirements.map(r => r.activity_id)), [store.externalResourceRequirements])
-  const demandHasExternal = (item: DemandItem) => item.activities.some(ac => phasesWithExt.has(ac.id))
+  const activitiesWithExt = useMemo(() => new Set(store.externalResourceRequirements.map(r => r.activity_id)), [store.externalResourceRequirements])
+  const demandHasExternal = (item: DemandItem) => item.activities.some(ac => activitiesWithExt.has(ac.id))
 
   // Active Function lens — Domain/Skill sets for the currently active Function
   const activeFnDomainIds = useMemo(() =>
@@ -592,7 +592,7 @@ export default function DemandDiscovery() {
               autoFocus
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search demand items by name, description, owner, phase..."
+              placeholder="Search demand items by name, description, owner, activity..."
               className="flex-1 text-sm focus:outline-none border-none"
             />
           </div>
@@ -654,7 +654,7 @@ export default function DemandDiscovery() {
                 const appState = store
                 if (groupBy === 'none') {
                   return filtered.map(item => (
-                    <TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />
+                    <TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} activitiesWithExt={activitiesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />
                   ))
                 }
                 if (groupBy === 'project') {
@@ -687,7 +687,7 @@ export default function DemandDiscovery() {
                         </td>
                       </tr>
                     )
-                    items.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />))
+                    items.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} activitiesWithExt={activitiesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />))
                   }
                   const unaligned = groups.get(null) ?? []
                   if (unaligned.length > 0) {
@@ -698,7 +698,7 @@ export default function DemandDiscovery() {
                         </td>
                       </tr>
                     )
-                    unaligned.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />))
+                    unaligned.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} activitiesWithExt={activitiesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />))
                   }
                   return rows
                 }
@@ -730,7 +730,7 @@ export default function DemandDiscovery() {
                       </td>
                     </tr>
                   )
-                  items.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />))
+                  items.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} activitiesWithExt={activitiesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />))
                 }
                 const unaligned = groups.get(null) ?? []
                 if (unaligned.length > 0) {
@@ -741,7 +741,7 @@ export default function DemandDiscovery() {
                       </td>
                     </tr>
                   )
-                  unaligned.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} phasesWithExt={phasesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />))
+                  unaligned.forEach(item => rows.push(<TableRow key={item.id} item={item} projectMap={projectMap} programmeMap={programmeMap} activitiesWithExt={activitiesWithExt} functions={store.functions} domains={store.domains} skills={store.skills} onSelect={setDrawerId} />))
                 }
                 return rows
               })()}

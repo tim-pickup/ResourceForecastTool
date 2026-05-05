@@ -3,7 +3,7 @@
  *
  * Header:  Project name, Type badge, Programme name (or "No Programme"), Owner
  * Status:  status badge + child-Demand summary
- * Body:    Functions involved chips, description, phase summary
+ * Body:    Functions involved chips, description, activity summary
  * Footer:  per §4.5.1 footer button table (Submit for Scoping / Submit Project / empty)
  * Overflow: Delete only (§4.5.1)
  */
@@ -40,7 +40,7 @@ function ProjectOverflowMenu({ project, onDelete }: {
     for (const ac of d.activities) for (const req of ac.requirements) s += req.allocations.length
     return s
   }, 0)
-  const phaseCount = childDemands.reduce((s, d) => s + d.activities.length, 0)
+  const activityCount = childDemands.reduce((s, d) => s + d.activities.length, 0)
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -54,7 +54,7 @@ function ProjectOverflowMenu({ project, onDelete }: {
 
   const demandText = childDemands.length === 1 ? '1 child Demand' : `${childDemands.length} child Demands`
   const allocText = allocCount === 1 ? '1 named allocation' : `${allocCount} named allocations`
-  const phaseText = phaseCount === 1 ? '1 activity' : `${phaseCount} activities`
+  const activityText = activityCount === 1 ? '1 activity' : `${activityCount} activities`
 
   return (
     <div className="relative" ref={ref}>
@@ -80,7 +80,7 @@ function ProjectOverflowMenu({ project, onDelete }: {
               <p className="text-xs text-accent-red font-semibold mb-1">Delete "{project.name}"?</p>
               {childDemands.length > 0 && (
                 <p className="text-xs text-gray-500 mb-2">
-                  This Project has {demandText} with {allocText} across {phaseText}. Deleting will permanently remove all of them.
+                  This Project has {demandText} with {allocText} across {activityText}. Deleting will permanently remove all of them.
                 </p>
               )}
               <div className="flex gap-2">
@@ -97,11 +97,11 @@ function ProjectOverflowMenu({ project, onDelete }: {
 
 // ─── Main drawer ─────────────────────────────────────────────────────────────
 
-function projectDateRange(phases: { start_month: string; end_month: string | null }[]): string {
-  const starts = phases.map(p => p.start_month).filter(Boolean).sort()
-  const ends = phases.map(p => p.end_month).filter((e): e is string => !!e).sort()
+function projectDateRange(activities: { start_month: string; end_month: string | null }[]): string {
+  const starts = activities.map(p => p.start_month).filter(Boolean).sort()
+  const ends = activities.map(p => p.end_month).filter((e): e is string => !!e).sort()
   if (!starts.length) return '—'
-  const hasIndefinite = phases.some(p => p.end_month === null)
+  const hasIndefinite = activities.some(p => p.end_month === null)
   const fmtM = (m: string) => { try { const d = parseISO(m + '-01'); return d.toLocaleString('default', { month: 'short', year: '2-digit' }) } catch { return m } }
   return `${fmtM(starts[0])} – ${hasIndefinite ? 'ongoing' : (ends.length ? fmtM(ends[ends.length - 1]) : '—')}`
 }

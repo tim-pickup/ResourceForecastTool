@@ -130,21 +130,21 @@ export function getPersonAvailableHoursExcluding(
 
 export function getPersonAvgAvailableForActivity(
   personId: string,
-  phaseStartMonth: string,
-  phaseEndMonth: string | null,
+  activityStartMonth: string,
+  activityEndMonth: string | null,
   state: AppState
 ): number {
   const person = state.people.find(p => p.id === personId)
   if (!person) return 0
   let months: string[]
-  if (phaseEndMonth === null) {
-    months = generateMonths(phaseStartMonth, 3)
+  if (activityEndMonth === null) {
+    months = generateMonths(activityStartMonth, 3)
   } else {
     try {
-      const s = parseISO(phaseStartMonth + '-01')
-      const e = parseISO(phaseEndMonth + '-01')
+      const s = parseISO(activityStartMonth + '-01')
+      const e = parseISO(activityEndMonth + '-01')
       const count = differenceInMonths(e, s) + 1
-      months = count > 0 ? generateMonths(phaseStartMonth, count) : []
+      months = count > 0 ? generateMonths(activityStartMonth, count) : []
     } catch { months = [] }
   }
   if (months.length === 0) return 0

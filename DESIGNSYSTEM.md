@@ -113,7 +113,7 @@ The four seed Project Types map to the first four tokens. New types added via ad
 
 ## 11. Funding Source Palette
 
-Used on the Phase Gantt in Mode A (demand edit page) to colour phase bars by funding source. Chosen to be distinct from the universal demand-type palette (BAU slate, Plant blue, NPD emerald, Group Strategy violet).
+Used on the Activity Gantt in Mode A (demand edit page) to colour activity bars by funding source. Chosen to be distinct from the universal demand-type palette (BAU slate, Plant blue, NPD emerald, Group Strategy violet).
 
 | Funding Source | Hex | Tailwind reference |
 |---|---|---|
@@ -151,3 +151,62 @@ The overlay area represents a Submitted demand item evaluated against the chart'
 | Fill style | Solid | Cross-hatch is reserved for the grey band (§11) |
 
 The overlay Area is only mounted when at least one month carries `overlay > 0`. When no overlay is selected, the element is absent from the DOM entirely.
+
+## 13. Month-year picker (v1.20)
+
+The month-year picker replaces free-text inputs for `activity_start_month` and `activity_end_month` on Activity cards in Mode A. It portals to `document.body` to avoid overflow clipping.
+
+### Trigger button
+
+| Property | Value |
+|---|---|
+| Size | `text-xs` |
+| Border | `border border-border rounded` |
+| Padding | `px-2 py-1.5` |
+| Background | `bg-white` |
+| Disabled state | `text-gray-400 cursor-not-allowed` |
+| Active / selected | Displays `MMM YYYY` label (e.g. "Jun 2026") in `text-near-black` |
+
+### Popover panel
+
+| Property | Value |
+|---|---|
+| Background | `bg-white` |
+| Border | `border border-border rounded-lg` |
+| Shadow | `shadow-lg` |
+| Padding | `p-3` |
+| Position | Fixed, anchored 4 px below trigger via `createPortal` |
+| Min width | 200 px |
+
+### Year navigator (inside popover header)
+
+| Property | Value |
+|---|---|
+| Chevron buttons | `p-1 rounded hover:bg-gray-100 text-gray-500 transition-colors` |
+| Year label | `text-sm font-semibold text-near-black` |
+
+### Month tiles (3-column grid, 4 rows)
+
+| State | Tailwind |
+|---|---|
+| Normal | `text-near-black hover:bg-blue-50 cursor-pointer` |
+| Selected | `bg-brand text-white` (Webflow Blue fill) |
+| Disabled (before minValue) | `text-gray-300 cursor-not-allowed` |
+| Common | `px-2 py-1.5 rounded text-xs font-medium transition-colors` |
+
+## 14. Dual + Add button pattern (v1.20)
+
+Mode A edit pages show "+ Add Activity" (and "+ Add Internal/External Requirement") in two places: as an inline header button and as a secondary bottom button below the last card. The bottom button uses a subtler ghost treatment.
+
+### Bottom add button
+
+| Property | Value |
+|---|---|
+| Font size | `text-[11px]` (smaller than the header button) |
+| Text color | `text-gray-400 hover:text-gray-600` |
+| Border | `border border-dashed border-gray-200 rounded hover:border-gray-300` |
+| Layout | `w-full flex items-center justify-center gap-1 py-1.5` |
+| Transition | `transition-colors` |
+| Visibility | Only rendered when the section has ≥ 1 item (header button covers the empty state) |
+
+The dashed border signals "this is an additive action at the list tail" without competing visually with the primary actions or card borders above.

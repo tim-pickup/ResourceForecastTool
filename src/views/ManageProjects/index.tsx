@@ -663,7 +663,7 @@ export default function ManageProjects() {
               autoFocus
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search projects by name, description, owner, phase, programme..."
+              placeholder="Search projects by name, description, owner, activity, programme..."
               className="flex-1 text-sm focus:outline-none border-none"
             />
           </div>

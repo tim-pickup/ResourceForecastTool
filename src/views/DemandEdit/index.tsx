@@ -213,7 +213,7 @@ export default function DemandEdit() {
                   label="Name"
                   value={draft.name}
                   onChange={e => update(d => ({ ...d, name: e.target.value }))}
-                  placeholder="e.g. Plant B MES Phase 2 Rollout"
+                  placeholder="e.g. Plant B MES Platform Upgrade"
                 />
                 <Select label="Type" value={draft.type} onChange={e => update(d => ({ ...d, type: e.target.value }))}>
                   <option value="">— Select type —</option>

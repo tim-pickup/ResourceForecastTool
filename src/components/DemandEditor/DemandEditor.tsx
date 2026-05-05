@@ -327,10 +327,10 @@ function DrawerContent({ demandId, item, onClose }: DrawerContentProps) {
                 <div><span className="text-gray-400">Activities: </span><span>{item.activities.length}</span></div>
                 <div><span className="text-gray-400">Dates: </span><span>{dateRange(item)}</span></div>
                 {totalFiniteHours > 0 && (
-                  <div className="col-span-2"><span className="text-gray-400">Internal hours (finite phases): </span><span>{Math.round(totalFiniteHours)}h</span></div>
+                  <div className="col-span-2"><span className="text-gray-400">Internal hours (finite activities): </span><span>{Math.round(totalFiniteHours)}h</span></div>
                 )}
                 {totalExtHours > 0 && (
-                  <div className="col-span-2"><span className="text-amber-500">External hours (finite phases): </span><span className="text-amber-700">{Math.round(totalExtHours)}h</span></div>
+                  <div className="col-span-2"><span className="text-amber-500">External hours (finite activities): </span><span className="text-amber-700">{Math.round(totalExtHours)}h</span></div>
                 )}
                 {indefiniteCount > 0 && (
                   <div className="col-span-2"><span className="text-gray-400">Indefinite activities: </span><span>{indefiniteCount}</span></div>

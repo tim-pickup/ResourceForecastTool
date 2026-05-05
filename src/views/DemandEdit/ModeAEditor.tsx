@@ -306,7 +306,7 @@ function RequirementRow({ req, months, onChange, onDelete, scopedDomains, scoped
           </div>
         </>
       ) : (
-        <p className="text-xs text-gray-400 italic">Set phase start/end months to enter hours.</p>
+        <p className="text-xs text-gray-400 italic">Set activity start/end months to enter hours.</p>
       )}
     </div>
   )
@@ -384,7 +384,7 @@ export function blankExtReq(activity_id: string, function_tag: string | null = n
   }
 }
 
-// External requirement row — finite phase (per-month hours grid)
+// External requirement row — finite activity (per-month hours grid)
 interface ExtReqRowProps {
   ext: ExternalResourceRequirement
   months: string[]
@@ -487,13 +487,13 @@ function ExtRequirementRow({ ext, months, onChange, onDelete, showFunctionTagPic
           </div>
         </>
       ) : (
-        <p className="text-xs text-amber-500 italic">Set phase start/end months to enter hours.</p>
+        <p className="text-xs text-amber-500 italic">Set activity start/end months to enter hours.</p>
       )}
     </div>
   )
 }
 
-// External requirement row — indefinite phase (steady-state)
+// External requirement row — indefinite activity (steady-state)
 function IndefiniteExtRequirementRow({ ext, onChange, onDelete, showFunctionTagPicker }: {
   ext: ExternalResourceRequirement
   onChange: (e: ExternalResourceRequirement) => void

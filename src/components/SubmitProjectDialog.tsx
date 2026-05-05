@@ -105,7 +105,7 @@ export function SubmitProjectDialog({ projectId, onConfirm, onCancel }: Props) {
     return {
       fnId,
       fnName: fn?.name ?? fnId,
-      phaseCount: activityIdsForFn.size,
+      activityCount: activityIdsForFn.size,
       reqCount,
       externalCount: fnExternals.length,
       internalHrs: Math.round(internalHrs),
@@ -163,7 +163,7 @@ export function SubmitProjectDialog({ projectId, onConfirm, onCancel }: Props) {
                 </div>
                 <div className="text-gray-500">
                   {f.reqCount} internal req{f.reqCount !== 1 ? 's' : ''} across{' '}
-                  {f.phaseCount} activit{f.phaseCount !== 1 ? 'ies' : 'y'}
+                  {f.activityCount} activit{f.activityCount !== 1 ? 'ies' : 'y'}
                   {f.externalCount > 0 && `, ${f.externalCount} external req${f.externalCount !== 1 ? 's' : ''}${provList ? ` (${provList})` : ''}`}.
                   {f.internalHrs > 0 && ` ${f.internalHrs.toLocaleString()}h internal`}
                   {f.externalHrs > 0 && `, ${f.externalHrs.toLocaleString()}h external`}.
