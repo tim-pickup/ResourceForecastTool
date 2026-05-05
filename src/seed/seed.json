@@ -2,7 +2,7 @@
   "_meta": {
     "version": "1.20",
     "description": "Generated from seed/master_seed.xlsx — do not edit by hand",
-    "generated_at": "2026-05-05T06:59:23.217Z"
+    "generated_at": "2026-05-05T09:22:43.199Z"
   },
   "functions": [
     {
@@ -64,19 +64,19 @@
     {
       "id": "thm_mom",
       "name": "MOM",
-      "description": "Manufacturing Operations Management â€” MES, order execution, production tracking, OEE.",
+      "description": "Manufacturing Operations Management ”” MES, order execution, production tracking, OEE.",
       "functionId": "func_001"
     },
     {
       "id": "thm_mi_v",
       "name": "MI&V",
-      "description": "Manufacturing Intelligence & Visualisation â€” historians, analytics, dashboards, reporting.",
+      "description": "Manufacturing Intelligence & Visualisation ”” historians, analytics, dashboards, reporting.",
       "functionId": "func_001"
     },
     {
       "id": "thm_mbm",
       "name": "MBM",
-      "description": "Model-Based Manufacturing â€” simulation, digital twins, process modelling.",
+      "description": "Model-Based Manufacturing ”” simulation, digital twins, process modelling.",
       "functionId": "func_001"
     },
     {
@@ -602,7 +602,7 @@
     },
     {
       "id": "per_018",
-      "name": "Henrik SÃ¸rensen",
+      "name": "Henrik Sørensen",
       "teamId": "team_005",
       "contracted_hours_per_month": 152,
       "available_from": "2026-08",
@@ -708,7 +708,7 @@
       "owner": "Sarah Chen",
       "type": "pt_plant_project",
       "programme_id": "prg_001",
-      "description": "Feasibility study for Plant D MES infrastructure upgrade. Draft â€” requirements not yet defined.",
+      "description": "Feasibility study for Plant D MES infrastructure upgrade. Draft ”” requirements not yet defined.",
       "status": "Draft",
       "active": true,
       "functions_required": [
@@ -879,7 +879,7 @@
       "owner": "Anya Petrov",
       "type": "pt_group_strategy_project",
       "programme_id": null,
-      "description": "Enterprise data lake build. Cross-Function: DM MI&V + GroupIT Data & Integration. No Programme â€” demonstrates Unaligned Projects card.",
+      "description": "Enterprise data lake build. Cross-Function: DM MI&V + GroupIT Data & Integration. No Programme ”” demonstrates Unaligned Projects card.",
       "status": "Submitted",
       "active": true,
       "functions_required": [
@@ -1036,7 +1036,7 @@
                 "2026-10": 60
               },
               "steady_state_hours": null,
-              "notes": "Spawn-time value 60h/mo â€” DM Demand drifted to 80h post-spawn",
+              "notes": "Spawn-time value 60h/mo ”” DM Demand drifted to 80h post-spawn",
               "allocations": []
             },
             {
@@ -1393,7 +1393,7 @@
                 "2026-10": 60
               },
               "steady_state_hours": null,
-              "notes": "Spawn-time value 60h/mo â€” DM Demand drifted to 80h post-spawn",
+              "notes": "Spawn-time value 60h/mo ”” DM Demand drifted to 80h post-spawn",
               "allocations": [
                 {
                   "id": "alc_3",
@@ -1404,7 +1404,7 @@
                     "2026-10": 60
                   },
                   "steady_state_hours": null,
-                  "notes": "Partial â€” 20 hrs/mo unplanned"
+                  "notes": "Partial ”” 20 hrs/mo unplanned"
                 }
               ]
             },
@@ -1683,7 +1683,7 @@
       "type": "pt_plant_project",
       "status": "Draft",
       "owner": "Daniel Okafor",
-      "description": "Ad-hoc review of MES shift patterns at Plant A. 1 phase, 1 MOM Basic requirement. No external.",
+      "description": "Ad-hoc review of MES shift patterns at Plant A. 1 Activity, 1 MOM Basic requirement. No external.",
       "function_id": "func_001",
       "parent_project_id": null,
       "activities": [
@@ -1718,7 +1718,7 @@
       "type": "pt_plant_project",
       "status": "Submitted",
       "owner": "Priya Kumar",
-      "description": "Assist with SCADA migration at Plant A. Submitted â€” Approve is the next-step CTA.",
+      "description": "Assist with SCADA migration at Plant A. Submitted ”” Approve is the next-step CTA.",
       "function_id": "func_001",
       "parent_project_id": null,
       "activities": [
@@ -1750,11 +1750,11 @@
     },
     {
       "id": "dmd_d009",
-      "name": "MES Super User support â€” Plant B",
+      "name": "MES Super User support ”” Plant B",
       "type": "pt_bau",
       "status": "PartiallyAllocated",
       "owner": "Alex Morgan",
-      "description": "Ongoing BAU MES super user support at Plant B. Indefinite phase; partial allocation in place. Has Other Internal Team external requirement.",
+      "description": "Ongoing BAU MES super user support at Plant B. Indefinite Activity; partial allocation in place. Has Other Internal Team external requirement.",
       "function_id": "func_001",
       "parent_project_id": null,
       "activities": [

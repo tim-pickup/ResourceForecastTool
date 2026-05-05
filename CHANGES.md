@@ -176,7 +176,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 15 — Seed updates for v1.20
 
-- [ ] Update `master_seed.xlsx` to reflect v1.20 model: Demand names without Function suffix; `created_under_function_id` on every Project; Project 5 set as DM-only with `created_under_function_id = DM`; all `phase_*` references replaced with `activity_*`. Update the seed reconciliation table (section 6) where any totals shift.
+- [x] Update `master_seed.xlsx` to reflect v1.20 model: Demand names without Function suffix; `created_under_function_id` on every Project; Project 5 set as DM-only with `created_under_function_id = DM`; all `phase_*` references replaced with `activity_*`. Update the seed reconciliation table (section 6) where any totals shift.
 
 **Scope**: workbook edits; verify renderability invariants still hold post-parse.
 
@@ -200,7 +200,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 17 — Cleanup
 
-- [ ] Remove every remaining hardcoded "Phase" / `phase_*` identifier from the codebase outside the changelog and section 2.0 terminology table. Add a generated-file header to `seed.json` and `.gitattributes` `linguist-generated=true` to suppress diffs. Audit DESIGN.md for new tokens (month-year picker, dual + Add ghost button) and add if missing.
+- [ ] Remove every remaining hardcoded "Phase" / `phase_*` identifier from the codebase outside the changelog and section 2.0 terminology table. Add a generated-file header to `seed.json` and `.gitattributes` `linguist-generated=true` to suppress diffs. Audit DESIGNSYSTEM.md for new tokens (month-year picker, dual + Add ghost button) and add if missing.
 
 **Scope**: grep-driven cleanup; documentation polish; design-system additions.
 
