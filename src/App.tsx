@@ -184,6 +184,7 @@ function AppShell() {
       }
       return false
     }
+    const PHASE_PATTERN = /\bPhase\b/
     function scanNode(node: Node) {
       if (node.nodeType === Node.TEXT_NODE) {
         const text = node.textContent ?? ''
@@ -192,6 +193,9 @@ function AppShell() {
         }
         if (text.includes(REPLACEMENT_CHAR)) {
           console.error('[EncodingScanner] U+FFFD replacement character in UI — encoding bug:', node.parentElement)
+        }
+        if (PHASE_PATTERN.test(text)) {
+          console.error('[ActivityTermScanner] §6 v1.20: "Phase" rendered in DOM — should be "Activity" everywhere:', text.trim(), node.parentElement)
         }
         return
       }

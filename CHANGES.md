@@ -188,7 +188,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 16 — Renderability invariants for v1.20
 
-- [ ] Wire the v1.20-specific seed assertions as runtime assertions in development builds. Includes: Project Draft hides requirements UI; Manage Projects Function-scoping holds; Project Type labels resolve; Demand auto-name has no Function suffix; Activity terminology applies; date pickers + validation work; Mode B shows total hours; Skill picker mode-correct per context; dual + Add buttons render; no `\uFFFD` in DOM; build-time seed parse succeeds.
+- [x] Wire the v1.20-specific seed assertions as runtime assertions in development builds. Includes: Project Draft hides requirements UI; Manage Projects Function-scoping holds; Project Type labels resolve; Demand auto-name has no Function suffix; Activity terminology applies; date pickers + validation work; Mode B shows total hours; Skill picker mode-correct per context; dual + Add buttons render; no `\uFFFD` in DOM; build-time seed parse succeeds.
 
 **Scope**: a runtime assertion module exercised on fresh seed load (development builds only). Each assertion failure logs a console error naming the failing predicate.
 

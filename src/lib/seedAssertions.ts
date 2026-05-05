@@ -27,7 +27,7 @@ import {
   direct_demand_by_funding,
 } from './capacity'
 import { generateMonths, getCurrentMonth } from '../utils/capacity'
-import seedRaw from '../../DEMOSEED.json'
+import seedRaw from '../seed/seed.json'
 
 // ─── Normalise raw seed (mirrors useAppStore.normalizeSeed) ──────────────────
 
@@ -124,45 +124,49 @@ export function runSeedAssertions(): void {
   // ── No-overlay projection ────────────────────────────────────────────────
   const projNoOverlay = computeProjection(state, months)
 
-  // dmd_p4_dm "Plant C MES Platform Migration — DM" is PartiallyAllocated.
-  // Its Activity 2 has 40 hrs/mo of skl_mom_workflow (Advanced) that is UNALLOCATED.
-  // Alex Morgan (per_001) holds both skl_mom_mes AND skl_mom_workflow — the
-  // Workflow projection consumes his headroom and appears as a grey band on the
-  // MES chart (other-skill demand projecting onto MES pool members).
+  // dmd_003 "Plant C MES Platform Migration — DM" is PartiallyAllocated.
+  // Its Build & Integration activity has req_d25: 40 hrs/mo of
+  // skl_mom_production_workflow_design (Advanced) that is UNALLOCATED.
+  // Alex Morgan (per_001) holds both MES Platform Config AND Production Workflow
+  // Design — the Workflow projection consumes his headroom and appears as a grey
+  // band on the MES chart (other-skill demand projecting onto MES pool members).
   const bandMomMes = grey_band(
-    { type: 'skill', id: 'skl_mom_mes' },
-    '2026-08',
-    state,
-    projNoOverlay
-  )
-  assert('grey_band(skl_mom_mes, 2026-08) — unallocated Workflow demand', bandMomMes, '>', 0)
-
-  // Alex Morgan (per_001) is the MES Specialist; unallocated Workflow demand
-  // projects onto him in 2026-08, consuming headroom.
-  const alexProj = projected_consumption('per_001', '2026-08', projNoOverlay)
-  assert('projected_consumption(per_001, 2026-08)', alexProj, '>', 0)
-
-  // dmd_d5 "Plant A OEE enhancement" is Approved (no allocs). It has 40 hrs/mo
-  // of skl_miv_analytics (Advanced) in 2026-09 and 2026-10. James Whitfield
-  // (per_005) and Fatima Al-Rashid (per_006) hold Analytics; both also hold
-  // Integration — so Analytics projection produces a grey band on the
-  // Integration chart (activity-level requirement).
-  const bandIntSep = grey_band(
-    { type: 'skill', id: 'skl_miv_integration' },
+    { type: 'skill', id: 'skl_mom_mes_platform_core_configuration' },
     '2026-09',
     state,
     projNoOverlay
   )
-  assert('grey_band(skl_miv_integration, 2026-09) — Analytics demand cross-skill', bandIntSep, '>', 0)
+  assert('grey_band(skl_mom_mes_platform_core_configuration, 2026-09) — unallocated Workflow demand', bandMomMes, '>', 0)
 
-  // ── Corporate Data Lake DM overlay (dmd_p3_dm) ───────────────────────────
-  // dmd_p3_dm "Corporate Data Lake — Digital Manufacturing" is Submitted.
-  const overlayId = 'dmd_p3_dm'
-  const overlayItem = state.demandItems.find(d => d.id === overlayId)
+  // Alex Morgan (per_001) is the MES Specialist; unallocated Production Workflow
+  // demand projects onto him in 2026-09, consuming headroom.
+  const alexProj = projected_consumption('per_001', '2026-09', projNoOverlay)
+  assert('projected_consumption(per_001, 2026-09)', alexProj, '>', 0)
+
+  // dmd_d011 "Plant A OEE enhancement" is Approved (no allocs). req_43 has
+  // 40 hrs/mo of skl_mi_v_manufacturing_analytics (Advanced) in 2026-09 and 2026-10.
+  // Fatima Al-Rashid (per_006) holds both Manufacturing Analytics AND
+  // Data Integration Pipelines — so Analytics projection produces a grey band on
+  // the Data Integration Pipelines chart.
+  const bandDiSep = grey_band(
+    { type: 'skill', id: 'skl_mi_v_data_integration_pipelines' },
+    '2026-09',
+    state,
+    projNoOverlay
+  )
+  assert('grey_band(skl_mi_v_data_integration_pipelines, 2026-09) — Analytics demand cross-skill', bandDiSep, '>', 0)
+
+  // ── Corporate Data Lake DM overlay ─────────────────────────────────────────
+  // The DM child Demand of prj_003 ("Corporate Data Lake") is Submitted — use it
+  // as the overlay item. Looked up by parent + function rather than hardcoded id.
+  const overlayItem = state.demandItems.find(
+    d => d.parent_project_id === 'prj_003' && d.function_id === 'func_001' && d.status === 'Submitted'
+  )
   if (!overlayItem) {
-    console.error('[SeedAssertion FAIL] dmd_p3_dm not found in seed — Corporate Data Lake DM item missing')
+    console.error('[SeedAssertion FAIL] No Submitted DM demand for prj_003 (Corporate Data Lake) — overlay item missing')
     return
   }
+  const overlayId = overlayItem.id
 
   // ── Invariant A — Submitted overlay === Approved-unallocated ────────────
   // The overlay item treated as Submitted vs hypothetically promoted to Approved
@@ -244,7 +248,7 @@ export function runSeedAssertions(): void {
   const existingOk =
     bandMomMes > 0 &&
     alexProj > 0 &&
-    bandIntSep > 0 &&
+    bandDiSep > 0 &&
     invariantAOk &&
     projInternal > 0 &&
     projExternal > 0 &&
@@ -311,7 +315,7 @@ export function runSeedAssertions(): void {
   //             (per_018) has available_from=2026-08 so is not active in Jul 2026.
   //    2026-08: 304h — Anya (152h) + Henrik (152h); both active, no non-D&I
   //             commitments in either month.
-  const dataIntDomainId = 'thm_git_data'
+  const dataIntDomainId = 'thm_data_integration'
   const domainRecTable: Array<{ month: string; expected: number }> = [
     { month: '2026-07', expected: 152 },
     { month: '2026-08', expected: 304 },
@@ -472,33 +476,38 @@ export function runSeedAssertions(): void {
   }
 
   // 4. Spawn drift demonstration: prj_004 frozen Build-activity MES Specialist
-  //    requirement = 60h/mo (spawn-time value); dmd_p4_dm Build-activity MES req = 80h/mo (post-drift).
-  const dmdP4Dm = state.demandItems.find(d => d.id === 'dmd_p4_dm')
+  //    requirement = 60h/mo (spawn-time value). In the v1.20 workbook seed the
+  //    DM Demand also shows 60h/mo (the workbook parser deep-copies the Project
+  //    requirement; post-spawn drift is an in-app edit, not a seed-data feature).
+  //    We verify the frozen record is 60h and the DM Demand has the requirement.
+  const dmdP4Dm = state.demandItems.find(
+    d => d.parent_project_id === 'prj_004' && d.function_id === 'func_001'
+  )
   const prj4BuildActivity = prj4?.activities.find(ac => ac.name === 'Build & Integration')
-  const prj4MesReq = prj4BuildActivity?.requirements.find(r => r.skill_id === 'skl_mom_mes')
+  const prj4MesReq = prj4BuildActivity?.requirements.find(
+    r => r.skill_id === 'skl_mom_mes_platform_core_configuration'
+  )
   const dmdBuildActivity = dmdP4Dm?.activities.find(ac => ac.name === 'Build & Integration')
-  const dmdMesReq = dmdBuildActivity?.requirements.find(r => r.skill_id === 'skl_mom_mes')
+  const dmdMesReq = dmdBuildActivity?.requirements.find(
+    r => r.skill_id === 'skl_mom_mes_platform_core_configuration'
+  )
 
   const frozenMesHours = prj4MesReq?.hours_by_month?.['2026-08'] ?? -1
-  const driftedMesHours = dmdMesReq?.hours_by_month?.['2026-08'] ?? -1
-
   if (frozenMesHours !== 60) {
     console.error(
       `[SeedAssertion FAIL] §11.20 drift: prj_004 frozen Build activity MES hours at 2026-08 = ${frozenMesHours}, expected 60 (spawn-time value)`
     )
     spawnInvariantsOk = false
   }
-  if (driftedMesHours !== 80) {
-    console.error(
-      `[SeedAssertion FAIL] §11.20 drift: dmd_p4_dm Build activity MES hours at 2026-08 = ${driftedMesHours}, expected 80 (post-spawn drift value)`
-    )
+  if (!dmdP4Dm || !dmdMesReq) {
+    console.error('[SeedAssertion FAIL] §11.20: DM Demand for prj_004 Build activity MES requirement not found — materialisation incomplete')
     spawnInvariantsOk = false
   }
 
   if (spawnInvariantsOk) {
     console.info(
       '[SeedAssertions] §11.20 spawn invariants passed ✓ ' +
-      `(frozen=60h/mo, dmd_p4_dm drifted=80h/mo)`
+      `(frozen=60h/mo at 2026-08, DM demand materialised)`
     )
   }
 
@@ -570,8 +579,8 @@ export function runSeedAssertions(): void {
   }
 
   // 7. Project 3 external Function-tag routing — DM Demand carries DM-tagged ext, GroupIT carries GroupIT-tagged ext
-  const p3dmDemand = state.demandItems.find(d => d.id === 'dmd_p3_dm')
-  const p3gitDemand = state.demandItems.find(d => d.id === 'dmd_p3_git')
+  const p3dmDemand = state.demandItems.find(d => d.parent_project_id === 'prj_003' && d.function_id === 'func_001')
+  const p3gitDemand = state.demandItems.find(d => d.parent_project_id === 'prj_003' && d.function_id === 'func_002')
   if (!p3dmDemand || !p3gitDemand) {
     console.error('[SeedAssertion FAIL] §6 v1.19: dmd_p3_dm or dmd_p3_git not found in seed')
     v119Ok = false
@@ -591,7 +600,7 @@ export function runSeedAssertions(): void {
   }
 
   // 8. Direct Demand D3 external function_tag auto-set to demand's function_id
-  const d3 = state.demandItems.find(d => d.id === 'dmd_d3')
+  const d3 = state.demandItems.find(d => d.name.includes('MES Super User') && d.parent_project_id === null)
   if (d3) {
     const d3ActivityIds = new Set(d3.activities.map(ac => ac.id))
     const d3Exts = state.externalResourceRequirements.filter(e => d3ActivityIds.has(e.activity_id))
@@ -632,7 +641,106 @@ export function runSeedAssertions(): void {
   if (v119Ok) {
     console.info(
       '[SeedAssertions] §6 v1.19-specific invariants passed ✓ ' +
-      '(zero PTAs, functions_required/involved, frozen phases, ext routing, drift)'
+      '(zero PTAs, functions_required/involved, frozen activities, ext routing)'
+    )
+  }
+
+  // ── §6 v1.20-specific seed assertions ────────────────────────────────────
+  // These verify that the v1.20 data model is correctly embodied in the seed.
+  let v120Ok = true
+
+  // 1. created_under_function_id is set (non-null) on every Project (§2.1.1 / Change 2).
+  for (const p of state.projects) {
+    if (!p.created_under_function_id) {
+      console.error(
+        `[SeedAssertion FAIL] §6 v1.20: Project ${p.id} has no created_under_function_id — Change 2 / Change 15 incomplete`
+      )
+      v120Ok = false
+    }
+  }
+
+  // 2. Project 5 ("MBM Foundation Library") is DM-only: functions_required = [func_001]
+  //    and created_under_function_id = func_001. Exercises the Function-scoping
+  //    hide rule: prj_005 must be invisible when Group IT Enterprise Solutions is active.
+  const prj5 = state.projects.find(p => p.id === 'prj_005')
+  if (!prj5) {
+    console.error('[SeedAssertion FAIL] §6 v1.20: prj_005 (MBM Foundation Library) not found in seed')
+    v120Ok = false
+  } else {
+    if (prj5.functions_required.length !== 1 || prj5.functions_required[0] !== 'func_001') {
+      console.error(
+        `[SeedAssertion FAIL] §6 v1.20: prj_005 functions_required=${JSON.stringify(prj5.functions_required)}, ` +
+        'expected ["func_001"] only — MBM Foundation Library must be DM-only'
+      )
+      v120Ok = false
+    }
+    if (prj5.created_under_function_id !== 'func_001') {
+      console.error(
+        `[SeedAssertion FAIL] §6 v1.20: prj_005 created_under_function_id="${prj5.created_under_function_id}", ` +
+        'expected "func_001" — must be DM to exercise Function-scoping hide rule under Group IT'
+      )
+      v120Ok = false
+    }
+  }
+
+  // 3. Project 1 (Draft, "Plant D MES Concept Study") has Activities but NO requirements.
+  //    §4.5.2 / Change 7: Project Draft hides the requirements UI entirely; the store
+  //    confirms the arrays are empty so there is nothing to accidentally show.
+  const prj1Draft = state.projects.find(p => p.id === 'prj_001' && p.status === 'Draft')
+  if (!prj1Draft) {
+    console.error('[SeedAssertion FAIL] §6 v1.20: prj_001 not found or not in Draft status')
+    v120Ok = false
+  } else {
+    if (prj1Draft.activities.length === 0) {
+      console.error(
+        '[SeedAssertion FAIL] §6 v1.20: prj_001 has no Activities — Draft Project must have Activities (with names + dates) for the Submit-for-Scoping gate test'
+      )
+      v120Ok = false
+    }
+    const hasReqs = prj1Draft.activities.some(ac => ac.requirements.length > 0)
+    if (hasReqs) {
+      console.error(
+        '[SeedAssertion FAIL] §6 v1.20: prj_001 (Draft) has requirements in at least one Activity — ' +
+        'Draft must have zero requirements (UI hides the affordance per Change 7)'
+      )
+      v120Ok = false
+    }
+  }
+
+  // 4. Store uses "activities" field (not "phases") on Projects and Demands.
+  //    Structural assertion for the §2.0 Phase → Activity rename (Change 1 / Change 15).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawSeedAny = rawSeed as Record<string, any>
+  const sampleProj = (rawSeedAny.projects || [])[0]
+  if (sampleProj && 'phases' in sampleProj && !('activities' in sampleProj)) {
+    console.error('[SeedAssertion FAIL] §6 v1.20: seed projects use "phases" key — rename incomplete (Change 1)')
+    v120Ok = false
+  }
+  const sampleDmd = (rawSeedAny.demand_items || [])[0]
+  if (sampleDmd && 'phases' in sampleDmd && !('activities' in sampleDmd)) {
+    console.error('[SeedAssertion FAIL] §6 v1.20: seed demand_items use "phases" key — rename incomplete (Change 1)')
+    v120Ok = false
+  }
+
+  // 5. Spawned Demand names must equal parent Project name exactly (no Function suffix).
+  //    §2.2.4 / Change 5 — already checked above in the pipeline coverage section.
+  //    Restate here for §6 v1.20 completeness tracing.
+  const wrongNamedV2 = state.demandItems.filter(
+    d => d.parent_project_id && d.name !== projectNameMap.get(d.parent_project_id)
+  )
+  if (wrongNamedV2.length > 0) {
+    console.error(
+      `[SeedAssertion FAIL] §6 v1.20: Spawned Demands with names differing from parent Project: ` +
+      wrongNamedV2.map(d => `${d.id}("${d.name}")`).join(', ') +
+      ' — Demand auto-name must not include Function suffix (Change 5)'
+    )
+    v120Ok = false
+  }
+
+  if (v120Ok) {
+    console.info(
+      '[SeedAssertions] §6 v1.20-specific invariants passed ✓ ' +
+      '(created_under_function_id, DM-only prj_005, Draft has no requirements, activity terminology, no name suffix)'
     )
   }
 }
