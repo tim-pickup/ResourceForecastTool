@@ -419,7 +419,7 @@ export const useAppStore = create<Store>()(
     }),
     {
       name: 'resource-forecast-v1',
-      version: 13,
+      version: 14,
       migrate: (_state, version) => {
         if (version < 9) return SEED
         if (version < 10) {
@@ -522,6 +522,21 @@ export const useAppStore = create<Store>()(
             type: idMap[d.type] ?? d.type,
           }))
           return { ...s, projectTypes, projects, demandItems } as Store
+        }
+        if (version < 14) {
+          // v13 → v14: defensive normalization — ensure activities is always an array
+          // on Projects and DemandItems (guards against any path that may have stored
+          // a record without the field, including the phases → activities rename edge cases).
+          const s = _state as any
+          const projects = (s.projects || []).map((p: any): Project => ({
+            ...p,
+            activities: p.activities ?? p.phases ?? [],
+          }))
+          const demandItems = (s.demandItems || []).map((d: any): DemandItem => ({
+            ...d,
+            activities: d.activities ?? d.phases ?? [],
+          }))
+          return { ...s, projects, demandItems } as Store
         }
         return _state as Store
       },

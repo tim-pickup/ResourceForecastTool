@@ -43,7 +43,7 @@ export function real_committed_hours(personId: string, month: string, state: App
   let total = 0
   for (const item of state.demandItems) {
     if (!REAL_STATUSES.has(item.status)) continue
-    for (const activity of item.activities) {
+    for (const activity of (item.activities ?? [])) {
       if (!monthInRange(month, activity.start_month, activity.end_month)) continue
       for (const req of activity.requirements) {
         for (const alloc of req.allocations) {
@@ -88,7 +88,7 @@ export function domain_capacity(domainId: string, month: string, state: AppState
     let otherCommitted = 0
     for (const item of state.demandItems) {
       if (!REAL_STATUSES.has(item.status)) continue
-      for (const activity of item.activities) {
+      for (const activity of (item.activities ?? [])) {
         if (!monthInRange(month, activity.start_month, activity.end_month)) continue
         for (const req of activity.requirements) {
           if (domainSkillIds.has(req.skill_id)) continue  // skip this domain's skills
@@ -121,7 +121,7 @@ export function skill_capacity(skillId: string, month: string, state: AppState, 
     let otherCommitted = 0
     for (const item of state.demandItems) {
       if (!REAL_STATUSES.has(item.status)) continue
-      for (const activity of item.activities) {
+      for (const activity of (item.activities ?? [])) {
         if (!monthInRange(month, activity.start_month, activity.end_month)) continue
         for (const req of activity.requirements) {
           if (req.skill_id === skillId) continue  // skip this skill
@@ -170,7 +170,7 @@ export function demand_hours_for(
     const key = typeToBreakdownKey(item.type, state.projectTypes)
     if (!key) continue
 
-    for (const activity of item.activities) {
+    for (const activity of (item.activities ?? [])) {
       if (!monthInRange(month, activity.start_month, activity.end_month)) continue
       for (const req of activity.requirements) {
         if (target.type === 'domain' && domainSkillIds && !domainSkillIds.has(req.skill_id)) continue
@@ -263,7 +263,7 @@ export function computeProjection(
       if (isOverlay && item.status !== 'Submitted') continue
       if (!isOverlay && item.status !== 'Approved' && item.status !== 'PartiallyAllocated') continue
 
-      for (const activity of item.activities) {
+      for (const activity of (item.activities ?? [])) {
         if (!monthInRange(month, activity.start_month, activity.end_month)) continue
 
         for (const req of activity.requirements) {
@@ -466,7 +466,7 @@ export function project_internal_hours(
   const project = state.projects.find(p => p.id === project_id)
   if (!project) return 0
 
-  if (project.activities.length > 0) {
+  if ((project.activities ?? []).length > 0) {
     // v1.18: activities live on Project; filter by Function's child-Demand status
     const fnStatus = new Map<string, DemandStatus>()
     for (const d of state.demandItems) {
@@ -475,7 +475,7 @@ export function project_internal_hours(
     const domFn = new Map(state.domains.map(d => [d.id, d.functionId]))
     const sklFn = new Map(state.skills.map(s => [s.id, domFn.get(s.domain_id) ?? '']))
     let total = 0
-    for (const activity of project.activities) {
+    for (const activity of (project.activities ?? [])) {
       if (!activityContainsMonth(activity, month)) continue
       for (const req of activity.requirements) {
         const fnId = sklFn.get(req.skill_id)
@@ -493,7 +493,7 @@ export function project_internal_hours(
   for (const item of state.demandItems) {
     if (item.parent_project_id !== project_id) continue
     if (!REAL_STATUSES.has(item.status)) continue
-    for (const activity of item.activities) {
+    for (const activity of (item.activities ?? [])) {
       if (!activityContainsMonth(activity, month)) continue
       for (const req of activity.requirements) {
         total += reqHoursForMonth(req, activity, month)
@@ -514,7 +514,7 @@ export function project_external_hours(
   const project = state.projects.find(p => p.id === project_id)
   if (!project) return 0
 
-  if (project.activities.length > 0) {
+  if ((project.activities ?? []).length > 0) {
     // v1.18: external reqs linked to Project activities
     const activityById = new Map(project.activities.map(ac => [ac.id, ac]))
     let total = 0
@@ -529,7 +529,7 @@ export function project_external_hours(
   // Legacy fallback: external reqs linked to DemandItem activities
   const activityToItem = new Map<string, DemandItem>()
   for (const item of state.demandItems) {
-    for (const activity of item.activities) {
+    for (const activity of (item.activities ?? [])) {
       activityToItem.set(activity.id, item)
     }
   }
@@ -539,7 +539,7 @@ export function project_external_hours(
     if (!item) continue
     if (item.parent_project_id !== project_id) continue
     if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
-    const activity = item.activities.find(ac => ac.id === ext.activity_id)
+    const activity = (item.activities ?? []).find(ac => ac.id === ext.activity_id)
     if (!activity || !activityContainsMonth(activity, month)) continue
     total += extHoursForMonth(ext, activity, month)
   }
@@ -558,7 +558,7 @@ export function project_external_hours_by_provider(
 
   const result: Record<string, number> = {}
 
-  if (project.activities.length > 0) {
+  if ((project.activities ?? []).length > 0) {
     // v1.18: external reqs linked to Project activities
     const activityById = new Map(project.activities.map(ac => [ac.id, ac]))
     for (const ext of state.externalResourceRequirements) {
@@ -573,7 +573,7 @@ export function project_external_hours_by_provider(
   // Legacy fallback: external reqs linked to DemandItem activities
   const activityToItem = new Map<string, DemandItem>()
   for (const item of state.demandItems) {
-    for (const activity of item.activities) {
+    for (const activity of (item.activities ?? [])) {
       activityToItem.set(activity.id, item)
     }
   }
@@ -582,7 +582,7 @@ export function project_external_hours_by_provider(
     if (!item) continue
     if (item.parent_project_id !== project_id) continue
     if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
-    const activity = item.activities.find(ac => ac.id === ext.activity_id)
+    const activity = (item.activities ?? []).find(ac => ac.id === ext.activity_id)
     if (!activity || !activityContainsMonth(activity, month)) continue
     const h = extHoursForMonth(ext, activity, month)
     result[ext.provider_id] = (result[ext.provider_id] ?? 0) + h
@@ -663,7 +663,7 @@ export function unaligned_demand_hours(
     for (const item of state.demandItems) {
       if (item.parent_project_id !== null) continue
       if (!REAL_STATUSES.has(item.status)) continue
-      for (const activity of item.activities) {
+      for (const activity of (item.activities ?? [])) {
         if (!activityContainsMonth(activity, month)) continue
         for (const req of activity.requirements) {
           total += reqHoursForMonth(req, activity, month)
@@ -676,7 +676,7 @@ export function unaligned_demand_hours(
   // external kind
   const activityToItem = new Map<string, DemandItem>()
   for (const item of state.demandItems) {
-    for (const activity of item.activities) {
+    for (const activity of (item.activities ?? [])) {
       activityToItem.set(activity.id, item)
     }
   }
@@ -687,7 +687,7 @@ export function unaligned_demand_hours(
     if (!item) continue
     if (item.parent_project_id !== null) continue
     if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
-    const activity = item.activities.find(ac => ac.id === ext.activity_id)
+    const activity = (item.activities ?? []).find(ac => ac.id === ext.activity_id)
     if (!activity || !activityContainsMonth(activity, month)) continue
     total += extHoursForMonth(ext, activity, month)
   }
@@ -736,7 +736,7 @@ export function direct_demand_external_hours(
     const item = activityToItem.get(ext.activity_id)
     if (!item) continue
     if (!ACTIVE_FOR_EXTERNAL_STATUSES.has(item.status)) continue
-    const activity = item.activities.find(ac => ac.id === ext.activity_id)
+    const activity = (item.activities ?? []).find(ac => ac.id === ext.activity_id)
     if (!activity || !activityContainsMonth(activity, month)) continue
     total += extHoursForMonth(ext, activity, month)
   }
@@ -846,9 +846,9 @@ export function crossFunctionDemandHours(
     if (!projectsWithActive.has(project.id)) continue
     const fnStatus = projectFnStatus.get(project.id)!
 
-    if (project.activities.length > 0) {
+    if ((project.activities ?? []).length > 0) {
       // Walk Project activities (frozen planning record for Submitted+ Projects)
-      for (const activity of project.activities) {
+      for (const activity of (project.activities ?? [])) {
         if (!monthInRange(month, activity.start_month, activity.end_month)) continue
         for (const req of activity.requirements) {
           const reqFnId = sklFn.get(req.skill_id)
@@ -913,7 +913,7 @@ export function project_demand_by_funding(
   const project = state.projects.find(p => p.id === project_id)
   if (!project) return result
 
-  if (project.activities.length > 0) {
+  if ((project.activities ?? []).length > 0) {
     // v1.18: activities on Project; filter by Function's child-Demand status
     const fnStatus = new Map<string, DemandStatus>()
     for (const d of state.demandItems) {
@@ -922,7 +922,7 @@ export function project_demand_by_funding(
     const domFn = new Map(state.domains.map(d => [d.id, d.functionId]))
     const sklFn = new Map(state.skills.map(s => [s.id, domFn.get(s.domain_id) ?? '']))
 
-    for (const activity of project.activities) {
+    for (const activity of (project.activities ?? [])) {
       if (!activityContainsMonth(activity, month)) continue
       for (const req of activity.requirements) {
         const reqFnId = sklFn.get(req.skill_id)
@@ -950,7 +950,7 @@ export function project_demand_by_funding(
     if (item.parent_project_id !== project_id) continue
     if (!opts.status_set.has(item.status)) continue
     if (opts.function_id && item.function_id !== opts.function_id) continue
-    for (const activity of item.activities) {
+    for (const activity of (item.activities ?? [])) {
       if (!activityContainsMonth(activity, month)) continue
       for (const req of activity.requirements) {
         result[activity.funding_source] += reqHoursForMonth(req, activity, month)
@@ -963,7 +963,7 @@ export function project_demand_by_funding(
     const activityMap = new Map<string, { activity: Activity; item: DemandItem }>()
     for (const item of state.demandItems) {
       if (item.parent_project_id !== project_id) continue
-      for (const activity of item.activities) activityMap.set(activity.id, { activity, item })
+      for (const activity of (item.activities ?? [])) activityMap.set(activity.id, { activity, item })
     }
     for (const ext of state.externalResourceRequirements) {
       const entry = activityMap.get(ext.activity_id)
