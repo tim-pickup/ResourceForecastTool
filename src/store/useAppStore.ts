@@ -7,7 +7,7 @@ import type {
   ProjectType,
 } from '../types'
 import { generateId, slugifyProjectTypeId } from '../utils/ids'
-import seedRaw from '../../DEMOSEED.json'
+import seedRaw from '../seed/seed.json'
 
 function migrateDemandStatus(s: string): DemandStatus {
   if (s === 'Parked' || s === 'Closed' || s === 'Scoping') return 'Draft'

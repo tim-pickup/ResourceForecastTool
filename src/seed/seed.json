@@ -1,0 +1,2043 @@
+{
+  "_meta": {
+    "version": "1.20",
+    "description": "Generated from seed/master_seed.xlsx — do not edit by hand",
+    "generated_at": "2026-05-05T06:59:23.217Z"
+  },
+  "functions": [
+    {
+      "id": "func_001",
+      "name": "Digital Manufacturing",
+      "description": "Digital manufacturing capability spanning MOM, MI&V and MBM domains across all plants.",
+      "active": true
+    },
+    {
+      "id": "func_002",
+      "name": "Group IT Enterprise Solutions",
+      "description": "Enterprise IT capability covering infrastructure, applications, and data integration for the group.",
+      "active": true
+    }
+  ],
+  "teams": [
+    {
+      "id": "team_001",
+      "name": "Central Delivery Team",
+      "description": "",
+      "functionId": "func_001",
+      "type": "Central",
+      "active": true
+    },
+    {
+      "id": "team_002",
+      "name": "Plant Team A",
+      "description": "",
+      "functionId": "func_001",
+      "type": "Plant",
+      "active": true
+    },
+    {
+      "id": "team_003",
+      "name": "Plant Team B",
+      "description": "",
+      "functionId": "func_001",
+      "type": "Plant",
+      "active": true
+    },
+    {
+      "id": "team_004",
+      "name": "Infrastructure Team",
+      "description": "",
+      "functionId": "func_002",
+      "type": "Central",
+      "active": true
+    },
+    {
+      "id": "team_005",
+      "name": "Applications Team",
+      "description": "",
+      "functionId": "func_002",
+      "type": "Central",
+      "active": true
+    }
+  ],
+  "domains": [
+    {
+      "id": "thm_mom",
+      "name": "MOM",
+      "description": "Manufacturing Operations Management â€” MES, order execution, production tracking, OEE.",
+      "functionId": "func_001"
+    },
+    {
+      "id": "thm_mi_v",
+      "name": "MI&V",
+      "description": "Manufacturing Intelligence & Visualisation â€” historians, analytics, dashboards, reporting.",
+      "functionId": "func_001"
+    },
+    {
+      "id": "thm_mbm",
+      "name": "MBM",
+      "description": "Model-Based Manufacturing â€” simulation, digital twins, process modelling.",
+      "functionId": "func_001"
+    },
+    {
+      "id": "thm_infrastructure_platforms",
+      "name": "Infrastructure & Platforms",
+      "description": "Cloud infrastructure, network engineering, and platform services for the enterprise.",
+      "functionId": "func_002"
+    },
+    {
+      "id": "thm_enterprise_applications",
+      "name": "Enterprise Applications",
+      "description": "ERP, CRM, and enterprise application configuration and development.",
+      "functionId": "func_002"
+    },
+    {
+      "id": "thm_data_integration",
+      "name": "Data & Integration",
+      "description": "Enterprise data engineering, integration architecture, and data platform management.",
+      "functionId": "func_002"
+    }
+  ],
+  "skills": [
+    {
+      "id": "skl_mom_mes_platform_core_configuration",
+      "name": "MES Platform (core configuration)",
+      "domain_id": "thm_mom"
+    },
+    {
+      "id": "skl_mom_production_workflow_design",
+      "name": "Production Workflow Design",
+      "domain_id": "thm_mom"
+    },
+    {
+      "id": "skl_mom_scada_integration",
+      "name": "SCADA Integration",
+      "domain_id": "thm_mom"
+    },
+    {
+      "id": "skl_mom_oee_performance_tracking",
+      "name": "OEE & Performance Tracking",
+      "domain_id": "thm_mom"
+    },
+    {
+      "id": "skl_mom_genealogy_traceability",
+      "name": "Genealogy & Traceability",
+      "domain_id": "thm_mom"
+    },
+    {
+      "id": "skl_mi_v_historian_configuration",
+      "name": "Historian Configuration",
+      "domain_id": "thm_mi_v"
+    },
+    {
+      "id": "skl_mi_v_hmi_visualisation_design",
+      "name": "HMI & Visualisation Design",
+      "domain_id": "thm_mi_v"
+    },
+    {
+      "id": "skl_mi_v_reporting_dashboards",
+      "name": "Reporting & Dashboards",
+      "domain_id": "thm_mi_v"
+    },
+    {
+      "id": "skl_mi_v_manufacturing_analytics",
+      "name": "Manufacturing Analytics",
+      "domain_id": "thm_mi_v"
+    },
+    {
+      "id": "skl_mi_v_data_integration_pipelines",
+      "name": "Data Integration & Pipelines",
+      "domain_id": "thm_mi_v"
+    },
+    {
+      "id": "skl_mbm_process_simulation",
+      "name": "Process Simulation",
+      "domain_id": "thm_mbm"
+    },
+    {
+      "id": "skl_mbm_digital_twin_development",
+      "name": "Digital Twin Development",
+      "domain_id": "thm_mbm"
+    },
+    {
+      "id": "skl_mbm_physics_based_modelling",
+      "name": "Physics-Based Modelling",
+      "domain_id": "thm_mbm"
+    },
+    {
+      "id": "skl_mbm_process_optimisation",
+      "name": "Process Optimisation",
+      "domain_id": "thm_mbm"
+    },
+    {
+      "id": "skl_data_integration_data_engineering",
+      "name": "Data Engineering",
+      "domain_id": "thm_data_integration"
+    },
+    {
+      "id": "skl_data_integration_integration_architecture",
+      "name": "Integration Architecture",
+      "domain_id": "thm_data_integration"
+    },
+    {
+      "id": "skl_data_integration_data_platform_administration",
+      "name": "Data Platform Administration",
+      "domain_id": "thm_data_integration"
+    },
+    {
+      "id": "skl_infrastructure_platforms_cloud_architecture",
+      "name": "Cloud Architecture",
+      "domain_id": "thm_infrastructure_platforms"
+    },
+    {
+      "id": "skl_infrastructure_platforms_network_engineering",
+      "name": "Network Engineering",
+      "domain_id": "thm_infrastructure_platforms"
+    },
+    {
+      "id": "skl_infrastructure_platforms_platform_engineering",
+      "name": "Platform Engineering",
+      "domain_id": "thm_infrastructure_platforms"
+    },
+    {
+      "id": "skl_enterprise_applications_erp_configuration",
+      "name": "ERP Configuration",
+      "domain_id": "thm_enterprise_applications"
+    },
+    {
+      "id": "skl_enterprise_applications_crm_development",
+      "name": "CRM Development",
+      "domain_id": "thm_enterprise_applications"
+    },
+    {
+      "id": "skl_enterprise_applications_enterprise_application_support",
+      "name": "Enterprise Application Support",
+      "domain_id": "thm_enterprise_applications"
+    }
+  ],
+  "people": [
+    {
+      "id": "per_001",
+      "name": "Alex Morgan",
+      "teamId": "team_002",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_mom_mes_platform_core_configuration",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_mom_production_workflow_design",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mom_genealogy_traceability",
+          "level": "Advanced"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_002",
+      "name": "Priya Kumar",
+      "teamId": "team_002",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_mom_mes_platform_core_configuration",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mom_scada_integration",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_mom_oee_performance_tracking",
+          "level": "Advanced"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_003",
+      "name": "Daniel Okafor",
+      "teamId": "team_002",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_mom_production_workflow_design",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mom_oee_performance_tracking",
+          "level": "Basic"
+        },
+        {
+          "skill_id": "skl_mi_v_reporting_dashboards",
+          "level": "Basic"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_004",
+      "name": "Sophie Laurent",
+      "teamId": "team_003",
+      "contracted_hours_per_month": 122,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_mom_mes_platform_core_configuration",
+          "level": "Basic"
+        },
+        {
+          "skill_id": "skl_mom_scada_integration",
+          "level": "Advanced"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_005",
+      "name": "James Whitfield",
+      "teamId": "team_001",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_mi_v_historian_configuration",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_mi_v_data_integration_pipelines",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mi_v_manufacturing_analytics",
+          "level": "Advanced"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_006",
+      "name": "Fatima Al-Rashid",
+      "teamId": "team_001",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_mi_v_manufacturing_analytics",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_mi_v_reporting_dashboards",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mi_v_data_integration_pipelines",
+          "level": "Advanced"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_007",
+      "name": "Ben Carter",
+      "teamId": "team_003",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_mi_v_hmi_visualisation_design",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mi_v_reporting_dashboards",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mi_v_historian_configuration",
+          "level": "Basic"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_008",
+      "name": "Naomi Chen",
+      "teamId": "team_003",
+      "contracted_hours_per_month": 152,
+      "available_from": "2026-07",
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_mi_v_hmi_visualisation_design",
+          "level": "Basic"
+        },
+        {
+          "skill_id": "skl_mi_v_reporting_dashboards",
+          "level": "Basic"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_009",
+      "name": "Marcus Vogel",
+      "teamId": "team_001",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_mbm_process_simulation",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_mbm_physics_based_modelling",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_mbm_process_optimisation",
+          "level": "Advanced"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_010",
+      "name": "Ishani Bhatia",
+      "teamId": "team_001",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_mbm_digital_twin_development",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mbm_physics_based_modelling",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mi_v_data_integration_pipelines",
+          "level": "Basic"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_011",
+      "name": "Tom Ashford",
+      "teamId": "team_002",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": "2026-10",
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_mbm_process_simulation",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_mbm_process_optimisation",
+          "level": "Advanced"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_012",
+      "name": "Olivia Reyes",
+      "teamId": "team_003",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_mbm_digital_twin_development",
+          "level": "Basic"
+        },
+        {
+          "skill_id": "skl_mbm_physics_based_modelling",
+          "level": "Basic"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_013",
+      "name": "Thomas Richards",
+      "teamId": "team_004",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_infrastructure_platforms_cloud_architecture",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_infrastructure_platforms_network_engineering",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_infrastructure_platforms_platform_engineering",
+          "level": "Basic"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_014",
+      "name": "Mei Tanaka",
+      "teamId": "team_004",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_infrastructure_platforms_platform_engineering",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_infrastructure_platforms_cloud_architecture",
+          "level": "Advanced"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_015",
+      "name": "Luis Fernandez",
+      "teamId": "team_005",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_enterprise_applications_erp_configuration",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_enterprise_applications_crm_development",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_enterprise_applications_enterprise_application_support",
+          "level": "Advanced"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_016",
+      "name": "Yuki Watanabe",
+      "teamId": "team_005",
+      "contracted_hours_per_month": 122,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_enterprise_applications_crm_development",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_enterprise_applications_erp_configuration",
+          "level": "Advanced"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_017",
+      "name": "Anya Petrov",
+      "teamId": "team_005",
+      "contracted_hours_per_month": 152,
+      "available_from": null,
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_data_integration_data_engineering",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_data_integration_integration_architecture",
+          "level": "Advanced"
+        },
+        {
+          "skill_id": "skl_data_integration_data_platform_administration",
+          "level": "Advanced"
+        }
+      ],
+      "primary_domain_id": null
+    },
+    {
+      "id": "per_018",
+      "name": "Henrik SÃ¸rensen",
+      "teamId": "team_005",
+      "contracted_hours_per_month": 152,
+      "available_from": "2026-08",
+      "available_to": null,
+      "active": true,
+      "skills": [
+        {
+          "skill_id": "skl_data_integration_integration_architecture",
+          "level": "Specialist"
+        },
+        {
+          "skill_id": "skl_data_integration_data_engineering",
+          "level": "Advanced"
+        }
+      ],
+      "primary_domain_id": null
+    }
+  ],
+  "programmes": [
+    {
+      "id": "prg_001",
+      "name": "MES Modernisation",
+      "description": "Plant-level MES platform upgrades and migrations across the manufacturing estate.",
+      "active": true
+    },
+    {
+      "id": "prg_002",
+      "name": "Digital Twin Rollout",
+      "description": "Group-wide digital twin capability development, starting with the Line Y pilot.",
+      "active": true
+    },
+    {
+      "id": "prg_003",
+      "name": "MI&V Uplift Programme",
+      "description": "Manufacturing intelligence and visualisation improvements including data lake integration and OEE standardisation.",
+      "active": true
+    }
+  ],
+  "project_types": [
+    {
+      "id": "pt_bau",
+      "name": "BAU",
+      "display_order": 0,
+      "colour_token": "colour-bau",
+      "is_bau": true,
+      "active": true
+    },
+    {
+      "id": "pt_npd_demand",
+      "name": "NPD Demand",
+      "display_order": 1,
+      "colour_token": "colour-npd",
+      "is_bau": false,
+      "active": true
+    },
+    {
+      "id": "pt_plant_project",
+      "name": "Plant Project",
+      "display_order": 2,
+      "colour_token": "colour-plant-project",
+      "is_bau": false,
+      "active": true
+    },
+    {
+      "id": "pt_group_strategy_project",
+      "name": "Group Strategy Project",
+      "display_order": 3,
+      "colour_token": "colour-group-strategy",
+      "is_bau": false,
+      "active": true
+    }
+  ],
+  "providers": [
+    {
+      "id": "prv_001",
+      "name": "Managed Services"
+    },
+    {
+      "id": "prv_002",
+      "name": "Contractor"
+    },
+    {
+      "id": "prv_003",
+      "name": "OEM"
+    },
+    {
+      "id": "prv_004",
+      "name": "Plant Team"
+    },
+    {
+      "id": "prv_005",
+      "name": "Other Internal Team"
+    },
+    {
+      "id": "prv_006",
+      "name": "Other"
+    }
+  ],
+  "projects": [
+    {
+      "id": "prj_001",
+      "name": "Plant D MES Concept Study",
+      "owner": "Sarah Chen",
+      "type": "pt_plant_project",
+      "programme_id": "prg_001",
+      "description": "Feasibility study for Plant D MES infrastructure upgrade. Draft â€” requirements not yet defined.",
+      "status": "Draft",
+      "active": true,
+      "functions_required": [
+        "func_001",
+        "func_002"
+      ],
+      "functions_actually_involved": [],
+      "created_under_function_id": "func_001",
+      "activities": [
+        {
+          "id": "phs_1",
+          "name": "Concept & Feasibility",
+          "start_month": "2026-09",
+          "end_month": "2026-10",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": []
+        },
+        {
+          "id": "phs_2",
+          "name": "Design",
+          "start_month": "2026-11",
+          "end_month": "2027-01",
+          "funding_source": "Investment Scheme",
+          "funding_notes": "",
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "prj_002",
+      "name": "Plant E MES Refresh",
+      "owner": "Marcus Vogel",
+      "type": "pt_plant_project",
+      "programme_id": "prg_001",
+      "description": "MES refresh at Plant E. DM MOM/MI&V + GroupIT Data & Integration. Functions Required = [DM]; GroupIT requirements added during Scoping (demonstrates hint-not-binding).",
+      "status": "Scoping",
+      "active": true,
+      "functions_required": [
+        "func_001"
+      ],
+      "functions_actually_involved": [
+        "func_001",
+        "func_002"
+      ],
+      "created_under_function_id": "func_001",
+      "activities": [
+        {
+          "id": "phs_3",
+          "name": "Design & Specification",
+          "start_month": "2026-08",
+          "end_month": "2026-09",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_1",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes_platform_core_configuration",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 60,
+                "2026-09": 60
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_2",
+              "shape": "skill",
+              "skill_id": "skl_mi_v_data_integration_pipelines",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_3",
+              "shape": "skill",
+              "skill_id": "skl_data_integration_data_engineering",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        },
+        {
+          "id": "phs_4",
+          "name": "Build & Integration",
+          "start_month": "2026-10",
+          "end_month": "2026-12",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_4",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes_platform_core_configuration",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-10": 80,
+                "2026-11": 80,
+                "2026-12": 80
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_5",
+              "shape": "skill",
+              "skill_id": "skl_mom_scada_integration",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-10": 40,
+                "2026-11": 40,
+                "2026-12": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_6",
+              "shape": "skill",
+              "skill_id": "skl_data_integration_data_engineering",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-10": 60,
+                "2026-11": 60,
+                "2026-12": 60
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_7",
+              "shape": "skill",
+              "skill_id": "skl_data_integration_integration_architecture",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-10": 40,
+                "2026-11": 40,
+                "2026-12": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "prj_003",
+      "name": "Corporate Data Lake",
+      "owner": "Anya Petrov",
+      "type": "pt_group_strategy_project",
+      "programme_id": null,
+      "description": "Enterprise data lake build. Cross-Function: DM MI&V + GroupIT Data & Integration. No Programme â€” demonstrates Unaligned Projects card.",
+      "status": "Submitted",
+      "active": true,
+      "functions_required": [
+        "func_001",
+        "func_002"
+      ],
+      "functions_actually_involved": [
+        "func_001",
+        "func_002"
+      ],
+      "created_under_function_id": "func_001",
+      "activities": [
+        {
+          "id": "phs_5",
+          "name": "Build & Deploy",
+          "start_month": "2026-07",
+          "end_month": "2026-10",
+          "funding_source": "Investment Scheme",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_8",
+              "shape": "skill",
+              "skill_id": "skl_mi_v_data_integration_pipelines",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-07": 40,
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_9",
+              "shape": "skill",
+              "skill_id": "skl_data_integration_data_engineering",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-07": 80,
+                "2026-08": 80,
+                "2026-09": 80,
+                "2026-10": 80
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_10",
+              "shape": "skill",
+              "skill_id": "skl_data_integration_integration_architecture",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-07": 40,
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "prj_004",
+      "name": "Plant C MES Platform Migration",
+      "owner": "David Lin",
+      "type": "pt_plant_project",
+      "programme_id": "prg_001",
+      "description": "Full MES platform migration at Plant C. Headline cross-Function flagship. DM (MOM+MI&V) PartiallyAllocated; GroupIT (Data & Integration) Approved.",
+      "status": "Approved",
+      "active": true,
+      "functions_required": [
+        "func_001",
+        "func_002"
+      ],
+      "functions_actually_involved": [
+        "func_001",
+        "func_002"
+      ],
+      "created_under_function_id": "func_001",
+      "activities": [
+        {
+          "id": "phs_8",
+          "name": "Design & Specification",
+          "start_month": "2026-06",
+          "end_month": "2026-07",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant C capital budget",
+          "requirements": [
+            {
+              "id": "req_14",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes_platform_core_configuration",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-06": 60,
+                "2026-07": 60
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_15",
+              "shape": "skill",
+              "skill_id": "skl_mi_v_data_integration_pipelines",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-06": 40,
+                "2026-07": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_16",
+              "shape": "skill",
+              "skill_id": "skl_data_integration_data_engineering",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-06": 40,
+                "2026-07": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        },
+        {
+          "id": "phs_9",
+          "name": "Build & Integration",
+          "start_month": "2026-08",
+          "end_month": "2026-10",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant C capital budget",
+          "requirements": [
+            {
+              "id": "req_17",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes_platform_core_configuration",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-08": 60,
+                "2026-09": 60,
+                "2026-10": 60
+              },
+              "steady_state_hours": null,
+              "notes": "Spawn-time value 60h/mo â€” DM Demand drifted to 80h post-spawn",
+              "allocations": []
+            },
+            {
+              "id": "req_18",
+              "shape": "skill",
+              "skill_id": "skl_mom_production_workflow_design",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_19",
+              "shape": "skill",
+              "skill_id": "skl_mi_v_data_integration_pipelines",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_20",
+              "shape": "skill",
+              "skill_id": "skl_data_integration_data_engineering",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-08": 60,
+                "2026-09": 60,
+                "2026-10": 60
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_21",
+              "shape": "skill",
+              "skill_id": "skl_data_integration_integration_architecture",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "prj_005",
+      "name": "MBM Foundation Library",
+      "owner": "Marcus Vogel",
+      "type": "pt_group_strategy_project",
+      "programme_id": "prg_002",
+      "description": "Digital twin foundation library for process simulation. Single-Function DM (MBM). Fully allocated.",
+      "status": "Allocated",
+      "active": true,
+      "functions_required": [
+        "func_001"
+      ],
+      "functions_actually_involved": [
+        "func_001"
+      ],
+      "created_under_function_id": "func_001",
+      "activities": [
+        {
+          "id": "phs_14",
+          "name": "Foundation Build",
+          "start_month": "2026-05",
+          "end_month": "2026-08",
+          "funding_source": "Investment Scheme",
+          "funding_notes": "Digital Twin innovation budget",
+          "requirements": [
+            {
+              "id": "req_30",
+              "shape": "skill",
+              "skill_id": "skl_mbm_process_simulation",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-05": 80,
+                "2026-06": 80,
+                "2026-07": 80,
+                "2026-08": 80
+              },
+              "steady_state_hours": null,
+              "notes": "Core simulation framework",
+              "allocations": []
+            },
+            {
+              "id": "req_31",
+              "shape": "skill",
+              "skill_id": "skl_mbm_digital_twin_development",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-05": 60,
+                "2026-06": 60,
+                "2026-07": 60,
+                "2026-08": 60
+              },
+              "steady_state_hours": null,
+              "notes": "Digital twin integration",
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "prj_006",
+      "name": "Plant B MES Refresh",
+      "owner": "Priya Kumar",
+      "type": "pt_plant_project",
+      "programme_id": "prg_001",
+      "description": "MES platform refresh at Plant B. Single-Function DM (MOM). Fully allocated.",
+      "status": "Allocated",
+      "active": true,
+      "functions_required": [
+        "func_001"
+      ],
+      "functions_actually_involved": [
+        "func_001"
+      ],
+      "created_under_function_id": "func_001",
+      "activities": [
+        {
+          "id": "phs_16",
+          "name": "Rollout",
+          "start_month": "2026-05",
+          "end_month": "2026-07",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant B budget",
+          "requirements": [
+            {
+              "id": "req_34",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes_platform_core_configuration",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-05": 60,
+                "2026-06": 60,
+                "2026-07": 60
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_35",
+              "shape": "skill",
+              "skill_id": "skl_mom_scada_integration",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-05": 40,
+                "2026-06": 40,
+                "2026-07": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "demand_items": [
+    {
+      "id": "dmd_001",
+      "name": "Corporate Data Lake",
+      "type": "pt_group_strategy_project",
+      "status": "Submitted",
+      "owner": "Anya Petrov",
+      "description": "",
+      "function_id": "func_001",
+      "parent_project_id": "prj_003",
+      "activities": [
+        {
+          "id": "phs_d6",
+          "name": "Build & Deploy",
+          "start_month": "2026-07",
+          "end_month": "2026-10",
+          "funding_source": "Investment Scheme",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_d11",
+              "shape": "skill",
+              "skill_id": "skl_mi_v_data_integration_pipelines",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-07": 40,
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_002",
+      "name": "Corporate Data Lake",
+      "type": "pt_group_strategy_project",
+      "status": "Submitted",
+      "owner": "Anya Petrov",
+      "description": "",
+      "function_id": "func_002",
+      "parent_project_id": "prj_003",
+      "activities": [
+        {
+          "id": "phs_d7",
+          "name": "Build & Deploy",
+          "start_month": "2026-07",
+          "end_month": "2026-10",
+          "funding_source": "Investment Scheme",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_d12",
+              "shape": "skill",
+              "skill_id": "skl_data_integration_data_engineering",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-07": 80,
+                "2026-08": 80,
+                "2026-09": 80,
+                "2026-10": 80
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_d13",
+              "shape": "skill",
+              "skill_id": "skl_data_integration_integration_architecture",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-07": 40,
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_003",
+      "name": "Plant C MES Platform Migration",
+      "type": "pt_plant_project",
+      "status": "PartiallyAllocated",
+      "owner": "David Lin",
+      "description": "",
+      "function_id": "func_001",
+      "parent_project_id": "prj_004",
+      "activities": [
+        {
+          "id": "phs_d10",
+          "name": "Design & Specification",
+          "start_month": "2026-06",
+          "end_month": "2026-07",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant C capital budget",
+          "requirements": [
+            {
+              "id": "req_d22",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes_platform_core_configuration",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-06": 60,
+                "2026-07": 60
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": [
+                {
+                  "id": "alc_1",
+                  "person_id": "per_001",
+                  "hours_by_month": {
+                    "2026-06": 60,
+                    "2026-07": 60
+                  },
+                  "steady_state_hours": null,
+                  "notes": null
+                }
+              ]
+            },
+            {
+              "id": "req_d23",
+              "shape": "skill",
+              "skill_id": "skl_mi_v_data_integration_pipelines",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-06": 40,
+                "2026-07": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": [
+                {
+                  "id": "alc_2",
+                  "person_id": "per_005",
+                  "hours_by_month": {
+                    "2026-06": 40,
+                    "2026-07": 40
+                  },
+                  "steady_state_hours": null,
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "phs_d11",
+          "name": "Build & Integration",
+          "start_month": "2026-08",
+          "end_month": "2026-10",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant C capital budget",
+          "requirements": [
+            {
+              "id": "req_d24",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes_platform_core_configuration",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-08": 60,
+                "2026-09": 60,
+                "2026-10": 60
+              },
+              "steady_state_hours": null,
+              "notes": "Spawn-time value 60h/mo â€” DM Demand drifted to 80h post-spawn",
+              "allocations": [
+                {
+                  "id": "alc_3",
+                  "person_id": "per_001",
+                  "hours_by_month": {
+                    "2026-08": 60,
+                    "2026-09": 60,
+                    "2026-10": 60
+                  },
+                  "steady_state_hours": null,
+                  "notes": "Partial â€” 20 hrs/mo unplanned"
+                }
+              ]
+            },
+            {
+              "id": "req_d25",
+              "shape": "skill",
+              "skill_id": "skl_mom_production_workflow_design",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_d26",
+              "shape": "skill",
+              "skill_id": "skl_mi_v_data_integration_pipelines",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": [
+                {
+                  "id": "alc_4",
+                  "person_id": "per_005",
+                  "hours_by_month": {
+                    "2026-08": 40,
+                    "2026-09": 40,
+                    "2026-10": 40
+                  },
+                  "steady_state_hours": null,
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_004",
+      "name": "Plant C MES Platform Migration",
+      "type": "pt_plant_project",
+      "status": "Approved",
+      "owner": "David Lin",
+      "description": "",
+      "function_id": "func_002",
+      "parent_project_id": "prj_004",
+      "activities": [
+        {
+          "id": "phs_d12",
+          "name": "Design & Specification",
+          "start_month": "2026-06",
+          "end_month": "2026-07",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant C capital budget",
+          "requirements": [
+            {
+              "id": "req_d27",
+              "shape": "skill",
+              "skill_id": "skl_data_integration_data_engineering",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-06": 40,
+                "2026-07": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        },
+        {
+          "id": "phs_d13",
+          "name": "Build & Integration",
+          "start_month": "2026-08",
+          "end_month": "2026-10",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant C capital budget",
+          "requirements": [
+            {
+              "id": "req_d28",
+              "shape": "skill",
+              "skill_id": "skl_data_integration_data_engineering",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-08": 60,
+                "2026-09": 60,
+                "2026-10": 60
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_d29",
+              "shape": "skill",
+              "skill_id": "skl_data_integration_integration_architecture",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-08": 40,
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_005",
+      "name": "MBM Foundation Library",
+      "type": "pt_group_strategy_project",
+      "status": "Allocated",
+      "owner": "Marcus Vogel",
+      "description": "",
+      "function_id": "func_001",
+      "parent_project_id": "prj_005",
+      "activities": [
+        {
+          "id": "phs_d15",
+          "name": "Foundation Build",
+          "start_month": "2026-05",
+          "end_month": "2026-08",
+          "funding_source": "Investment Scheme",
+          "funding_notes": "Digital Twin innovation budget",
+          "requirements": [
+            {
+              "id": "req_d32",
+              "shape": "skill",
+              "skill_id": "skl_mbm_process_simulation",
+              "level": "Specialist",
+              "hours_by_month": {
+                "2026-05": 80,
+                "2026-06": 80,
+                "2026-07": 80,
+                "2026-08": 80
+              },
+              "steady_state_hours": null,
+              "notes": "Core simulation framework",
+              "allocations": [
+                {
+                  "id": "alc_5",
+                  "person_id": "per_009",
+                  "hours_by_month": {
+                    "2026-05": 80,
+                    "2026-06": 80,
+                    "2026-07": 80,
+                    "2026-08": 80
+                  },
+                  "steady_state_hours": null,
+                  "notes": null
+                }
+              ]
+            },
+            {
+              "id": "req_d33",
+              "shape": "skill",
+              "skill_id": "skl_mbm_digital_twin_development",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-05": 60,
+                "2026-06": 60,
+                "2026-07": 60,
+                "2026-08": 60
+              },
+              "steady_state_hours": null,
+              "notes": "Digital twin integration",
+              "allocations": [
+                {
+                  "id": "alc_6",
+                  "person_id": "per_010",
+                  "hours_by_month": {
+                    "2026-05": 60,
+                    "2026-06": 60,
+                    "2026-07": 60,
+                    "2026-08": 60
+                  },
+                  "steady_state_hours": null,
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_006",
+      "name": "Plant B MES Refresh",
+      "type": "pt_plant_project",
+      "status": "Allocated",
+      "owner": "Priya Kumar",
+      "description": "",
+      "function_id": "func_001",
+      "parent_project_id": "prj_006",
+      "activities": [
+        {
+          "id": "phs_d17",
+          "name": "Rollout",
+          "start_month": "2026-05",
+          "end_month": "2026-07",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant B budget",
+          "requirements": [
+            {
+              "id": "req_d36",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes_platform_core_configuration",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-05": 60,
+                "2026-06": 60,
+                "2026-07": 60
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": [
+                {
+                  "id": "alc_7",
+                  "person_id": "per_002",
+                  "hours_by_month": {
+                    "2026-05": 60,
+                    "2026-06": 60,
+                    "2026-07": 60
+                  },
+                  "steady_state_hours": null,
+                  "notes": null
+                }
+              ]
+            },
+            {
+              "id": "req_d37",
+              "shape": "skill",
+              "skill_id": "skl_mom_scada_integration",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-05": 40,
+                "2026-06": 40,
+                "2026-07": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": [
+                {
+                  "id": "alc_8",
+                  "person_id": "per_004",
+                  "hours_by_month": {
+                    "2026-05": 40,
+                    "2026-06": 40,
+                    "2026-07": 40
+                  },
+                  "steady_state_hours": null,
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_d007",
+      "name": "Ad-hoc shift pattern review",
+      "type": "pt_plant_project",
+      "status": "Draft",
+      "owner": "Daniel Okafor",
+      "description": "Ad-hoc review of MES shift patterns at Plant A. 1 phase, 1 MOM Basic requirement. No external.",
+      "function_id": "func_001",
+      "parent_project_id": null,
+      "activities": [
+        {
+          "id": "phs_18",
+          "name": "Review",
+          "start_month": "2026-07",
+          "end_month": "2026-08",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_38",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes_platform_core_configuration",
+              "level": "Basic",
+              "hours_by_month": {
+                "2026-07": 20,
+                "2026-08": 20
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_d008",
+      "name": "Plant A SCADA migration assist",
+      "type": "pt_plant_project",
+      "status": "Submitted",
+      "owner": "Priya Kumar",
+      "description": "Assist with SCADA migration at Plant A. Submitted â€” Approve is the next-step CTA.",
+      "function_id": "func_001",
+      "parent_project_id": null,
+      "activities": [
+        {
+          "id": "phs_19",
+          "name": "Migration Support",
+          "start_month": "2026-07",
+          "end_month": "2026-09",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_39",
+              "shape": "skill",
+              "skill_id": "skl_mom_scada_integration",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-07": 60,
+                "2026-08": 60,
+                "2026-09": 60
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_d009",
+      "name": "MES Super User support â€” Plant B",
+      "type": "pt_bau",
+      "status": "PartiallyAllocated",
+      "owner": "Alex Morgan",
+      "description": "Ongoing BAU MES super user support at Plant B. Indefinite phase; partial allocation in place. Has Other Internal Team external requirement.",
+      "function_id": "func_001",
+      "parent_project_id": null,
+      "activities": [
+        {
+          "id": "phs_20",
+          "name": "Ongoing support",
+          "start_month": "2026-05",
+          "end_month": null,
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "Plant B BAU budget",
+          "requirements": [
+            {
+              "id": "req_40",
+              "shape": "skill",
+              "skill_id": "skl_mom_mes_platform_core_configuration",
+              "level": "Basic",
+              "hours_by_month": {},
+              "steady_state_hours": 40,
+              "notes": "Day-to-day MES support",
+              "allocations": [
+                {
+                  "id": "alc_9",
+                  "person_id": "per_003",
+                  "hours_by_month": {},
+                  "steady_state_hours": 20,
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_d010",
+      "name": "Historian configuration handover",
+      "type": "pt_plant_project",
+      "status": "Allocated",
+      "owner": "James Whitfield",
+      "description": "Configuration handover for historian upgrade at Plant B. Fully allocated.",
+      "function_id": "func_001",
+      "parent_project_id": null,
+      "activities": [
+        {
+          "id": "phs_21",
+          "name": "Handover",
+          "start_month": "2026-05",
+          "end_month": "2026-06",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_41",
+              "shape": "skill",
+              "skill_id": "skl_mi_v_historian_configuration",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-05": 60,
+                "2026-06": 60
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": [
+                {
+                  "id": "alc_10",
+                  "person_id": "per_005",
+                  "hours_by_month": {
+                    "2026-05": 60,
+                    "2026-06": 60
+                  },
+                  "steady_state_hours": null,
+                  "notes": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dmd_d011",
+      "name": "Plant A OEE enhancement",
+      "type": "pt_plant_project",
+      "status": "Approved",
+      "owner": "Fatima Al-Rashid",
+      "description": "OEE metric enhancement at Plant A. Approved, ready for resource planning.",
+      "function_id": "func_001",
+      "parent_project_id": null,
+      "activities": [
+        {
+          "id": "phs_22",
+          "name": "Implementation",
+          "start_month": "2026-09",
+          "end_month": "2026-10",
+          "funding_source": "Plant/Sector Allocation",
+          "funding_notes": "",
+          "requirements": [
+            {
+              "id": "req_42",
+              "shape": "skill",
+              "skill_id": "skl_mom_oee_performance_tracking",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            },
+            {
+              "id": "req_43",
+              "shape": "skill",
+              "skill_id": "skl_mi_v_manufacturing_analytics",
+              "level": "Advanced",
+              "hours_by_month": {
+                "2026-09": 40,
+                "2026-10": 40
+              },
+              "steady_state_hours": null,
+              "notes": null,
+              "allocations": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "external_resource_requirements": [
+    {
+      "id": "ext_1",
+      "activity_id": "phs_5",
+      "provider_id": "prv_002",
+      "role": "Data Engineer",
+      "notes": null,
+      "function_tag": "func_001",
+      "hours_by_month": {
+        "2026-07": 80,
+        "2026-08": 80,
+        "2026-09": 80,
+        "2026-10": 80
+      },
+      "steady_state_hours": null
+    },
+    {
+      "id": "ext_2",
+      "activity_id": "phs_5",
+      "provider_id": "prv_003",
+      "role": "Data Platform Vendor",
+      "notes": null,
+      "function_tag": "func_002",
+      "hours_by_month": {
+        "2026-07": 40,
+        "2026-08": 40,
+        "2026-09": 40,
+        "2026-10": 40
+      },
+      "steady_state_hours": null
+    },
+    {
+      "id": "ext_d3",
+      "activity_id": "phs_d6",
+      "provider_id": "prv_002",
+      "role": "Data Engineer",
+      "notes": null,
+      "function_tag": "func_001",
+      "hours_by_month": {
+        "2026-07": 80,
+        "2026-08": 80,
+        "2026-09": 80,
+        "2026-10": 80
+      },
+      "steady_state_hours": null
+    },
+    {
+      "id": "ext_d4",
+      "activity_id": "phs_d7",
+      "provider_id": "prv_003",
+      "role": "Data Platform Vendor",
+      "notes": null,
+      "function_tag": "func_002",
+      "hours_by_month": {
+        "2026-07": 40,
+        "2026-08": 40,
+        "2026-09": 40,
+        "2026-10": 40
+      },
+      "steady_state_hours": null
+    },
+    {
+      "id": "ext_5",
+      "activity_id": "phs_9",
+      "provider_id": "prv_003",
+      "role": "MES Platform Vendor Support",
+      "notes": "OEM provides specialist platform configuration support during build. (Frozen planning record on Project.)",
+      "function_tag": "func_001",
+      "hours_by_month": {
+        "2026-08": 40,
+        "2026-09": 40,
+        "2026-10": 40
+      },
+      "steady_state_hours": null
+    },
+    {
+      "id": "ext_6",
+      "activity_id": "phs_9",
+      "provider_id": "prv_001",
+      "role": "SCADA Engineer",
+      "notes": "Managed Services SCADA resource for integration work. (Frozen planning record on Project.)",
+      "function_tag": "func_001",
+      "hours_by_month": {
+        "2026-08": 120,
+        "2026-09": 120,
+        "2026-10": 120
+      },
+      "steady_state_hours": null
+    },
+    {
+      "id": "ext_d7",
+      "activity_id": "phs_d10",
+      "provider_id": "prv_003",
+      "role": "MES Platform Vendor Support",
+      "notes": "OEM provides specialist platform configuration support during build. (Frozen planning record on Project.)",
+      "function_tag": "func_001",
+      "hours_by_month": {
+        "2026-08": 40,
+        "2026-09": 40,
+        "2026-10": 40
+      },
+      "steady_state_hours": null
+    },
+    {
+      "id": "ext_d8",
+      "activity_id": "phs_d10",
+      "provider_id": "prv_001",
+      "role": "SCADA Engineer",
+      "notes": "Managed Services SCADA resource for integration work. (Frozen planning record on Project.)",
+      "function_tag": "func_001",
+      "hours_by_month": {
+        "2026-08": 120,
+        "2026-09": 120,
+        "2026-10": 120
+      },
+      "steady_state_hours": null
+    },
+    {
+      "id": "ext_d9",
+      "activity_id": "phs_d11",
+      "provider_id": "prv_003",
+      "role": "MES Platform Vendor Support",
+      "notes": "OEM provides specialist platform configuration support during build. (Frozen planning record on Project.)",
+      "function_tag": "func_001",
+      "hours_by_month": {
+        "2026-08": 40,
+        "2026-09": 40,
+        "2026-10": 40
+      },
+      "steady_state_hours": null
+    },
+    {
+      "id": "ext_d10",
+      "activity_id": "phs_d11",
+      "provider_id": "prv_001",
+      "role": "SCADA Engineer",
+      "notes": "Managed Services SCADA resource for integration work. (Frozen planning record on Project.)",
+      "function_tag": "func_001",
+      "hours_by_month": {
+        "2026-08": 120,
+        "2026-09": 120,
+        "2026-10": 120
+      },
+      "steady_state_hours": null
+    },
+    {
+      "id": "ext_11",
+      "activity_id": "phs_20",
+      "provider_id": "prv_005",
+      "role": "Plant Electrician Support",
+      "notes": "Plant B electricians provide hardware first-line support for MES-connected equipment.",
+      "function_tag": "func_001",
+      "hours_by_month": {},
+      "steady_state_hours": 10
+    }
+  ],
+  "project_team_assignments": []
+}

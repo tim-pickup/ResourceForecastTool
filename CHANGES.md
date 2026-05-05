@@ -164,7 +164,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 14 — Build-time seed pipeline (`master_seed.xlsx`)
 
-- [ ] Add `seed/master_seed.xlsx` to the repo with the v1.20 schema (all 9 import-workbook tabs plus 11 extra structural tabs). Implement `scripts/build-seed.ts` that parses the workbook at build time into `src/seed/seed.json`. Wire into the build (`pnpm build` / `npm run build`). Migrate the existing seed by round-tripping it through the workbook.
+- [x] Add `seed/master_seed.xlsx` to the repo with the v1.20 schema (all 9 import-workbook tabs plus 11 extra structural tabs). Implement `scripts/build-seed.ts` that parses the workbook at build time into `src/seed/seed.json`. Wire into the build (`pnpm build` / `npm run build`). Migrate the existing seed by round-tripping it through the workbook.
 
 **Scope**: workbook authoring (one-time data migration of current seed); build script (parser logic shared with import flow + extra structural tabs); build wiring; documentation in README. Hours per month is a single flat value per requirement, expanded uniformly at parse time.
 
@@ -200,7 +200,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 17 — Cleanup
 
-- [ ] Remove every remaining hardcoded "Phase" / `phase_*` identifier from the codebase outside the changelog and section 2.0 terminology table. Add a generated-file header to `seed.json` and `.gitattributes` `linguist-generated=true` to suppress diffs. Audit DESIGNSYSTEM.md for new tokens (month-year picker, dual + Add ghost button) and add if missing.
+- [ ] Remove every remaining hardcoded "Phase" / `phase_*` identifier from the codebase outside the changelog and section 2.0 terminology table. Add a generated-file header to `seed.json` and `.gitattributes` `linguist-generated=true` to suppress diffs. Audit DESIGN.md for new tokens (month-year picker, dual + Add ghost button) and add if missing.
 
 **Scope**: grep-driven cleanup; documentation polish; design-system additions.
 
