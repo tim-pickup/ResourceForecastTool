@@ -637,6 +637,19 @@ export function ActivityEditor({
     const newReq = isIndefinite ? blankSkillReqIndefinite(skillId) : blankSkillReq(skillId, months)
     onChange({ ...activity, requirements: [...activity.requirements, newReq] })
   }
+  const addExtReq = () => {
+    if (store.providers.length === 0) {
+      alert('No Providers configured. Add at least one Provider in Admin → Providers before adding external requirements.')
+      return
+    }
+    const newExt = blankExtReq(activity.id)
+    if (isIndefinite) {
+      newExt.steady_state_hours = 0
+    } else {
+      months.forEach(m => { newExt.hours_by_month[m] = 0 })
+    }
+    onExtReqsChange([...extReqs, newExt])
+  }
 
   const activityLabel = activity.name
     ? `Activity ${index + 1} · ${activity.name}`
@@ -763,6 +776,14 @@ export function ActivityEditor({
                   )
                 ))}
               </div>
+              {activity.requirements.length > 0 && (
+                <button
+                  onClick={addReq}
+                  className="mt-1.5 flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 w-full justify-center py-1 border border-dashed border-gray-200 rounded hover:border-gray-300 transition-colors"
+                >
+                  <Plus size={10} /> Add internal requirement
+                </button>
+              )}
             </div>
           )}
 
@@ -772,19 +793,7 @@ export function ActivityEditor({
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-medium text-amber-600 uppercase tracking-wide">External Resource Requirements</span>
                 <button
-                  onClick={() => {
-                    if (store.providers.length === 0) {
-                      alert('No Providers configured. Add at least one Provider in Admin → Providers before adding external requirements.')
-                      return
-                    }
-                    const newExt = blankExtReq(activity.id)
-                    if (isIndefinite) {
-                      newExt.steady_state_hours = 0
-                    } else {
-                      months.forEach(m => { newExt.hours_by_month[m] = 0 })
-                    }
-                    onExtReqsChange([...extReqs, newExt])
-                  }}
+                  onClick={addExtReq}
                   className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700"
                 >
                   <Plus size={12} /> Add external requirement
@@ -821,6 +830,14 @@ export function ActivityEditor({
                     )
                   )}
                 </div>
+              )}
+              {extReqs.length > 0 && (
+                <button
+                  onClick={addExtReq}
+                  className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-600 w-full justify-center py-1 border border-dashed border-amber-200 rounded hover:border-amber-300 transition-colors"
+                >
+                  <Plus size={10} /> Add external requirement
+                </button>
               )}
             </div>
           )}

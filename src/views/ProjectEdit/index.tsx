@@ -550,6 +550,14 @@ export default function ProjectEdit() {
                   </div>
                 ))}
               </div>
+              {draft.activities.length > 0 && (
+                <button
+                  onClick={addActivity}
+                  className="mt-3 flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 w-full justify-center py-1.5 border border-dashed border-gray-200 rounded hover:border-gray-300 transition-colors"
+                >
+                  <Plus size={10} /> Add Activity
+                </button>
+              )}
             </div>
           )}
 

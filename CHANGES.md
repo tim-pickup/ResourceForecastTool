@@ -152,7 +152,7 @@ This file tracks v1.20 implementation progress. Each change has a checkbox, a on
 
 ## Change 13 — Dual + Add buttons (top + bottom)
 
-- [ ] Add a secondary "+ Add Activity" button below the last Activity card on Mode A pages. Same pattern within each Activity card for internal and external requirement lists. Bottom button hidden when the section is empty (only the inline header button appears).
+- [x] Add a secondary "+ Add Activity" button below the last Activity card on Mode A pages. Same pattern within each Activity card for internal and external requirement lists. Bottom button hidden when the section is empty (only the inline header button appears).
 
 **Scope**: Mode A edit-page layout — render conditional bottom buttons. Visually subtler treatment per DESIGNSYSTEM.md (e.g. ghost style; smaller).
 
