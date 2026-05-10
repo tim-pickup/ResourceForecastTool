@@ -529,13 +529,13 @@ export default function CapacityValidation() {
     [filterProgramme, store.projects]
   )
 
-  // Overlay picker: when filter active, only show Submitted items in scope
+  // Overlay picker: only show Submitted items belonging to the active Function
   const submittedItems = useMemo(() => {
-    const base = store.demandItems.filter(d => d.status === 'Submitted')
+    const base = store.demandItems.filter(d => d.status === 'Submitted' && d.function_id === store.activeFunctionId)
     if (!filterProgramme && !filterProject) return base.map(d => ({ id: d.id, name: d.name }))
-    const filtered = demandFilteredState.demandItems.filter(d => d.status === 'Submitted')
+    const filtered = demandFilteredState.demandItems.filter(d => d.status === 'Submitted' && d.function_id === store.activeFunctionId)
     return filtered.map(d => ({ id: d.id, name: d.name }))
-  }, [store.demandItems, demandFilteredState, filterProgramme, filterProject])
+  }, [store.demandItems, store.activeFunctionId, demandFilteredState, filterProgramme, filterProject])
 
   const modelImpactItem = modelImpactId ? store.demandItems.find(d => d.id === modelImpactId) : null
   const overlayItem = overlayId ? store.demandItems.find(d => d.id === overlayId) : null

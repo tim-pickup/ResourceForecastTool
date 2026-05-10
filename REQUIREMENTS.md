@@ -1,6 +1,6 @@
 # Digital Manufacturing Resource Load & Capacity Tool
 
-## Requirements Specification — v1.20
+## Requirements Specification — v1.21
 
 ---
 
@@ -1157,7 +1157,7 @@ The overlay is explicitly *not* a scenario modeller. It cannot move committed de
 - Time horizon preset (6 / 12 / 24 / 60 months).
 - Work type filter — show/hide specific work types across the demand stacks on all charts.
 - **Programme / Project filter** — a toolbar control letting the user narrow all charts (and the over-capacity summary strip) to demand from a single Programme or a single Project. Dependent dropdowns: Programme filter is single-select with "All Programmes" default; Project filter populates from the selected Programme (or all Projects when Programme is "All"). When a Programme/Project filter is active, the demand stacks reflect only the internal requirement hours from Demands aligned to that Programme/Project — capacity lines and grey bands still reflect the full team (the team doesn't shrink just because the user is filtering their view of demand), so the charts then answer the question "how much of our team is this Programme/Project consuming against the team's total capacity?" A small info tooltip on the filter explains this semantics so users aren't confused by a narrow demand band against a full capacity line.
-- Single-item overlay selector for Submitted items (combobox pattern; one overlay at a time). The Programme/Project filter applies to which Submitted items are eligible for overlay too — when a Programme/Project filter is active, only Submitted items aligned to that scope appear in the overlay picker.
+- Single-item overlay selector for Submitted items belonging to the active Function (combobox pattern; one overlay at a time; `function_id = activeFunctionId` filter — see section 11.2). The Programme/Project filter further narrows which Submitted items are eligible for overlay — when a Programme/Project filter is active, only Submitted items aligned to that scope appear in the overlay picker.
 - Grey band rendering and hover breakdown on every domain/skill chart.
 - Over-capacity summary strip with three signal types (over-capacity, over-capacity-with-overlay, projection shortfall).
 - Drill-down on chart click.
@@ -1258,7 +1258,7 @@ The question this view answers: *What is each person actually working on right n
 
 **Layout**:
 - **Group by toggle**: `Domain` (default) ↔ `Team`. Controls the primary row grouping:
-  - **Domain grouping** (default): rows grouped under Domain headers (MOM, MI&V, MBM). This is the PMO view — shows skill-pool utilisation at a glance.
+  - **Domain grouping** (default): rows grouped under Domain headers (MOM, MI&V, MBM). A person appears under a Domain if they hold **at least one Skill belonging to that Domain** in their skill profile. A person who holds Skills across multiple Domains appears under each relevant Domain — their utilisation bar shows **total utilisation** (all commitments across all Domains and Skills, identical regardless of which Domain header they appear under), consistent with the Skill detail view rationale (section 4.8): overall availability determines who can be called upon, not per-Domain partial utilisation. Domains with no skill-holders in the active Function are not rendered (no empty Domain groups). *(v1.21 bug-fix: the previous implementation failed to render any rows in Domain grouping mode because the person-inclusion predicate was missing — the view attempted to group people by Domain without a defined rule for which people belong to which Domain.)* This is the PMO view — shows skill-pool utilisation at a glance.
   - **Team grouping**: rows grouped under Team headers (e.g. Central Delivery Team, Plant Team A). Each team header shows a **team summary bar** — a rolled-up aggregate stacked bar representing the team's total committed hours as a proportion of total contracted hours for the team, using the same work-type colour segments. This is the Team Lead view — shows whether the team as a whole is over or under committed before reading individual rows.
 - Horizontal time axis, monthly, default 6 months (with the same preset switches as View 1: 6 / 12 / 24 / 60).
 - Each **cell** is a horizontal stacked bar whose full width represents the person's contracted hours for that month.
@@ -1294,7 +1294,7 @@ Clicking anywhere on a cell's stacked bar opens a **popover or side panel** list
 Clicking a specific segment (e.g. the BAU segment) can filter the drill-down list to that work type. Clicking the Available Capacity segment shows a simple message confirming available hours and (where relevant) lists demand items whose Submitted status means they *could* land there (useful when Team Activity is viewed in conjunction with the Submitted overlay workflow, though this is a secondary affordance).
 
 **Required features**:
-- Filter by Domain, by Person, by work Type.
+- Filter by Domain, by Person, by work Type. The **Domain filter** works in both grouping modes: in Domain grouping mode, it collapses the view to show only the selected Domain's group. In Team grouping mode, it filters the person list within each Team to only those people who hold at least one Skill in the selected Domain — people with no skills in the filtered Domain are hidden. *(v1.21 clarification: the Domain filter's person-inclusion predicate matches the Domain grouping rule — a person is included if their skill profile contains at least one Skill belonging to the filtered Domain.)*
 - Time horizon preset (6 / 12 / 24 / 60 months).
 - Cell click → drill-down panel listing contributing demand items.
 - Segment click → drill-down filtered to that work type.
@@ -1483,6 +1483,7 @@ Content:
   - **Bars are colour-coded by the Activity's Funding Source** — one colour per value of the three-value enum (Investment Scheme, Plant/Sector Allocation, Mixed). The colour mapping is documented in `DESIGNSYSTEM.md` and is shared with any other view that colours by funding source. A compact legend is rendered inside the timeline container (top-right or inline with the header) so the colour-to-source mapping is readable without hovering. Changing an Activity's funding source in the card below updates the bar colour immediately. This replaces any previous colour scheme on this chart (e.g. generic/Activity-indexed colouring).
   - **Vertical padding**: the timeline container must have breathing room above the topmost bar and below the bottommost bar — at least one bar-height worth of space at each end, so bars do not touch the container edge or overlap the horizontal scrollbar (where one is present). This is a specific regression seen in v1.10: the lowest bar overlaps the horizontal scroll rail and is hard to read. If the container scrolls horizontally because the Activity range exceeds the visible width, the scrollbar must sit entirely below the bottom padding, not on top of the last bar.
   - **Bar styling**: bars have rounded corners, sit on a horizontal grid of month lines, and show the Activity name as a label inside the bar (truncating with ellipsis if the bar is narrow). Labels must have sufficient contrast against the funding-source fill colour — if necessary, the label is rendered on a semi-transparent backing to preserve legibility regardless of the bar colour.
+  - **Bar coordinate rule** *(v1.21 bug-fix)*: each bar's left edge is positioned at `monthToX(activity_start_month)` — the gridline marking the start of the first month. Each bar's right edge is positioned at `monthToX(addMonths(activity_end_month, 1))` — the gridline marking the start of the month *after* the last month. This means a bar spans the full width of every month it covers, including the end month. Consequence: an Activity with `start = Aug 2026, end = Sep 2026` occupies the full Aug and Sep columns (left edge at Aug gridline, right edge at Oct gridline). Two sequential Activities (Aug–Sep, Oct–Dec) produce bars that touch at the Oct gridline with zero visible gap. The previous implementation used `monthToX(activity_end_month)` for the right edge, which placed it at the *start* of the end month — producing bars that appeared one month short and left phantom gaps between sequential Activities. This coordinate rule applies universally to all Gantt bar rendering in the tool: the Mode A Activity timeline, the Mode B read-only Activity Gantt, and the Skill detail view Demand Gantt (section 4.8).
 - Activities section: each Activity is a collapsible card showing:
   - Activity name (`activity_name`), start month, end month — entered via the **month-year picker component** (v1.20; see section 2.2.2). The end month picker is paired with a "No end date (indefinite)" toggle (section 11.12). On Project-spawned Demand Submitted, these fields are read-only and visually muted.
   - Funding source (dropdown) and funding notes (free text). On Project-spawned Demand Submitted, these are read-only.
@@ -2677,7 +2678,7 @@ The Capacity Validation view is chart-based, not grid-based. Click behaviour is 
 
 ### 11.2 Selecting an overlay
 
-The overlay selector in the toolbar is a **single-selection** pattern. The user clicks a "Set overlay" combobox which lists all demand items in `Submitted` status, searchable by name. Selecting one sets it as the single active overlay, replacing any previously-selected item. A "Clear overlay" button (or the × on the chip) removes the overlay. Only Submitted items are eligible — items in other statuses are not offered.
+The overlay selector in the toolbar is a **single-selection** pattern. The user clicks a "Set overlay" combobox which lists Demand items in `Submitted` status **whose `function_id` matches the active Function**, searchable by name. Selecting one sets it as the single active overlay, replacing any previously-selected item. A "Clear overlay" button (or the × on the chip) removes the overlay. Only Submitted items belonging to the active Function are eligible — items in other statuses or belonging to other Functions are not offered. *(v1.21 bug-fix: the previous implementation showed all Submitted Demands regardless of Function, causing duplicates when a Project spawns sibling Demands across Functions — e.g. "Project A" appearing twice. Because the overlay models capacity impact on the active Function's skill pools, offering a Demand from another Function is meaningless — it has no requirements targeting the active Function's Skills.)*
 
 If the user arrives via "Model Capacity" from a demand drawer, the overlay is pre-populated with that item; the user can clear it or change it using the same combobox.
 
@@ -3153,7 +3154,24 @@ These are verified as runtime assertions in development builds.
 
 ## Changelog
 
-**v1.20** (this revision): **Phase → Activity rename. Targeted UX clean-up across drawers, cards, edit page, and Skill picker. Build-time seed pipeline from XLSX. Date pickers + validation. Manage Projects Function-scoping. Project Type system key visibility.**
+**v1.21** (this revision): **Bug-fix release — three rendering/filtering regressions. No data model changes, no state machine changes, no aggregation changes, no seed changes.**
+
+Overlay selector — Function scoping (sections 11.2, 4 View 1 Required features):
+
+- **Set Overlay combobox now filters to Demands where `function_id = activeFunctionId`**, in addition to the existing `status = Submitted` filter. Previously the picker showed all Submitted Demands regardless of Function, causing duplicates when a Project spawns sibling Demands across Functions (e.g. "Project A" appearing twice — once for Digital Manufacturing, once for Group IT). The overlay models capacity impact on the active Function's skill pools, so offering a Demand from another Function is meaningless. The existing Programme/Project filter further narrows from there (unchanged).
+
+Activity timeline — bar end-month coordinate fix (section 4.5.2):
+
+- **Bar coordinate rule added**: right edge = `monthToX(addMonths(activity_end_month, 1))`, not `monthToX(activity_end_month)`. The previous implementation placed the right edge at the start of the end month instead of the end, producing bars that appeared one month short and left phantom gaps between sequential Activities. The fix applies universally to all Gantt bar rendering: Mode A Activity timeline, Mode B read-only Activity Gantt, and Skill detail view Demand Gantt (section 4.8). No data model or aggregation change — pure rendering.
+
+Team Activity — Domain grouping person-inclusion predicate (section 4 View 2, Required features):
+
+- **Person-inclusion rule for Domain grouping made explicit**: a person appears under a Domain header if they hold at least one Skill belonging to that Domain. People with skills spanning multiple Domains appear under each relevant Domain. Utilisation bars show total utilisation (all commitments), consistent with Skill detail view (section 4.8). Domains with no skill-holders are not rendered.
+- **Domain filter behaviour clarified** for both grouping modes: in Domain grouping mode, collapses to the selected Domain group; in Team grouping mode, filters each Team's person list to those holding at least one Skill in the selected Domain. The predicate is the same in both cases.
+
+No changes to: data model (section 2.1), state machine (section 3), aggregation layer (section 2.4), seed data (section 6), capacity formulas, projection algorithm, or any other view.
+
+**v1.20**: **Phase → Activity rename. Targeted UX clean-up across drawers, cards, edit page, and Skill picker. Build-time seed pipeline from XLSX. Date pickers + validation. Manage Projects Function-scoping. Project Type system key visibility.**
 
 v1.20 is materially smaller than v1.19 — no data-model architectural changes, no workflow refactors. It addresses a focused list of friction points observed in the live v1.19 build during stakeholder demos:
 

@@ -67,7 +67,7 @@ export function ActivityGantt({ activities, onClickActivity, readOnly = false }:
   const ticks: { label: string; pct: number }[] = []
   for (let i = 0; i < totalMonths; i += tickInterval) {
     const d = addMonths(parseISO(tlStart + '-01'), i)
-    ticks.push({ label: format(d, 'MMM yy'), pct: (i / (totalMonths - 1)) * 100 })
+    ticks.push({ label: format(d, 'MMM yy'), pct: (i / totalMonths) * 100 })
   }
 
   // Determine which funding sources are actually used (for compact legend)
@@ -113,10 +113,10 @@ export function ActivityGantt({ activities, onClickActivity, readOnly = false }:
               const startOff = monthOff(activity.start_month)
               const isIndefinite = !activity.end_month
               const endOff = isIndefinite
-                ? totalMonths - 1
-                : Math.min(monthOff(activity.end_month!), totalMonths - 1)
-              const leftPct = (startOff / (totalMonths - 1)) * 100
-              const widthPct = Math.max(((endOff - startOff) / (totalMonths - 1)) * 100, 3)
+                ? totalMonths
+                : Math.min(monthOff(activity.end_month!) + 1, totalMonths)
+              const leftPct = (startOff / totalMonths) * 100
+              const widthPct = Math.max(((endOff - startOff) / totalMonths) * 100, 3)
               const color = FUNDING_SOURCE_COLORS[activity.funding_source] ?? '#6b7280'
               const label = activity.name || `Activity ${origIdx + 1}`
               const dateLabel = isIndefinite

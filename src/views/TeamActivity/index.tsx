@@ -87,21 +87,36 @@ export default function TeamActivity() {
     [store.teams, activeFunctionId]
   )
 
-  // §4 View 2: Rows are the active Function's People
-  const people = useMemo(() =>
-    store.people.filter(p =>
-      p.active &&
-      activeFnTeamIds.has(p.teamId) &&
-      (!filterDomain || p.primary_domain_id === filterDomain) &&
-      (!filterPerson || p.id === filterPerson)
-    ),
-    [store.people, filterDomain, filterPerson, activeFnTeamIds]
-  )
-
   // §4 View 2: Group-by-Domain uses active Function's Domains
   const domains = useMemo(() =>
     store.domains.filter(d => d.functionId === activeFunctionId),
     [store.domains, activeFunctionId]
+  )
+
+  // Per-person set of domain_ids derived from their skill profile (v1.21 fix)
+  const personDomainIds = useMemo(() => {
+    const map = new Map<string, Set<string>>()
+    for (const person of store.people) {
+      const domainIds = new Set<string>()
+      for (const ps of person.skills) {
+        const skill = store.skills.find(s => s.id === ps.skill_id)
+        if (skill) domainIds.add(skill.domain_id)
+      }
+      map.set(person.id, domainIds)
+    }
+    return map
+  }, [store.people, store.skills])
+
+  // §4 View 2: Rows are the active Function's People
+  // Domain filter uses skill-based predicate: person included if they hold ≥1 skill in that Domain
+  const people = useMemo(() =>
+    store.people.filter(p =>
+      p.active &&
+      activeFnTeamIds.has(p.teamId) &&
+      (!filterDomain || personDomainIds.get(p.id)?.has(filterDomain)) &&
+      (!filterPerson || p.id === filterPerson)
+    ),
+    [store.people, filterDomain, filterPerson, activeFnTeamIds, personDomainIds]
   )
 
   function getHoursByType(personId: string, month: string): HoursByType {
@@ -186,9 +201,11 @@ export default function TeamActivity() {
   }
 
   const groupedPeople = useMemo(() =>
-    domains.map(t => ({ domain: t, rows: people.filter(p => p.primary_domain_id === t.id) }))
+    domains
+      .filter(t => !filterDomain || t.id === filterDomain)
+      .map(t => ({ domain: t, rows: people.filter(p => personDomainIds.get(p.id)?.has(t.id)) }))
       .filter(g => g.rows.length > 0),
-    [people, domains]
+    [people, domains, filterDomain, personDomainIds]
   )
 
   // §4 View 2: Group-by-Team uses active Function's Teams
@@ -337,7 +354,7 @@ export default function TeamActivity() {
           <option value="">All People</option>
           {store.people.filter(p =>
             p.active && activeFnTeamIds.has(p.teamId) &&
-            (!filterDomain || p.primary_domain_id === filterDomain)
+            (!filterDomain || personDomainIds.get(p.id)?.has(filterDomain))
           ).map(p =>
             <option key={p.id} value={p.id}>{p.name}</option>
           )}
